@@ -3,19 +3,19 @@ import { api } from "./api";
 export const dashboardApi = api.injectEndpoints({
   endpoints: (builder) => ({
     getDashboardStats: builder.query({
-      query: () => "/dashboard/stats",
+      query: () => "/admin/dashboard/stats",
       providesTags: ["Dashboard"],
     }),
     getRecentOrders: builder.query({
-      query: () => "/dashboard/recent-orders",
+      query: () => "/admin/dashboard/recent-orders",
       providesTags: ["Orders"],
     }),
     getRecentActivities: builder.query({
-      query: () => "/dashboard/activities",
+      query: () => "/admin/dashboard/activities",
       providesTags: ["Dashboard"],
     }),
     getRecentVisitors: builder.query({
-      query: () => "/dashboard/visitors",
+      query: () => "/admin/dashboard/visitors",
       providesTags: ["Dashboard"],
     }),
   }),

@@ -95,7 +95,7 @@ export default function ProductForm({
       } else {
         await createProduct(payload).unwrap();
       }
-      router.push("/products");
+      router.push("/dashboard/products");
     } catch (err: any) {
       alert(err?.data?.message || "Something went wrong");
     }
@@ -267,7 +267,7 @@ export default function ProductForm({
         <button
           type="button"
           className="btn btn-secondary btn-lg"
-          onClick={() => router.push("/products")}
+          onClick={() => router.push("/dashboard/products")}
         >
           Cancel
         </button>

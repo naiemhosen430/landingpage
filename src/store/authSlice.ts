@@ -33,6 +33,7 @@ const authSlice = createSlice({
     ) => {
       state.token = action.payload.token;
       state.refreshToken = action.payload.refreshToken;
+      state.isAuthenticated = Boolean(action.payload.token);
     },
     logout: (state) => {
       state.user = null;

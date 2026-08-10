@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useGetMeQuery } from "@/store/authApi";
 import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";
-import "@/styles/dashboard.css";
 
 export default function DashboardLayout({
   children,
@@ -18,6 +17,7 @@ export default function DashboardLayout({
   });
 
   useEffect(() => {
+    console.log({ user });
     if (!isLoading && !user) {
       router.push("/login");
     }

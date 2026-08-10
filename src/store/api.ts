@@ -20,35 +20,65 @@ const baseQuery = fetchBaseQuery({
 });
 
 const baseQueryWithReauth = async (args: any, api: any, extraOptions: any) => {
-  let result = await baseQuery(args, api, extraOptions);
+  let result: any = await baseQuery(args, api, extraOptions);
 
-  if (result.error && result.error.status === 401) {
+  if (result?.error && result.error.status === 401) {
     const refreshToken = (api.getState() as RootState).auth.refreshToken;
 
-    if (refreshToken) {
-      const refreshResult = await baseQuery(
-        {
-          url: "/auth/refresh",
-          method: "POST",
-          body: { refreshToken },
-        },
-        api,
-        extraOptions,
-      );
+    if (!refreshToken) {
+      api.dispatch({ type: "auth/logout" });
+      return result;
+    }
 
-      if (refreshResult.data) {
-        api.dispatch({
-          type: "auth/setTokens",
-          payload: refreshResult.data,
-        });
-        result = await baseQuery(args, api, extraOptions);
-      } else {
+    const refreshResult: any = await baseQuery(
+      {
+        url: "/auth/refresh",
+        method: "POST",
+        body: { refreshToken },
+      },
+      api,
+      extraOptions,
+    );
+
+    const hasData = refreshResult && (refreshResult as any).data !== undefined;
+
+    if (hasData) {
+      const refreshData =
+        (refreshResult as any).data?.data ??
+        (refreshResult as any).data ??
+        refreshResult;
+      const tokens = refreshData.tokens ?? refreshData;
+      const accessToken = tokens?.accessToken ?? tokens?.token;
+      const nextRefreshToken = tokens?.refreshToken ?? refreshToken;
+      const refreshedUser = refreshData?.user ?? null;
+
+      if (!accessToken) {
         api.dispatch({ type: "auth/logout" });
-        window.location.href = "/login";
+        return result;
       }
+
+      api.dispatch({
+        type: "auth/setTokens",
+        payload: {
+          token: accessToken,
+          refreshToken: nextRefreshToken,
+        },
+      });
+
+      if (refreshedUser) {
+        api.dispatch({
+          type: "auth/setCredentials",
+          payload: {
+            user: refreshedUser,
+            token: accessToken,
+            refreshToken: nextRefreshToken,
+          },
+        });
+      }
+
+      result = await baseQuery(args, api, extraOptions);
     } else {
       api.dispatch({ type: "auth/logout" });
-      window.location.href = "/login";
     }
   }
 
@@ -69,6 +99,7 @@ export const api = createApi({
     "Profile",
     "Analytics",
     "Courier",
+    "Package",
   ],
   endpoints: () => ({}),
 });

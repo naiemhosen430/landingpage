@@ -1,10 +1,80 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useLoginMutation } from "@/store/authApi";
 import { setCredentials } from "@/store/authSlice";
 import { useAppDispatch } from "@/store/hooks";
+
+type ErrorType = "auth" | "network" | "cors" | "server" | "validation";
+
+interface ParsedError {
+  message: string;
+  type: ErrorType;
+}
+
+function parseError(err: any): ParsedError {
+  // CORS / Network (no response reached server)
+  if (!err.status && err.error) {
+    if (
+      err.error.includes("fetch") ||
+      err.error.includes("network") ||
+      err.error.includes("Failed to fetch")
+    ) {
+      return {
+        type: "cors",
+        message: "Cannot connect to server. CORS or server may be down.",
+      };
+    }
+    return { type: "network", message: "Network error. Please try again." };
+  }
+
+  // RTK Query error with data from server
+  if (err.data?.message) {
+    return { type: "auth", message: err.data.message };
+  }
+
+  if (err.data?.errors && Array.isArray(err.data.errors)) {
+    return {
+      type: "validation",
+      message: err.data.errors.map((e: any) => e.message || e).join(", "),
+    };
+  }
+
+  // HTTP status based
+  if (err.status === 401 || err.status === 403) {
+    return {
+      type: "auth",
+      message: err.data?.message || "Invalid credentials",
+    };
+  }
+  if (err.status === 404) {
+    return { type: "server", message: "Login service not found." };
+  }
+  if (err.status >= 500) {
+    return { type: "server", message: "Server error. Please try later." };
+  }
+
+  return { type: "server", message: "Something went wrong. Please try again." };
+}
+
+const errorIcons: Record<ErrorType, string> = {
+  auth: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z",
+  network:
+    "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z",
+  cors: "M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636",
+  server:
+    "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z",
+  validation: "M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+};
+
+const errorTitles: Record<ErrorType, string> = {
+  auth: "Authentication Failed",
+  network: "Connection Error",
+  cors: "CORS Blocked",
+  server: "Server Error",
+  validation: "Validation Error",
+};
 
 export default function LoginPage() {
   const router = useRouter();
@@ -13,31 +83,118 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState<ParsedError | null>(null);
+  const [shake, setShake] = useState(false);
+
+  // Trigger shake animation when error changes
+  useEffect(() => {
+    if (error) {
+      setShake(true);
+      const t = setTimeout(() => setShake(false), 500);
+      return () => clearTimeout(t);
+    }
+  }, [error]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    e.stopPropagation();
+
+    setError(null);
 
     if (!email || !password) {
-      setError("Please fill in all fields");
+      setError({
+        type: "validation",
+        message: "Please fill in all fields",
+      });
       return;
     }
 
     try {
-      const result = await login({ email, password }).unwrap();
+      const response = await login({
+        email,
+        password,
+      });
+
+      console.log("LOGIN RAW RESPONSE:", response);
+
+      // RTK Query error response
+      if ("error" in response) {
+        console.error("LOGIN ERROR:", response.error);
+
+        setError(parseError(response.error));
+        return;
+      }
+
+      console.log("LOGIN RESPONSE DATA:", response.data);
+
+      /**
+       * API response:
+       *
+       * {
+       *   success: true,
+       *   message: "Login successful",
+       *   data: {
+       *     user: {...},
+       *     tokens: {
+       *       accessToken: "...",
+       *       refreshToken: "...",
+       *       expiresIn: 900
+       *     }
+       *   }
+       * }
+       */
+
+      const result = response.data;
+
+      if (!result?.success || !result?.data) {
+        setError({
+          type: "server",
+          message: result?.message || "Login failed",
+        });
+        return;
+      }
+
+      const user = result.data.user;
+      const accessToken = result.data.tokens?.accessToken;
+      const refreshToken = result.data.tokens?.refreshToken;
+
+      console.log("USER:", user);
+      console.log("TOKEN:", accessToken);
+      console.log("REFRESH TOKEN:", refreshToken);
+
+      // Make sure required authentication data exists
+      if (!user || !accessToken) {
+        console.error("Invalid login response:", result);
+
+        setError({
+          type: "server",
+          message: "Login response is missing authentication data.",
+        });
+
+        return;
+      }
+
+      // Save credentials to Redux
       dispatch(
         setCredentials({
-          user: result.data.user,
-          token: result.data.token,
-          refreshToken: result.data.refreshToken,
+          user,
+          token: accessToken,
+          refreshToken: refreshToken ?? null,
         }),
       );
+
+      console.log("Credentials saved successfully");
+
+      // Redirect after successful login
       router.push("/dashboard");
-    } catch (err: any) {
-      setError(err?.data?.message || "Invalid credentials");
+    } catch (err: unknown) {
+      console.error("LOGIN EXCEPTION:", err);
+
+      setError(parseError(err));
     }
   };
+
+  const hasFieldError = error?.type === "validation" || error?.type === "auth";
 
   return (
     <>
@@ -72,6 +229,10 @@ export default function LoginPage() {
         @keyframes prm-shimmer {
           0% { transform: translateX(-100%); }
           100% { transform: translateX(100%); }
+        }
+        @keyframes prm-slideDown {
+          from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
         }
 
         .prm-auth-page {
@@ -176,27 +337,94 @@ export default function LoginPage() {
           pointer-events: none;
         }
 
+        /* ===== ERROR BANNER ===== */
         .prm-auth-error {
-          background: rgba(244, 63, 94, 0.07);
-          border: 1px solid rgba(244, 63, 94, 0.18);
-          color: #fb7185;
-          padding: 0.75rem 1rem;
-          border-radius: 12px;
-          font-size: 0.875rem;
-          font-weight: 500;
+          background: rgba(244, 63, 94, 0.06);
+          border: 1px solid rgba(244, 63, 94, 0.15);
+          border-radius: 14px;
+          padding: 1rem 1.125rem;
           margin-bottom: 1.25rem;
           display: flex;
+          align-items: flex-start;
+          gap: 0.75rem;
+          animation: prm-slideDown 0.35s ease-out;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .prm-auth-error::before {
+          content: '';
+          position: absolute;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          width: 3px;
+          background: linear-gradient(180deg, #f43f5e, #e11d48);
+          border-radius: 14px 0 0 14px;
+        }
+
+        .prm-auth-error-shake {
+          animation: prm-slideDown 0.35s ease-out, prm-shake 0.5s ease-in-out;
+        }
+
+        .prm-auth-error-icon-wrap {
+          flex-shrink: 0;
+          width: 32px;
+          height: 32px;
+          border-radius: 10px;
+          background: rgba(244, 63, 94, 0.12);
+          display: flex;
           align-items: center;
-          gap: 0.5rem;
-          animation: prm-shake 0.5s ease-in-out, prm-fadeInUp 0.3s ease-out;
+          justify-content: center;
+          margin-top: 1px;
         }
 
         .prm-auth-error-icon {
-          flex-shrink: 0;
           width: 16px;
           height: 16px;
+          color: #fb7185;
         }
 
+        .prm-auth-error-body {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .prm-auth-error-title {
+          font-size: 0.8125rem;
+          font-weight: 600;
+          color: #fda4af;
+          margin: 0 0 0.125rem 0;
+          line-height: 1.4;
+        }
+
+        .prm-auth-error-msg {
+          font-size: 0.8125rem;
+          font-weight: 400;
+          color: #fb7185;
+          margin: 0;
+          line-height: 1.5;
+        }
+
+        .prm-auth-error-close {
+          flex-shrink: 0;
+          background: none;
+          border: none;
+          padding: 2px;
+          margin: -2px;
+          cursor: pointer;
+          color: #64748b;
+          transition: color 0.2s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .prm-auth-error-close:hover {
+          color: #f43f5e;
+        }
+
+        /* ===== FIELD ERROR STATE ===== */
         .prm-auth-field {
           position: relative;
           margin-bottom: 1rem;
@@ -204,6 +432,31 @@ export default function LoginPage() {
 
         .prm-auth-field:last-of-type {
           margin-bottom: 1.5rem;
+        }
+
+        .prm-auth-field.prm-field-error .prm-auth-input {
+          border-color: rgba(244, 63, 94, 0.4);
+          background: rgba(244, 63, 94, 0.03);
+        }
+
+        .prm-auth-field.prm-field-error .prm-auth-input:focus {
+          border-color: rgba(244, 63, 94, 0.6);
+          box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.08), 0 0 20px rgba(244, 63, 94, 0.06);
+        }
+
+        .prm-auth-field.prm-field-error .prm-auth-field-icon {
+          color: #f43f5e;
+        }
+
+        .prm-auth-field-error-text {
+          font-size: 0.75rem;
+          color: #fb7185;
+          margin-top: 0.375rem;
+          margin-left: 0.25rem;
+          display: flex;
+          align-items: center;
+          gap: 0.25rem;
+          animation: prm-slideDown 0.25s ease-out;
         }
 
         .prm-auth-field-icon {
@@ -358,25 +611,54 @@ export default function LoginPage() {
           <div className="prm-auth-card">
             <form onSubmit={handleSubmit}>
               {error && (
-                <div className="prm-auth-error">
-                  <svg
-                    className="prm-auth-error-icon"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+                <div
+                  className={`prm-auth-error ${shake ? "prm-auth-error-shake" : ""}`}
+                >
+                  <div className="prm-auth-error-icon-wrap">
+                    <svg
+                      className="prm-auth-error-icon"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d={errorIcons[error.type]} />
+                    </svg>
+                  </div>
+                  <div className="prm-auth-error-body">
+                    <p className="prm-auth-error-title">
+                      {errorTitles[error.type]}
+                    </p>
+                    <p className="prm-auth-error-msg">{error.message}</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="prm-auth-error-close"
+                    onClick={() => setError(null)}
+                    aria-label="Dismiss error"
                   >
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="8" x2="12" y2="12" />
-                    <line x1="12" y1="16" x2="12.01" y2="16" />
-                  </svg>
-                  {error}
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
                 </div>
               )}
 
-              <div className="prm-auth-field">
+              <div
+                className={`prm-auth-field ${hasFieldError ? "prm-field-error" : ""}`}
+              >
                 <svg
                   className="prm-auth-field-icon"
                   viewBox="0 0 24 24"
@@ -394,12 +676,18 @@ export default function LoginPage() {
                   className="prm-auth-input"
                   placeholder="Email address"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (error?.type === "validation" || error?.type === "auth")
+                      setError(null);
+                  }}
                   required
                 />
               </div>
 
-              <div className="prm-auth-field">
+              <div
+                className={`prm-auth-field ${hasFieldError ? "prm-field-error" : ""}`}
+              >
                 <svg
                   className="prm-auth-field-icon"
                   viewBox="0 0 24 24"
@@ -417,9 +705,32 @@ export default function LoginPage() {
                   className="prm-auth-input"
                   placeholder="Password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (error?.type === "validation" || error?.type === "auth")
+                      setError(null);
+                  }}
                   required
                 />
+                {hasFieldError && (
+                  <div className="prm-auth-field-error-text">
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="8" x2="12" y2="12" />
+                      <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                    {error.message}
+                  </div>
+                )}
               </div>
 
               <button

@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "seed:packages": "node ./scripts/seed-packages.js"
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.12.0",

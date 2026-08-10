@@ -12,17 +12,17 @@ const menuItems = [
     group: "Main",
     items: [
       { label: "Dashboard", href: "/dashboard", icon: "dashboard" },
-      { label: "Products", href: "/products", icon: "box" },
-      { label: "Orders", href: "/orders", icon: "shopping-bag" },
-      { label: "Analytics", href: "/analytics", icon: "bar-chart" },
+      { label: "Products", href: "/dashboard/products", icon: "box" },
+      { label: "Orders", href: "/dashboard/orders", icon: "shopping-bag" },
+      { label: "Analytics", href: "/dashboard/analytics", icon: "bar-chart" },
     ],
   },
   {
     group: "Management",
     items: [
-      { label: "Courier", href: "/courier", icon: "truck" },
-      { label: "Media Library", href: "/media", icon: "image" },
-      { label: "Settings", href: "/settings", icon: "settings" },
+      { label: "Courier", href: "/dashboard/courier", icon: "truck" },
+      { label: "Media Library", href: "/dashboard/media", icon: "image" },
+      { label: "Settings", href: "/dashboard/settings", icon: "settings" },
     ],
   },
 ];
@@ -176,11 +176,7 @@ export default function Sidebar() {
             <div className="sidebar-user-role">{user?.role || "Admin"}</div>
           </div>
         </div>
-        <button
-          onClick={handleLogout}
-          className="sidebar-link"
-          style={{ width: "100%", marginTop: 8 }}
-        >
+        <button onClick={handleLogout} className="sidebar-link sidebar-logout">
           <svg
             width="20"
             height="20"

@@ -30,7 +30,7 @@ export default function Header() {
       </div>
 
       <div className="header-actions">
-        <Link href="/orders" className="header-btn">
+        <Link href="/dashboard/orders" className="header-btn">
           <svg
             viewBox="0 0 24 24"
             fill="none"
@@ -46,7 +46,7 @@ export default function Header() {
           <span className="header-badge">3</span>
         </Link>
 
-        <Link href="/settings" className="header-btn">
+        <Link href="/dashboard/settings" className="header-btn">
           <svg
             viewBox="0 0 24 24"
             fill="none"

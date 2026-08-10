@@ -1,5 +1,10 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import ConfirmModal from "@/components/ui/ConfirmModal";
+import Toast from "@/components/ui/Toast";
 
 interface Order {
   id: string;
@@ -12,6 +17,14 @@ interface Order {
 
 interface RecentOrdersTableProps {
   orders: Order[];
+  onView?: (orderId: string) => void;
+  onRefund?: (orderId: string) => Promise<void> | void;
+  showActions?: boolean;
+  page?: number;
+  pageSize?: number;
+  total?: number;
+  onPageChange?: (page: number) => void;
+  showPagination?: boolean;
 }
 
 const statusMap: Record<string, string> = {
@@ -24,7 +37,23 @@ const statusMap: Record<string, string> = {
   returned: "badge-danger",
 };
 
-export default function RecentOrdersTable({ orders }: RecentOrdersTableProps) {
+export default function RecentOrdersTable({
+  orders,
+  onView,
+  onRefund,
+  showActions = true,
+  page = 1,
+  pageSize = 10,
+  total,
+  onPageChange,
+  showPagination = true,
+}: RecentOrdersTableProps) {
+  const [confirmOrderId, setConfirmOrderId] = useState<string | null>(null);
+  const [toast, setToast] = useState<{
+    visible: boolean;
+    message: string;
+    type: "success" | "error" | "info";
+  }>({ visible: false, message: "", type: "info" });
   if (!orders?.length) {
     return (
       <div className="empty-state">
@@ -62,6 +91,7 @@ export default function RecentOrdersTable({ orders }: RecentOrdersTableProps) {
             <th>Total</th>
             <th>Status</th>
             <th>Date</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -69,16 +99,23 @@ export default function RecentOrdersTable({ orders }: RecentOrdersTableProps) {
             <tr key={order.id}>
               <td>
                 <Link
-                  href={`/orders/${order.id}`}
+                  href={`/dashboard/orders/${order.id}`}
                   style={{ color: "var(--primary)", fontWeight: 500 }}
+                  aria-label={`View order ${order.orderNumber}`}
+                  onClick={(e) => {
+                    if (typeof onView === "function") {
+                      e.preventDefault();
+                      onView(order.id);
+                    }
+                  }}
                 >
-                  #{order.orderNumber}
+                  #{order.orderNumber ?? order.id}
                 </Link>
               </td>
               <td>
-                <div>{order.customer.name}</div>
+                <div>{order.customer?.name ?? "—"}</div>
                 <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                  {order.customer.phone}
+                  {order.customer?.phone ?? "—"}
                 </div>
               </td>
               <td style={{ fontWeight: 600 }}>{formatCurrency(order.total)}</td>
@@ -86,16 +123,110 @@ export default function RecentOrdersTable({ orders }: RecentOrdersTableProps) {
                 <span
                   className={`badge ${statusMap[order.status] || "badge-default"}`}
                 >
-                  {order.status}
+                  {order.status
+                    ? String(order.status)
+                        .replace(/[_-]/g, " ")
+                        .replace(/\b\w/g, (c) => c.toUpperCase())
+                    : "Unknown"}
                 </span>
               </td>
               <td style={{ color: "var(--text-secondary)", fontSize: 13 }}>
                 {formatDate(order.createdAt)}
               </td>
+              <td>
+                {showActions && (
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <Link
+                      href={`/dashboard/orders/${order.id}`}
+                      className="btn btn-ghost btn-sm"
+                      onClick={(e) => {
+                        if (typeof onView === "function") {
+                          e.preventDefault();
+                          onView(order.id);
+                        }
+                      }}
+                    >
+                      View
+                    </Link>
+                    <button
+                      className="btn btn-danger btn-sm"
+                      onClick={() => setConfirmOrderId(order.id)}
+                    >
+                      Refund
+                    </button>
+                  </div>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
+      <ConfirmModal
+        open={!!confirmOrderId}
+        title="Confirm refund"
+        description="This will mark the order as refunded and update records. Proceed?"
+        confirmLabel="Refund"
+        cancelLabel="Cancel"
+        onCancel={() => setConfirmOrderId(null)}
+        onConfirm={async () => {
+          if (!confirmOrderId) return;
+          try {
+            if (typeof onRefund === "function") {
+              await onRefund(confirmOrderId);
+            }
+            setToast({
+              visible: true,
+              message: "Order refunded",
+              type: "success",
+            });
+          } catch (e) {
+            setToast({
+              visible: true,
+              message: "Refund failed",
+              type: "error",
+            });
+          } finally {
+            setConfirmOrderId(null);
+          }
+        }}
+      />
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type as any}
+        onClose={() => setToast({ ...toast, visible: false })}
+      />
+      {showPagination && (
+        <div
+          style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}
+        >
+          {(() => {
+            const totalItems = total ?? orders.length;
+            const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+            return (
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <button
+                  className="pagination-btn"
+                  onClick={() => onPageChange?.(Math.max(1, page - 1))}
+                  disabled={page <= 1}
+                >
+                  Prev
+                </button>
+                <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+                  Page {page} of {totalPages}
+                </div>
+                <button
+                  className="pagination-btn"
+                  onClick={() => onPageChange?.(Math.min(totalPages, page + 1))}
+                  disabled={page >= totalPages}
+                >
+                  Next
+                </button>
+              </div>
+            );
+          })()}
+        </div>
+      )}
     </div>
   );
 }

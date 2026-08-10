@@ -9,8 +9,10 @@ export const authApi = api.injectEndpoints({
         body: credentials,
       }),
     }),
-    getMe: builder.query({
+    getMe: builder.query<any, void>({
       query: () => "/auth/me",
+      transformResponse: (response: any) =>
+        response?.data?.user ?? response?.user ?? response?.data ?? response,
       providesTags: ["Profile"],
     }),
     updateProfile: builder.mutation({
