@@ -2,18 +2,20 @@ import { api } from "./api";
 
 export const publicApi = api.injectEndpoints({
   endpoints: (builder) => ({
-    getPublicProducts: builder.query({
+    getPublicProducts: builder.query<any, Record<string, any> | void>({
       query: (params) => ({
-        url: "/public/products",
-        params,
+        url: "/public/v1/products",
+        params: params ?? {},
       }),
+      transformResponse: (response: any) => response?.data ?? response,
     }),
-    getPublicProduct: builder.query({
-      query: (slug) => `/public/products/${slug}`,
+    getPublicProduct: builder.query<any, string>({
+      query: (slug) => `/public/v1/products/slug/${slug}`,
+      transformResponse: (response: any) => response?.data ?? response,
     }),
-    placeOrder: builder.mutation({
+    placeOrder: builder.mutation<any, Record<string, any>>({
       query: (data) => ({
-        url: "/public/orders",
+        url: "/public/v1/orders",
         method: "POST",
         body: data,
       }),

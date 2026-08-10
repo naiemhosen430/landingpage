@@ -4,7 +4,7 @@ export const orderApi = api.injectEndpoints({
   endpoints: (builder) => ({
     getOrders: builder.query({
       query: (params) => ({
-        url: "/orders",
+        url: "/admin/orders",
         params,
       }),
       providesTags: (result) =>
@@ -19,12 +19,12 @@ export const orderApi = api.injectEndpoints({
           : ["Orders"],
     }),
     getOrder: builder.query({
-      query: (id) => `/orders/${id}`,
+      query: (id) => `/admin/orders/${id}`,
       providesTags: (result, error, id) => [{ type: "Order", id }],
     }),
     updateOrderStatus: builder.mutation({
       query: ({ id, status, note }) => ({
-        url: `/orders/${id}/status`,
+        url: `/admin/orders/${id}/status`,
         method: "PATCH",
         body: { status, note },
       }),
@@ -35,7 +35,7 @@ export const orderApi = api.injectEndpoints({
     }),
     exportOrders: builder.query({
       query: (params) => ({
-        url: "/orders/export",
+        url: "/admin/orders/export",
         params,
         responseHandler: (response: any) => response.blob(),
       }),

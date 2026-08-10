@@ -54,6 +54,7 @@ export default function CheckoutForm({
     const e: Record<string, string> = {};
     if (!form.name.trim()) e.name = "Name is required";
     if (!form.phone.trim()) e.phone = "Phone is required";
+    if (!form.email.trim()) e.email = "Email is required";
     if (!form.address.trim()) e.address = "Address is required";
     if (!form.city.trim()) e.city = "City is required";
     setErrors(e);
@@ -73,22 +74,20 @@ export default function CheckoutForm({
         customer: {
           name: form.name,
           phone: form.phone,
-          email: form.email || undefined,
-          address: form.address,
-          city: form.city,
-          district: form.district || undefined,
-          postcode: form.postcode || undefined,
+          email: form.email,
+          address: {
+            street: form.address,
+            city: form.city,
+            state: form.district || undefined,
+            zipCode: form.postcode || undefined,
+            country: "Bangladesh",
+          },
         },
-        deliveryCharge,
-        codCharge: form.paymentMethod === "cod" ? codCharge : 0,
-        subtotal,
-        total,
-        paymentMethod: form.paymentMethod,
         notes: form.notes || undefined,
       }).unwrap();
 
       if (onClear) onClear();
-      router.push(`/thank-you?order=${result.data.orderId}`);
+      router.push(`/thank-you?order=${result.data.id}`);
     } catch (err: any) {
       alert(err?.data?.message || "Failed to place order");
     }

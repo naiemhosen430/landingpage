@@ -1158,6 +1158,7 @@
   border: 1px solid var(--border-color);
   border-radius: var(--radius);
   background: var(--bg-primary);
+  color: var(--text-primary);
   font-size: 14px;
   outline: none;
   transition:

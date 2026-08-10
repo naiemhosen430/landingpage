@@ -7,9 +7,10 @@ interface Product {
   name: string;
   slug: string;
   price: number;
-  comparePrice?: number;
+  compareAtPrice?: number;
   stock: number;
-  status: "active" | "draft" | "archived";
+  isActive: boolean;
+  thumbnailImage?: { url: string; secureUrl?: string };
   images: { url: string }[];
   sku: string;
   createdAt: string;
@@ -84,9 +85,15 @@ export default function ProductTable({
                       flexShrink: 0,
                     }}
                   >
-                    {product.images?.[0]?.url ? (
+                    {(product.thumbnailImage?.secureUrl ??
+                    product.thumbnailImage?.url ??
+                    product.images?.[0]?.url) ? (
                       <Image
-                        src={product.images[0].url}
+                        src={
+                          product.thumbnailImage?.secureUrl ??
+                          product.thumbnailImage?.url ??
+                          product.images[0].url
+                        }
                         alt={product.name}
                         width={48}
                         height={48}
@@ -144,8 +151,8 @@ export default function ProductTable({
                 <div style={{ fontWeight: 600 }}>
                   {formatCurrency(product.price)}
                 </div>
-                {product.comparePrice &&
-                  product.comparePrice > product.price && (
+                {product.compareAtPrice &&
+                  product.compareAtPrice > product.price && (
                     <div
                       style={{
                         fontSize: 12,
@@ -153,7 +160,7 @@ export default function ProductTable({
                         textDecoration: "line-through",
                       }}
                     >
-                      {formatCurrency(product.comparePrice)}
+                      {formatCurrency(product.compareAtPrice)}
                     </div>
                   )}
               </td>
@@ -171,8 +178,10 @@ export default function ProductTable({
                 </span>
               </td>
               <td>
-                <span className={`badge ${statusMap[product.status]}`}>
-                  {product.status}
+                <span
+                  className={`badge ${statusMap[product.isActive ? "active" : "archived"]}`}
+                >
+                  {product.isActive ? "active" : "archived"}
                 </span>
               </td>
               <td>
@@ -184,7 +193,7 @@ export default function ProductTable({
                   }}
                 >
                   <Link
-                    href={`/products/${product.id}/edit`}
+                    href={`/dashboard/products/${product.id}/edit`}
                     className="btn btn-ghost btn-sm"
                   >
                     <svg

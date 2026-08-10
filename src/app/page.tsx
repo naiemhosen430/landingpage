@@ -516,7 +516,7 @@ export default function LandingPage() {
           border: 1px solid rgba(148, 163, 184, 0.18);
           border-radius: 18px;
           background: rgba(255, 255, 255, 0.06);
-          color: var(--text-primary);
+          color: #ffff;
           outline: none;
           transition: border-color 0.2s ease, box-shadow 0.2s ease;
           font-size: 0.95rem;

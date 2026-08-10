@@ -47,7 +47,7 @@ export default function ProductsPage() {
           <h1 className="page-title">Products</h1>
           <p className="page-subtitle">Manage your store products</p>
         </div>
-        <Link href="/products/new" className="btn btn-primary">
+        <Link href="/dashboard/products/new" className="btn btn-primary">
           <svg
             width="16"
             height="16"

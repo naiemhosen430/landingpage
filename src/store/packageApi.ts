@@ -38,34 +38,54 @@ export const packageApi = api.injectEndpoints({
       invalidatesTags: ["Profile", { type: "Package", id: "LIST" }],
     }),
 
-    getMySubscription: builder.query<any, { projectId?: string } | void>({
+    getMySubscription: builder.query<
+      any,
+      { projectId?: string; packagedata?: Record<string, any> } | void
+    >({
       query: (params) => ({
         url: "/admin/packages/subscriptions",
-        params: params ?? {},
+        params: params?.packagedata
+          ? {
+              ...params,
+              packagedata: JSON.stringify(params.packagedata),
+            }
+          : (params ?? {}),
       }),
       transformResponse: (response: any) =>
         response?.data?.data ?? response?.data ?? response,
       providesTags: ["Profile"],
     }),
 
-    renewSubscription: builder.mutation<any, string>({
-      query: (subscriptionId) => ({
-        url: `/admin/packages/subscriptions/${subscriptionId}/renew`,
+    renewSubscription: builder.mutation<
+      any,
+      { packagedata: Record<string, any> }
+    >({
+      query: ({ packagedata }) => ({
+        url: "/admin/packages/subscriptions/renew",
         method: "POST",
+        body: { packagedata },
       }),
       invalidatesTags: ["Profile"],
     }),
-    cancelSubscription: builder.mutation<any, string>({
-      query: (subscriptionId) => ({
-        url: `/admin/packages/subscriptions/${subscriptionId}/cancel`,
+    cancelSubscription: builder.mutation<
+      any,
+      { packagedata: Record<string, any> }
+    >({
+      query: ({ packagedata }) => ({
+        url: "/admin/packages/subscriptions/cancel",
         method: "POST",
+        body: { packagedata },
       }),
       invalidatesTags: ["Profile"],
     }),
-    toggleAutoRenew: builder.mutation<any, string>({
-      query: (subscriptionId) => ({
-        url: `/admin/packages/subscriptions/${subscriptionId}/auto-renew`,
+    toggleAutoRenew: builder.mutation<
+      any,
+      { packagedata: Record<string, any> }
+    >({
+      query: ({ packagedata }) => ({
+        url: "/admin/packages/subscriptions/auto-renew",
         method: "POST",
+        body: { packagedata },
       }),
       invalidatesTags: ["Profile"],
     }),

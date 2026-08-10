@@ -3,7 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 
-export default function Header() {
+interface HeaderProps {
+  expiryDate?: string | null;
+  daysLeft?: number | null;
+}
+
+export default function Header({ expiryDate, daysLeft }: HeaderProps) {
   const [search, setSearch] = useState("");
 
   return (
@@ -30,6 +35,20 @@ export default function Header() {
       </div>
 
       <div className="header-actions">
+        {expiryDate && (
+          <span
+            style={{
+              color:
+                daysLeft != null && daysLeft <= 10
+                  ? "var(--danger)"
+                  : "var(--text-secondary)",
+              fontSize: 13,
+              fontWeight: 600,
+            }}
+          >
+            Expires {expiryDate}
+          </span>
+        )}
         <Link href="/dashboard/orders" className="header-btn">
           <svg
             viewBox="0 0 24 24"

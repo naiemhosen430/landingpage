@@ -74,12 +74,13 @@ export default function DashboardPage() {
   const recentOrders = recentOrdersData?.data || [];
   const recentMeta = recentOrdersData?.meta;
   const { data: activities } = useGetRecentActivitiesQuery(undefined);
+  const user = useAppSelector((state) => state.auth.user);
 
   const {
     data: subscription,
     isLoading: subscriptionLoading,
     refetch: refetchSubscription,
-  } = useGetMySubscriptionQuery();
+  } = useGetMySubscriptionQuery({ packagedata: user?.package });
 
   const { data: packagesData, isLoading: packagesLoading } =
     useGetActivePackagesQuery({ page: 1, limit: 6 });
@@ -93,7 +94,6 @@ export default function DashboardPage() {
     useCancelSubscriptionMutation();
   const [toggleAutoRenew, { isLoading: togglingAutoRenew }] =
     useToggleAutoRenewMutation();
-  const user = useAppSelector((state) => state.auth.user);
 
   const [updateOrderStatus] = useUpdateOrderStatusMutation();
 
@@ -110,8 +110,13 @@ export default function DashboardPage() {
       subscription[0] ??
       null)
     : (subscription?.subscription ?? subscription ?? null);
+
   const currentPackage =
-    currentSubscription?.package ?? currentSubscription?.plan ?? null;
+    currentSubscription?.package ??
+    currentSubscription?.plan ??
+    currentSubscription ??
+    null;
+  console.log({ currentPackage, currentSubscription });
   const packageLimits = currentPackage?.limits ?? {};
   const packageFeatures = currentPackage?.features ?? [];
   const packageName = currentPackage?.name ?? "No active package";
@@ -163,8 +168,10 @@ export default function DashboardPage() {
     : 0;
 
   const isExpired = Boolean(endDate && endDate.getTime() <= Date.now());
+  console.log({ isExpired, endDate, currentPackage, subscriptionLoading });
   const canShowNoPackage =
     !subscriptionLoading && (!currentPackage || isExpired);
+  const showRenewalBanner = daysLeft !== null && daysLeft <= 10;
   const projectId =
     user?.projectId ?? user?.project?.id ?? process.env.NEXT_PUBLIC_PROJECT_ID;
   const paymentMethods = Array.isArray(paymentMethodsData)
@@ -187,17 +194,17 @@ export default function DashboardPage() {
     }
   };
 
-  const subscriptionId = currentSubscription?.id ?? currentSubscription?._id;
   const handleSubscriptionAction = async (
     action: "renew" | "cancel" | "autoRenew",
   ) => {
-    if (!subscriptionId) return;
+    if (!currentPackage) return;
     try {
-      if (action === "renew") await renewSubscription(subscriptionId).unwrap();
+      if (action === "renew")
+        await renewSubscription({ packagedata: currentPackage }).unwrap();
       if (action === "cancel")
-        await cancelSubscription(subscriptionId).unwrap();
+        await cancelSubscription({ packagedata: currentPackage }).unwrap();
       if (action === "autoRenew")
-        await toggleAutoRenew(subscriptionId).unwrap();
+        await toggleAutoRenew({ packagedata: currentPackage }).unwrap();
       await refetchSubscription();
       setPurchaseSuccess(true);
     } catch (err: any) {
@@ -355,22 +362,23 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <div className="subscription-banner">
-        <strong>Package active: {packageName}</strong>
-        <span>
-          {endDate
-            ? `Available until ${formatDate(endDate)}`
-            : "No expiry date"}
-        </span>
-        <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
-          <button
-            className="btn btn-primary btn-sm"
-            onClick={() => setSelectedPlan(currentPackage)}
-            disabled={purchasing}
-          >
-            Renew
-          </button>
-          <button
+      {showRenewalBanner && (
+        <div className="subscription-banner">
+          <strong>Package active: {packageName}</strong>
+          <span>
+            {endDate
+              ? `Available until ${formatDate(endDate)}`
+              : "No expiry date"}
+          </span>
+          <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => setSelectedPlan(currentPackage)}
+              disabled={purchasing}
+            >
+              Renew
+            </button>
+            {/* <button
             className="btn btn-ghost btn-sm"
             onClick={() => handleSubscriptionAction("autoRenew")}
             disabled={togglingAutoRenew}
@@ -385,159 +393,10 @@ export default function DashboardPage() {
             disabled={cancelling}
           >
             Cancel
-          </button>
-        </div>
-      </div>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Dashboard</h1>
-          <p className="page-subtitle">
-            Welcome back! Here's what's happening with your store.
-          </p>
-        </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <ThemeToggle />
-        </div>
-      </div>
-
-      <div className="package-summary">
-        <div className="card package-summary-card">
-          <div className="card-header">
-            <h3 className="card-title">Current Package</h3>
-            <span
-              className={`badge ${
-                packageStatus === "ACTIVE" ? "badge-success" : "badge-warning"
-              }`}
-            >
-              {packageStatus}
-            </span>
-          </div>
-          <div className="card-body">
-            <div style={{ display: "grid", gap: 16 }}>
-              <div className="package-summary-row">
-                <div>
-                  <div className="package-summary-label">Package</div>
-                  <div className="package-summary-value">{packageName}</div>
-                </div>
-                <div>
-                  <div className="package-summary-label">Billing cycle</div>
-                  <div className="package-summary-value">{packagePeriod}</div>
-                </div>
-                <div>
-                  <div className="package-summary-label">Next billing</div>
-                  <div className="package-summary-value">
-                    {endDate ? formatDate(endDate) : "—"}
-                  </div>
-                </div>
-              </div>
-
-              <div className="package-progress-block">
-                <div className="package-progress-title">
-                  Subscription progress
-                </div>
-                <div className="package-progress-bar">
-                  <div
-                    className="package-progress-fill"
-                    style={{ width: `${subscriptionProgress}%` }}
-                  />
-                </div>
-                <div className="package-progress-meta">
-                  {subscriptionProgress}% elapsed · {daysLeft ?? 0} days left
-                </div>
-              </div>
-            </div>
+          </button> */}
           </div>
         </div>
-
-        <div className="card package-summary-card">
-          <div className="card-header">
-            <h3 className="card-title">Package usage</h3>
-          </div>
-          <div className="card-body">
-            <div className="package-usage-grid">
-              <div className="package-usage-item">
-                <div className="package-usage-label">Storage</div>
-                <div className="package-usage-value">
-                  {storageUsed} / {storageLimit} GB
-                </div>
-                <div className="package-progress-bar">
-                  <div
-                    className="package-progress-fill"
-                    style={{ width: `${storageProgress}%` }}
-                  />
-                </div>
-              </div>
-              <div className="package-usage-item">
-                <div className="package-usage-label">Products</div>
-                <div className="package-usage-value">
-                  {usage.products ?? "-"} / {packageLimits.maxProducts ?? "-"}
-                </div>
-              </div>
-              <div className="package-usage-item">
-                <div className="package-usage-label">Orders</div>
-                <div className="package-usage-value">
-                  {usage.orders ?? "-"} / {packageLimits.maxOrders ?? "-"}
-                </div>
-              </div>
-              <div className="package-usage-item">
-                <div className="package-usage-label">Customers</div>
-                <div className="package-usage-value">
-                  {usage.customers ?? "-"} / {packageLimits.maxCustomers ?? "-"}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="card package-features-card">
-        <div className="card-header">
-          <h3 className="card-title">Plan features</h3>
-        </div>
-        <div className="card-body package-features-grid">
-          {packageFeatures.length ? (
-            packageFeatures.map((feature: string) => (
-              <div key={feature} className="package-feature-item">
-                {feature}
-              </div>
-            ))
-          ) : (
-            <div className="empty-state-desc">
-              No feature details available for this plan.
-            </div>
-          )}
-        </div>
-      </div>
-
-      <GuideModal open={showGuide} onClose={handleCloseGuide} />
-
-      <PackagePurchaseModal
-        open={Boolean(selectedPlan)}
-        plan={selectedPlan}
-        paymentMethods={paymentMethods}
-        projectId={projectId}
-        submitting={purchasing}
-        mode={
-          isExpired || selectedPlan === currentPackage ? "renew" : "purchase"
-        }
-        onClose={() => setSelectedPlan(null)}
-        onSubmit={handlePurchase}
-      />
-
-      <Toast
-        message={
-          purchaseError ??
-          (purchaseSuccess
-            ? "Package purchased successfully. Refreshing subscription..."
-            : "")
-        }
-        type={purchaseError ? "error" : purchaseSuccess ? "success" : "info"}
-        visible={Boolean(purchaseError) || purchaseSuccess}
-        onClose={() => {
-          setPurchaseError(null);
-          setPurchaseSuccess(false);
-        }}
-      />
+      )}
 
       <div className="stats-grid">
         <StatCard
@@ -698,6 +557,145 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      <div className="package-summary">
+        <div className="card package-summary-card">
+          <div className="card-header">
+            <h3 className="card-title">Current Package</h3>
+            <span
+              className={`badge ${
+                packageStatus === "ACTIVE" ? "badge-success" : "badge-warning"
+              }`}
+            >
+              {packageStatus}
+            </span>
+          </div>
+          <div className="card-body">
+            <div style={{ display: "grid", gap: 16 }}>
+              <div className="package-summary-row">
+                <div>
+                  <div className="package-summary-label">Package</div>
+                  <div className="package-summary-value">{packageName}</div>
+                </div>
+                <div>
+                  <div className="package-summary-label">Billing cycle</div>
+                  <div className="package-summary-value">{packagePeriod}</div>
+                </div>
+                <div>
+                  <div className="package-summary-label">Next billing</div>
+                  <div className="package-summary-value">
+                    {endDate ? formatDate(endDate) : "—"}
+                  </div>
+                </div>
+              </div>
+
+              <div className="package-progress-block">
+                <div className="package-progress-title">
+                  Subscription progress
+                </div>
+                <div className="package-progress-bar">
+                  <div
+                    className="package-progress-fill"
+                    style={{ width: `${subscriptionProgress}%` }}
+                  />
+                </div>
+                <div className="package-progress-meta">
+                  {subscriptionProgress}% elapsed · {daysLeft ?? 0} days left
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="card package-summary-card">
+          <div className="card-header">
+            <h3 className="card-title">Package usage</h3>
+          </div>
+          <div className="card-body">
+            <div className="package-usage-grid">
+              <div className="package-usage-item">
+                <div className="package-usage-label">Storage</div>
+                <div className="package-usage-value">
+                  {storageUsed} / {storageLimit} GB
+                </div>
+                <div className="package-progress-bar">
+                  <div
+                    className="package-progress-fill"
+                    style={{ width: `${storageProgress}%` }}
+                  />
+                </div>
+              </div>
+              <div className="package-usage-item">
+                <div className="package-usage-label">Products</div>
+                <div className="package-usage-value">
+                  {usage.products ?? "-"} / {packageLimits.maxProducts ?? "-"}
+                </div>
+              </div>
+              <div className="package-usage-item">
+                <div className="package-usage-label">Orders</div>
+                <div className="package-usage-value">
+                  {usage.orders ?? "-"} / {packageLimits.maxOrders ?? "-"}
+                </div>
+              </div>
+              <div className="package-usage-item">
+                <div className="package-usage-label">Customers</div>
+                <div className="package-usage-value">
+                  {usage.customers ?? "-"} / {packageLimits.maxCustomers ?? "-"}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="card package-features-card">
+        <div className="card-header">
+          <h3 className="card-title">Plan features</h3>
+        </div>
+        <div className="card-body package-features-grid">
+          {packageFeatures.length ? (
+            packageFeatures.map((feature: string) => (
+              <div key={feature} className="package-feature-item">
+                {feature}
+              </div>
+            ))
+          ) : (
+            <div className="empty-state-desc">
+              No feature details available for this plan.
+            </div>
+          )}
+        </div>
+      </div>
+
+      <GuideModal open={showGuide} onClose={handleCloseGuide} />
+
+      <PackagePurchaseModal
+        open={Boolean(selectedPlan)}
+        plan={selectedPlan}
+        paymentMethods={paymentMethods}
+        projectId={projectId}
+        submitting={purchasing}
+        mode={
+          isExpired || selectedPlan === currentPackage ? "renew" : "purchase"
+        }
+        onClose={() => setSelectedPlan(null)}
+        onSubmit={handlePurchase}
+      />
+
+      <Toast
+        message={
+          purchaseError ??
+          (purchaseSuccess
+            ? "Package purchased successfully. Refreshing subscription..."
+            : "")
+        }
+        type={purchaseError ? "error" : purchaseSuccess ? "success" : "info"}
+        visible={Boolean(purchaseError) || purchaseSuccess}
+        onClose={() => {
+          setPurchaseError(null);
+          setPurchaseSuccess(false);
+        }}
+      />
     </div>
   );
 }

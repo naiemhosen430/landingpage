@@ -115,8 +115,6 @@ export default function LoginPage() {
         password,
       });
 
-      console.log("LOGIN RAW RESPONSE:", response);
-
       // RTK Query error response
       if ("error" in response) {
         console.error("LOGIN ERROR:", response.error);
@@ -124,8 +122,6 @@ export default function LoginPage() {
         setError(parseError(response.error));
         return;
       }
-
-      console.log("LOGIN RESPONSE DATA:", response.data);
 
       /**
        * API response:
@@ -158,10 +154,6 @@ export default function LoginPage() {
       const accessToken = result.data.tokens?.accessToken;
       const refreshToken = result.data.tokens?.refreshToken;
 
-      console.log("USER:", user);
-      console.log("TOKEN:", accessToken);
-      console.log("REFRESH TOKEN:", refreshToken);
-
       // Make sure required authentication data exists
       if (!user || !accessToken) {
         console.error("Invalid login response:", result);
@@ -182,8 +174,6 @@ export default function LoginPage() {
           refreshToken: refreshToken ?? null,
         }),
       );
-
-      console.log("Credentials saved successfully");
 
       // Redirect after successful login
       router.push("/dashboard");

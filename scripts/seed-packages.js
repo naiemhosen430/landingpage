@@ -97,7 +97,6 @@ async function upsertPackage(pkg) {
     const body = await res.json().catch(() => null);
 
     if (res.ok) {
-      console.log(`Created: ${pkg.slug}`);
       return body;
     }
 
@@ -106,7 +105,6 @@ async function upsertPackage(pkg) {
       res.status === 409 ||
       (body && body.message && body.message.includes("exists"))
     ) {
-      console.log(`Package ${pkg.slug} exists, skipping creation.`);
       return body;
     }
 
@@ -119,9 +117,7 @@ async function upsertPackage(pkg) {
 }
 
 (async function main() {
-  console.log("Seeding packages to", API_URL);
   for (const p of packages) {
     await upsertPackage(p);
   }
-  console.log("Seeding complete");
 })();

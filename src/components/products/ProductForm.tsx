@@ -3,11 +3,15 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  ImageAsset,
   useCreateProductMutation,
+  useDeleteImagesMutation,
   useUpdateProductMutation,
+  useUploadImagesMutation,
   useGetCategoriesQuery,
 } from "@/store/productApi";
 import { slugify } from "@/lib/utils";
+import { useAppSelector } from "@/store/hooks";
 
 interface ProductFormProps {
   initialData?: any;
@@ -23,7 +27,11 @@ export default function ProductForm({
 
   const [createProduct, { isLoading: creating }] = useCreateProductMutation();
   const [updateProduct, { isLoading: updating }] = useUpdateProductMutation();
+  const [uploadImages, { isLoading: uploading }] = useUploadImagesMutation();
+  const [deleteImages] = useDeleteImagesMutation();
   const { data: categoriesData } = useGetCategoriesQuery(undefined);
+  const user = useAppSelector((state) => state.auth.user);
+  const projectId = user?.projectId ?? user?.project?.id;
 
   const [form, setForm] = useState({
     name: initialData?.name || "",
@@ -31,18 +39,104 @@ export default function ProductForm({
     description: initialData?.description || "",
     shortDescription: initialData?.shortDescription || "",
     price: initialData?.price || "",
-    comparePrice: initialData?.comparePrice || "",
+    comparePrice:
+      initialData?.comparePrice ?? initialData?.compareAtPrice ?? "",
     sku: initialData?.sku || "",
     stock: initialData?.stock ?? 0,
     trackInventory: initialData?.trackInventory ?? true,
     allowBackorders: initialData?.allowBackorders ?? false,
-    status: initialData?.status || "draft",
-    categories: initialData?.categories?.map((c: any) => c.id) || [],
+    status:
+      initialData?.status ?? (initialData?.isActive ? "active" : "archived"),
+    categories:
+      initialData?.categories?.map(
+        (category: any) => category.id ?? category,
+      ) || [],
     tags: initialData?.tags?.join(", ") || "",
-    images: initialData?.images || [],
+    images: (initialData?.images || []) as ImageAsset[],
+    thumbnailImage: initialData?.thumbnailImage ?? initialData?.images?.[0],
+    costPrice: initialData?.costPrice ?? "",
+    lowStockThreshold: initialData?.lowStockThreshold ?? 10,
+    isFeatured: initialData?.isFeatured ?? false,
+    weight: initialData?.weight ?? "",
+    dimensions: initialData?.dimensions ?? {
+      length: "",
+      width: "",
+      height: "",
+    },
+    seoTitle: initialData?.seoTitle ?? "",
+    seoDescription: initialData?.seoDescription ?? "",
+    attributes: initialData?.attributes ?? {},
+    variants: initialData?.variants ?? [],
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const fileToDataUri = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+  const handleImageUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const files = Array.from(event.target.files ?? []);
+    if (!files.length) return;
+    if (files.length + form.images.length > 10) {
+      alert("You can upload a maximum of 10 images.");
+      return;
+    }
+    const invalidFile = files.find(
+      (file) =>
+        !["image/jpeg", "image/jpg", "image/png", "image/webp"].includes(
+          file.type,
+        ) || file.size > 5 * 1024 * 1024,
+    );
+    if (invalidFile) {
+      alert("Use JPG, PNG, or WEBP images up to 5 MB each.");
+      return;
+    }
+    try {
+      const result = await uploadImages({
+        projectId,
+        folder: "products",
+        images: await Promise.all(files.map(fileToDataUri)),
+      }).unwrap();
+      const uploaded = Array.isArray(result) ? result : [result];
+      setForm((prev) => ({
+        ...prev,
+        images: [...prev.images, ...uploaded],
+        thumbnailImage: prev.thumbnailImage ?? uploaded[0],
+      }));
+    } catch (err: any) {
+      alert(err?.data?.message ?? "Image upload failed");
+    } finally {
+      event.target.value = "";
+    }
+  };
+
+  const removeImage = (image: ImageAsset) => {
+    if (image.publicId) {
+      deleteImages({ projectId, publicId: image.publicId }).catch(
+        () => undefined,
+      );
+    }
+    setForm((prev) => {
+      const images = prev.images.filter(
+        (item) => item.publicId !== image.publicId,
+      );
+      return {
+        ...prev,
+        images,
+        thumbnailImage:
+          prev.thumbnailImage?.publicId === image.publicId
+            ? images[0]
+            : prev.thumbnailImage,
+      };
+    });
+  };
 
   const handleChange = (field: string, value: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -67,6 +161,7 @@ export default function ProductForm({
     const e: Record<string, string> = {};
     if (!form.name.trim()) e.name = "Product name is required";
     if (!form.slug.trim()) e.slug = "Slug is required";
+    if (!form.description.trim()) e.description = "Description is required";
     if (!form.price || Number(form.price) <= 0)
       e.price = "Valid price is required";
     if (!form.sku.trim()) e.sku = "SKU is required";
@@ -78,12 +173,41 @@ export default function ProductForm({
     e.preventDefault();
     if (!validate()) return;
 
+    const {
+      comparePrice,
+      status,
+      tags,
+      attributes,
+      dimensions,
+      variants,
+      ...productFields
+    } = form;
     const payload = {
-      ...form,
+      ...productFields,
+      categories: form.categories,
+      thumbnailImage: form.thumbnailImage,
+      images: form.images,
       price: Number(form.price),
-      comparePrice: form.comparePrice ? Number(form.comparePrice) : undefined,
+      compareAtPrice: comparePrice ? Number(comparePrice) : undefined,
+      costPrice: form.costPrice ? Number(form.costPrice) : undefined,
       stock: Number(form.stock),
-      tags: form.tags
+      lowStockThreshold: Number(form.lowStockThreshold),
+      weight: form.weight ? Number(form.weight) : undefined,
+      dimensions:
+        dimensions.length || dimensions.width || dimensions.height
+          ? {
+              length: Number(dimensions.length),
+              width: Number(dimensions.width),
+              height: Number(dimensions.height),
+            }
+          : undefined,
+      attributes,
+      variants,
+      seoTitle: form.seoTitle || undefined,
+      seoDescription: form.seoDescription || undefined,
+      isActive: status === "active",
+      isFeatured: form.isFeatured,
+      tags: tags
         .split(",")
         .map((t: string) => t.trim())
         .filter(Boolean),
@@ -101,7 +225,7 @@ export default function ProductForm({
     }
   };
 
-  const isLoading = creating || updating;
+  const isLoading = creating || updating || uploading;
 
   return (
     <form onSubmit={handleSubmit} style={{ maxWidth: 800 }}>
@@ -148,6 +272,9 @@ export default function ProductForm({
           placeholder="Detailed product description"
           rows={5}
         />
+        {errors.description && (
+          <div className="form-error">{errors.description}</div>
+        )}
       </div>
 
       <div
@@ -250,6 +377,218 @@ export default function ProductForm({
             </option>
           ))}
         </select>
+      </div>
+
+      <div className="form-group">
+        <label className="form-label">Product Images</label>
+        <input
+          className="form-input"
+          type="file"
+          accept="image/jpeg,image/jpg,image/png,image/webp"
+          multiple
+          onChange={handleImageUpload}
+          disabled={isLoading}
+        />
+        <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>
+          Up to 10 JPG, PNG, or WEBP images, 5 MB each.
+        </div>
+        {form.images.length > 0 && (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
+              gap: 12,
+              marginTop: 12,
+            }}
+          >
+            {form.images.map((image: ImageAsset) => (
+              <div key={image.publicId} style={{ position: "relative" }}>
+                <img
+                  src={image.secureUrl || image.url}
+                  alt="Product"
+                  style={{
+                    width: "100%",
+                    aspectRatio: "1",
+                    objectFit: "cover",
+                    borderRadius: "var(--radius)",
+                    border:
+                      form.thumbnailImage?.publicId === image.publicId
+                        ? "2px solid var(--primary)"
+                        : "1px solid var(--border-color)",
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => handleChange("thumbnailImage", image)}
+                  style={{ width: "100%", marginTop: 4 }}
+                >
+                  {form.thumbnailImage?.publicId === image.publicId
+                    ? "Thumbnail"
+                    : "Use thumbnail"}
+                </button>
+                <button
+                  type="button"
+                  aria-label="Remove image"
+                  onClick={() => removeImage(image)}
+                  style={{
+                    position: "absolute",
+                    top: 4,
+                    right: 4,
+                    border: 0,
+                    borderRadius: "50%",
+                    background: "var(--danger)",
+                    color: "white",
+                    width: 24,
+                    height: 24,
+                    cursor: "pointer",
+                  }}
+                >
+                  x
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div
+        style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}
+      >
+        <div className="form-group">
+          <label className="form-label">Cost Price</label>
+          <input
+            type="number"
+            className="form-input"
+            value={form.costPrice}
+            onChange={(e) => handleChange("costPrice", e.target.value)}
+            min="0"
+            step="0.01"
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Low Stock Threshold</label>
+          <input
+            type="number"
+            className="form-input"
+            value={form.lowStockThreshold}
+            onChange={(e) => handleChange("lowStockThreshold", e.target.value)}
+            min="0"
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Weight</label>
+          <input
+            type="number"
+            className="form-input"
+            value={form.weight}
+            onChange={(e) => handleChange("weight", e.target.value)}
+            min="0"
+            step="0.01"
+          />
+        </div>
+      </div>
+
+      <div className="form-group">
+        <label className="form-label">Dimensions</label>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: 12,
+          }}
+        >
+          {(["length", "width", "height"] as const).map((dimension) => (
+            <input
+              key={dimension}
+              type="number"
+              className="form-input"
+              placeholder={dimension}
+              value={form.dimensions[dimension]}
+              onChange={(e) =>
+                handleChange("dimensions", {
+                  ...form.dimensions,
+                  [dimension]: e.target.value,
+                })
+              }
+              min="0"
+              step="0.01"
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="form-group">
+        <label className="form-label">Attributes (JSON)</label>
+        <textarea
+          className="form-textarea"
+          value={JSON.stringify(form.attributes, null, 2)}
+          onChange={(e) => {
+            try {
+              handleChange("attributes", JSON.parse(e.target.value || "{}"));
+            } catch {
+              return;
+            }
+          }}
+          rows={3}
+          placeholder='{"material":"canvas"}'
+        />
+      </div>
+
+      <div className="form-group">
+        <label className="form-label">Variants (JSON array)</label>
+        <textarea
+          className="form-textarea"
+          value={JSON.stringify(form.variants, null, 2)}
+          onChange={(e) => {
+            try {
+              const variants = JSON.parse(e.target.value || "[]");
+              if (Array.isArray(variants)) handleChange("variants", variants);
+            } catch {
+              return;
+            }
+          }}
+          rows={5}
+          placeholder="[]"
+        />
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div className="form-group">
+          <label className="form-label">SEO Title</label>
+          <input
+            className="form-input"
+            value={form.seoTitle}
+            onChange={(e) => handleChange("seoTitle", e.target.value)}
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">SEO Description</label>
+          <input
+            className="form-input"
+            value={form.seoDescription}
+            onChange={(e) => handleChange("seoDescription", e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 20, marginTop: 12 }}>
+        <label>
+          <input
+            type="checkbox"
+            checked={form.trackInventory}
+            onChange={(e) => handleChange("trackInventory", e.target.checked)}
+          />{" "}
+          Track inventory
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={form.isFeatured}
+            onChange={(e) => handleChange("isFeatured", e.target.checked)}
+          />{" "}
+          Featured product
+        </label>
       </div>
 
       <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
