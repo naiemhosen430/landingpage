@@ -3,12 +3,12 @@ import { api } from "./api";
 export const settingsApi = api.injectEndpoints({
   endpoints: (builder) => ({
     getSettings: builder.query({
-      query: () => "/settings",
+      query: () => "/admin/settings",
       providesTags: ["Settings"],
     }),
     updateStoreInfo: builder.mutation({
       query: (data) => ({
-        url: "/settings/store",
+        url: "/admin/settings/store",
         method: "PATCH",
         body: data,
       }),
@@ -16,7 +16,7 @@ export const settingsApi = api.injectEndpoints({
     }),
     updateSeo: builder.mutation({
       query: (data) => ({
-        url: "/settings/seo",
+        url: "/admin/settings/seo",
         method: "PATCH",
         body: data,
       }),
@@ -24,7 +24,7 @@ export const settingsApi = api.injectEndpoints({
     }),
     updateSocial: builder.mutation({
       query: (data) => ({
-        url: "/settings/social",
+        url: "/admin/settings/social",
         method: "PATCH",
         body: data,
       }),
@@ -32,7 +32,7 @@ export const settingsApi = api.injectEndpoints({
     }),
     updatePixels: builder.mutation({
       query: (data) => ({
-        url: "/settings/pixels",
+        url: "/admin/settings/pixels",
         method: "PATCH",
         body: data,
       }),
@@ -40,7 +40,7 @@ export const settingsApi = api.injectEndpoints({
     }),
     updateTheme: builder.mutation({
       query: (data) => ({
-        url: "/settings/theme",
+        url: "/admin/settings/theme",
         method: "PATCH",
         body: data,
       }),
@@ -48,7 +48,7 @@ export const settingsApi = api.injectEndpoints({
     }),
     updateCustomCode: builder.mutation({
       query: (data) => ({
-        url: "/settings/custom-code",
+        url: "/admin/settings/custom-code",
         method: "PATCH",
         body: data,
       }),

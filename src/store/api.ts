@@ -100,6 +100,12 @@ export const api = createApi({
     "Analytics",
     "Courier",
     "Package",
+    "LandingPage",
+    "LandingPages",
+    "DeliveryAreas",
+    "DeliveryArea",
+    "TrackingEvents",
+    "TrackingEvent",
   ],
   endpoints: () => ({}),
 });

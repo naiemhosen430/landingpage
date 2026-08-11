@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useGetOrdersQuery } from "@/store/orderApi";
+import { useBookOrderWithDefaultCourierMutation } from "@/store/courierApi";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 const statusMap: Record<string, string> = {
@@ -19,6 +20,9 @@ export default function OrdersPage() {
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState("");
   const [search, setSearch] = useState("");
+  const [bookingOrderId, setBookingOrderId] = useState<string | null>(null);
+  const [bookOrder, { isLoading: booking }] =
+    useBookOrderWithDefaultCourierMutation();
 
   const { data, isLoading } = useGetOrdersQuery({
     page,
@@ -29,6 +33,20 @@ export default function OrdersPage() {
 
   const orders = data?.data || [];
   const meta = data?.meta;
+
+  const handleBookOrder = async (orderId: string) => {
+    setBookingOrderId(orderId);
+    try {
+      await bookOrder(orderId).unwrap();
+    } catch (error: any) {
+      window.alert(
+        error?.data?.message ??
+          "Could not book this order with the default courier.",
+      );
+    } finally {
+      setBookingOrderId(null);
+    }
+  };
 
   return (
     <div>
@@ -174,12 +192,40 @@ export default function OrdersPage() {
                         {formatDate(order.createdAt)}
                       </td>
                       <td style={{ textAlign: "right" }}>
-                        <Link
-                          href={`/orders/${order.id}`}
-                          className="btn btn-ghost btn-sm"
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: 8,
+                            justifyContent: "flex-end",
+                          }}
                         >
-                          View
-                        </Link>
+                          <Link
+                            href={`/dashboard/orders/${order.id}`}
+                            className="btn btn-ghost btn-sm"
+                          >
+                            View
+                          </Link>
+                          <button
+                            className="btn btn-primary btn-sm"
+                            onClick={() => handleBookOrder(order.id)}
+                            disabled={
+                              booking ||
+                              Boolean(order.courier) ||
+                              bookingOrderId === order.id
+                            }
+                            title={
+                              order.courier
+                                ? "Courier already booked"
+                                : "Book with default courier"
+                            }
+                          >
+                            {bookingOrderId === order.id
+                              ? "Booking..."
+                              : order.courier
+                                ? "Booked"
+                                : "Book courier"}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

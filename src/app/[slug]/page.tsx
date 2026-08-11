@@ -1,14 +1,20 @@
+import { notFound } from "next/navigation";
 import LandingContent from "@/components/landing/LandingContent";
 import CheckoutForm from "@/components/checkout/CheckoutForm";
 import { fetchPublicLandingPage } from "@/lib/landingPage";
-import { notFound } from "next/navigation";
 
 export const dynamic = "force-static";
 export const revalidate = 60;
 
-export default async function HomePage() {
-  const page = await fetchPublicLandingPage("home");
-  if (!page) return notFound();
+export default async function SlugPage({
+  params,
+}: {
+  params: { slug: string };
+}) {
+  const page = await fetchPublicLandingPage(params.slug);
+  if (!page) {
+    notFound();
+  }
 
   return (
     <main className="lp-root">

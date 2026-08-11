@@ -1,49 +1,76 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { useAppSelector } from "@/store/hooks";
 import {
-  useGetCourierSettingsQuery,
-  useUpdateCourierSettingsMutation,
-  useGetCourierProvidersQuery,
-} from "@/store/courierApi";
+  useGetSettingsQuery,
+  useUpdateStoreInfoMutation,
+} from "@/store/settingsApi";
+import { useUploadMediaMutation } from "@/store/mediaApi";
 
-export default function CourierPage() {
-  const { data: settingsData, isLoading } =
-    useGetCourierSettingsQuery(undefined);
-  const { data: providersData } = useGetCourierProvidersQuery(undefined);
-  const [updateSettings] = useUpdateCourierSettingsMutation();
+function fileToDataUri(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
-  const settings = settingsData?.data;
-  const providers = providersData?.data || [];
+export default function SettingsPage() {
+  const user = useAppSelector((s) => s.auth.user);
+  const projectId =
+    user?.projectId ?? user?.project?.id ?? process.env.NEXT_PUBLIC_PROJECT_ID;
+  const { data: settingsData, isLoading } = useGetSettingsQuery(undefined);
+  const [updateStoreInfo] = useUpdateStoreInfoMutation();
+  const [uploadMedia] = useUploadMediaMutation();
+  const fileRef = useRef<HTMLInputElement | null>(null);
+
+  const settings = settingsData?.data ?? {};
 
   const [form, setForm] = useState({
-    enabled: settings?.enabled ?? false,
-    defaultCourier: settings?.defaultCourier || "",
-    deliveryCharge: settings?.deliveryCharge || 0,
-    codCharge: settings?.codCharge || 0,
-    freeDeliveryThreshold: settings?.freeDeliveryThreshold || 0,
-    providers: settings?.providers || [],
+    storeName: settings.storeName ?? "",
+    logo: settings.logo ?? "",
+    contactEmail: settings.contactEmail ?? "",
+    contactPhone: settings.contactPhone ?? "",
+    address: settings.address ?? "",
+    deliveryCharge: settings.deliveryCharge ?? 0,
+    taxRate: settings.taxRate ?? 0,
+    supportText: settings.supportText ?? "",
+    additionalInfo: settings.additionalInfo ?? "",
   });
 
   const [saved, setSaved] = useState(false);
 
   const handleSave = async () => {
     try {
-      await updateSettings(form).unwrap();
+      await updateStoreInfo(form).unwrap();
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
-      alert("Failed to save courier settings");
+      alert("Failed to save settings");
     }
   };
 
-  const toggleProvider = (providerId: string) => {
-    setForm((prev) => ({
-      ...prev,
-      providers: prev.providers.map((p: any) =>
-        p.id === providerId ? { ...p, enabled: !p.enabled } : p,
-      ),
-    }));
+  const handleLogoPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    try {
+      const dataUris = await Promise.all(files.map(fileToDataUri));
+      const res = await uploadMedia({
+        projectId,
+        folder: "general",
+        images: dataUris,
+      }).unwrap();
+      const first = Array.isArray(res) ? res[0] : res;
+      if (first?.secureUrl || first?.url) {
+        setForm((prev) => ({ ...prev, logo: first.secureUrl ?? first.url }));
+      }
+    } catch (err: any) {
+      alert(err?.data?.message ?? "Logo upload failed");
+    } finally {
+      if (fileRef.current) fileRef.current.value = "";
+    }
   };
 
   if (isLoading) {
@@ -58,9 +85,9 @@ export default function CourierPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Courier Settings</h1>
+          <h1 className="page-title">Store Settings</h1>
           <p className="page-subtitle">
-            Configure delivery and shipping options
+            Configure store details, logo, and defaults
           </p>
         </div>
         {saved && (
@@ -79,60 +106,129 @@ export default function CourierPage() {
         )}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+      <div style={{ maxWidth: 980 }}>
         <div className="card">
           <div className="card-header">
-            <h3 className="card-title">General Settings</h3>
+            <h3 className="card-title">General</h3>
           </div>
           <div className="card-body">
-            <div
-              className="form-group"
-              style={{ display: "flex", alignItems: "center", gap: 12 }}
-            >
+            <div className="form-group">
+              <label className="form-label">Store name</label>
               <input
-                type="checkbox"
-                id="courier-enabled"
-                checked={form.enabled}
+                className="form-input"
+                value={form.storeName}
                 onChange={(e) =>
-                  setForm({ ...form, enabled: e.target.checked })
+                  setForm({ ...form, storeName: e.target.value })
                 }
-                style={{ width: 20, height: 20, cursor: "pointer" }}
               />
-              <label
-                htmlFor="courier-enabled"
-                style={{ fontWeight: 500, cursor: "pointer" }}
-              >
-                Enable Courier Integration
-              </label>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Default Courier</label>
-              <select
-                className="form-select"
-                value={form.defaultCourier}
-                onChange={(e) =>
-                  setForm({ ...form, defaultCourier: e.target.value })
-                }
-              >
-                <option value="">Select Default</option>
-                {providers.map((p: any) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
+              <label className="form-label">Logo</label>
+              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                <div
+                  style={{
+                    width: 96,
+                    height: 64,
+                    background: "var(--bg-secondary)",
+                    borderRadius: 6,
+                    overflow: "hidden",
+                  }}
+                >
+                  {form.logo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={form.logo}
+                      alt="logo"
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        padding: 8,
+                        fontSize: 12,
+                        color: "var(--text-muted)",
+                      }}
+                    >
+                      No logo
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => fileRef.current?.click()}
+                  >
+                    Upload
+                  </button>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoPick}
+                    hidden
+                  />
+                  <input
+                    className="form-input"
+                    placeholder="Logo URL"
+                    value={form.logo}
+                    onChange={(e) => setForm({ ...form, logo: e.target.value })}
+                  />
+                </div>
+              </div>
             </div>
 
             <div
               style={{
                 display: "grid",
                 gridTemplateColumns: "1fr 1fr",
-                gap: 16,
+                gap: 12,
               }}
             >
               <div className="form-group">
-                <label className="form-label">Delivery Charge</label>
+                <label className="form-label">Contact Email</label>
+                <input
+                  className="form-input"
+                  value={form.contactEmail}
+                  onChange={(e) =>
+                    setForm({ ...form, contactEmail: e.target.value })
+                  }
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Contact Phone</label>
+                <input
+                  className="form-input"
+                  value={form.contactPhone}
+                  onChange={(e) =>
+                    setForm({ ...form, contactPhone: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Address</label>
+              <input
+                className="form-input"
+                value={form.address}
+                onChange={(e) => setForm({ ...form, address: e.target.value })}
+              />
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 12,
+              }}
+            >
+              <div className="form-group">
+                <label className="form-label">Delivery Charge (default)</label>
                 <input
                   type="number"
                   className="form-input"
@@ -140,103 +236,55 @@ export default function CourierPage() {
                   onChange={(e) =>
                     setForm({ ...form, deliveryCharge: Number(e.target.value) })
                   }
-                  min="0"
+                  min={0}
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">COD Charge</label>
+                <label className="form-label">Tax Rate (%)</label>
                 <input
                   type="number"
                   className="form-input"
-                  value={form.codCharge}
+                  value={form.taxRate}
                   onChange={(e) =>
-                    setForm({ ...form, codCharge: Number(e.target.value) })
+                    setForm({ ...form, taxRate: Number(e.target.value) })
                   }
-                  min="0"
+                  min={0}
+                  step={0.01}
                 />
               </div>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Free Delivery Threshold</label>
-              <input
-                type="number"
+              <label className="form-label">Support / Additional Info</label>
+              <textarea
                 className="form-input"
-                value={form.freeDeliveryThreshold}
+                rows={4}
+                value={form.supportText}
                 onChange={(e) =>
-                  setForm({
-                    ...form,
-                    freeDeliveryThreshold: Number(e.target.value),
-                  })
+                  setForm({ ...form, supportText: e.target.value })
                 }
-                min="0"
-                placeholder="0 = no free delivery"
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Additional Settings JSON</label>
+              <textarea
+                className="form-input"
+                rows={4}
+                value={form.additionalInfo}
+                onChange={(e) =>
+                  setForm({ ...form, additionalInfo: e.target.value })
+                }
               />
               <div className="form-hint">
-                Orders above this amount get free delivery. Set 0 to disable.
+                Free-form JSON or notes for custom backend settings.
               </div>
             </div>
 
-            <button
-              onClick={handleSave}
-              className="btn btn-primary"
-              style={{ marginTop: 8 }}
-            >
-              Save Settings
-            </button>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="card-header">
-            <h3 className="card-title">Courier Providers</h3>
-          </div>
-          <div className="card-body">
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {providers.map((provider: any) => (
-                <div
-                  key={provider.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: 16,
-                    border: "1px solid var(--border-color)",
-                    borderRadius: "var(--radius)",
-                    background: provider.enabled
-                      ? "var(--success-light)"
-                      : "var(--bg-secondary)",
-                  }}
-                >
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 15 }}>
-                      {provider.name}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 13,
-                        color: "var(--text-secondary)",
-                        marginTop: 2,
-                      }}
-                    >
-                      {provider.code.toUpperCase()}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => toggleProvider(provider.id)}
-                    className={`btn btn-sm ${provider.enabled ? "btn-primary" : "btn-secondary"}`}
-                  >
-                    {provider.enabled ? "Enabled" : "Disabled"}
-                  </button>
-                </div>
-              ))}
-              {providers.length === 0 && (
-                <div className="empty-state">
-                  <div className="empty-state-desc">
-                    No courier providers configured
-                  </div>
-                </div>
-              )}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={handleSave} className="btn btn-primary">
+                Save Settings
+              </button>
             </div>
           </div>
         </div>

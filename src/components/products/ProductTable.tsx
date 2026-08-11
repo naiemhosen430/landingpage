@@ -88,7 +88,7 @@ export default function ProductTable({
                     {(product.thumbnailImage?.secureUrl ??
                     product.thumbnailImage?.url ??
                     product.images?.[0]?.url) ? (
-                      <Image
+                      <img
                         src={
                           product.thumbnailImage?.secureUrl ??
                           product.thumbnailImage?.url ??

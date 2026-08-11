@@ -1,38 +1,84 @@
 import { api } from "./api";
 
+export type AnalyticsRange =
+  | "today"
+  | "yesterday"
+  | "7d"
+  | "30d"
+  | "90d"
+  | "12m"
+  | "custom";
+
+export interface AnalyticsQuery {
+  range?: AnalyticsRange;
+  from?: string;
+  to?: string;
+}
+
+export interface AnalyticsDailyPoint {
+  date: string;
+  revenue: number;
+  orders: number;
+}
+
+export interface AnalyticsRangeSummary {
+  totalPageViews: number;
+  totalUniqueVisitors: number;
+  totalOrders: number;
+  totalRevenue: number;
+  totalProductsSold: number;
+  newCustomers: number;
+  returningCustomers: number;
+  avgOrderValue: number;
+}
+
+export interface AnalyticsResponse {
+  success: boolean;
+  statusCode: number;
+  message: string;
+  data: {
+    summary?: {
+      totalRevenue: number;
+      totalOrders: number;
+      totalCustomers: number;
+      totalProducts: number;
+      revenueChange: number;
+      ordersChange: number;
+      customersChange: number;
+      avgOrderValue: number;
+      conversionRate: number;
+      chartData: AnalyticsDailyPoint[];
+    };
+    detail?: {
+      summary: AnalyticsRangeSummary;
+      daily: AnalyticsDailyPoint[];
+    };
+    platform?: {
+      totalProjects: number;
+      activeProjects: number;
+    };
+    dateRange?: {
+      from: string;
+      to: string;
+    };
+  };
+}
+
 export const analyticsApi = api.injectEndpoints({
   endpoints: (builder) => ({
-    getAnalyticsOverview: builder.query({
-      query: (range) => `/analytics/overview?range=${range}`,
+    getAnalytics: builder.query<AnalyticsResponse, AnalyticsQuery | void>({
+      query: (query) => {
+        const options = query ?? {};
+        const params = new URLSearchParams();
+        params.set("range", options.range ?? "30d");
+        if (options.from) params.set("from", options.from);
+        if (options.to) params.set("to", options.to);
+
+        return `/admin/analytics?${params.toString()}`;
+      },
       providesTags: ["Analytics"],
-    }),
-    getRevenueChart: builder.query({
-      query: (range) => `/analytics/revenue?range=${range}`,
-    }),
-    getOrderChart: builder.query({
-      query: (range) => `/analytics/orders?range=${range}`,
-    }),
-    getVisitorChart: builder.query({
-      query: (range) => `/analytics/visitors?range=${range}`,
-    }),
-    getTopProducts: builder.query({
-      query: (range) => `/analytics/top-products?range=${range}`,
-    }),
-    getTopPages: builder.query({
-      query: (range) => `/analytics/top-pages?range=${range}`,
-    }),
-    getTrafficSources: builder.query({
-      query: (range) => `/analytics/traffic?range=${range}`,
     }),
   }),
 });
 
-export const {
-  useGetAnalyticsOverviewQuery,
-  useGetRevenueChartQuery,
-  useGetOrderChartQuery,
-  useGetVisitorChartQuery,
-  useGetTopProductsQuery,
-  useGetTopPagesQuery,
-  useGetTrafficSourcesQuery,
-} = analyticsApi;
+export const { useGetAnalyticsQuery } = analyticsApi;

@@ -1,5 +1,29 @@
 import { api } from "./api";
 
+export type PublicAnalyticsEvent = {
+  eventType:
+    | "page_view"
+    | "product_view"
+    | "add_to_cart"
+    | "checkout_started"
+    | "purchase"
+    | "custom";
+  eventName: string;
+  payload?: Record<string, unknown>;
+  sessionId?: string;
+  visitorId?: string;
+  url?: string;
+  referrer?: string;
+};
+
+export type PublicAnalyticsResponse = {
+  success: boolean;
+  statusCode: number;
+  message: string;
+  data?: Record<string, unknown>;
+  errors?: string[];
+};
+
 export const publicApi = api.injectEndpoints({
   endpoints: (builder) => ({
     getPublicProducts: builder.query<any, Record<string, any> | void>({
@@ -20,20 +44,6 @@ export const publicApi = api.injectEndpoints({
         body: data,
       }),
     }),
-    trackVisitor: builder.mutation({
-      query: (data) => ({
-        url: "/public/track/visitor",
-        method: "POST",
-        body: data,
-      }),
-    }),
-    trackEvent: builder.mutation({
-      query: (data) => ({
-        url: "/public/track/event",
-        method: "POST",
-        body: data,
-      }),
-    }),
     subscribeNewsletter: builder.mutation({
       query: (email) => ({
         url: "/public/newsletter",
@@ -49,7 +59,26 @@ export const publicApi = api.injectEndpoints({
       }),
     }),
     getLandingPage: builder.query({
-      query: () => "/public/landing",
+      query: (slug: string) =>
+        `/public/v1/landing-pages/${encodeURIComponent(slug)}`,
+      transformResponse: (response: any) => response?.data ?? response,
+    }),
+    trackPageView: builder.mutation<PublicAnalyticsResponse, string | void>({
+      query: (visitorId) => ({
+        url: "/public/v1/analytics",
+        method: "GET",
+        params: visitorId ? { visitorId } : undefined,
+      }),
+    }),
+    trackAnalyticsEvent: builder.mutation<
+      PublicAnalyticsResponse,
+      PublicAnalyticsEvent
+    >({
+      query: (data) => ({
+        url: "/public/v1/analytics",
+        method: "POST",
+        body: data,
+      }),
     }),
   }),
 });
@@ -58,8 +87,8 @@ export const {
   useGetPublicProductsQuery,
   useGetPublicProductQuery,
   usePlaceOrderMutation,
-  useTrackVisitorMutation,
-  useTrackEventMutation,
+  useTrackPageViewMutation,
+  useTrackAnalyticsEventMutation,
   useSubscribeNewsletterMutation,
   useSubmitContactMutation,
   useGetLandingPageQuery,

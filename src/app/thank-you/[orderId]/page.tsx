@@ -3,21 +3,22 @@
 import { useParams } from "next/navigation";
 import { useEffect } from "react";
 import Link from "next/link";
-import { useTrackEventMutation } from "@/store/publicApi";
+import { useTrackAnalyticsEventMutation } from "@/store/publicApi";
 
 export default function Page() {
   const params = useParams();
   const orderId = params.orderId as string;
-  const [trackEvent] = useTrackEventMutation();
+  const [trackAnalyticsEvent] = useTrackAnalyticsEventMutation();
 
   useEffect(() => {
     if (orderId) {
-      trackEvent({
-        event: "purchase",
-        params: { order_id: orderId },
+      trackAnalyticsEvent({
+        eventType: "purchase",
+        eventName: "purchase_completed",
+        payload: { orderId },
       });
     }
-  }, [orderId, trackEvent]);
+  }, [orderId, trackAnalyticsEvent]);
 
   return (
     <div

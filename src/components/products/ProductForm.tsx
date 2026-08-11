@@ -4,9 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ImageAsset,
+  ProductVariant,
   useCreateProductMutation,
-  useDeleteImagesMutation,
   useUpdateProductMutation,
+  useDeleteImagesMutation,
   useUploadImagesMutation,
   useGetCategoriesQuery,
 } from "@/store/productApi";
@@ -70,6 +71,94 @@ export default function ProductForm({
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const initialVariants = (initialData?.variants ?? []) as ProductVariant[];
+  const initialSizeValues = Array.from(
+    new Set(
+      initialVariants
+        .map((variant) => variant.attributes?.size)
+        .filter(Boolean),
+    ),
+  );
+  const initialColorValues = Array.from(
+    new Set(
+      initialVariants
+        .map((variant) => variant.attributes?.color)
+        .filter(Boolean),
+    ),
+  );
+  const [hasSize, setHasSize] = useState(initialSizeValues.length > 0);
+  const [hasColor, setHasColor] = useState(initialColorValues.length > 0);
+  const [sizeOptions, setSizeOptions] = useState(initialSizeValues.join(", "));
+  const [colorOptions, setColorOptions] = useState(
+    initialColorValues.join(", "),
+  );
+
+  const parseOptions = (value: string) =>
+    Array.from(
+      new Set(
+        value
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean),
+      ),
+    );
+
+  const variantKey = (variant: ProductVariant) =>
+    `${variant.attributes?.size ?? ""}|${variant.attributes?.color ?? ""}`;
+
+  const generateVariants = () => {
+    const sizes = hasSize ? parseOptions(sizeOptions) : [undefined];
+    const colors = hasColor ? parseOptions(colorOptions) : [undefined];
+
+    if ((hasSize && sizes.length === 0) || (hasColor && colors.length === 0)) {
+      setErrors((previous) => ({
+        ...previous,
+        variants: "Add at least one size or color option.",
+      }));
+      return;
+    }
+
+    const existing = new Map(
+      (form.variants as ProductVariant[]).map((variant) => [
+        variantKey(variant),
+        variant,
+      ]),
+    );
+    const variants = sizes.flatMap((size) =>
+      colors.map((color) => {
+        const attributes: Record<string, string> = {};
+        if (size) attributes.size = size;
+        if (color) attributes.color = color;
+        const previous = existing.get(
+          variantKey({ attributes } as ProductVariant),
+        );
+        return (
+          previous ?? {
+            sku: `${form.sku}${size || color ? `-${[size, color].filter(Boolean).join("-").toUpperCase()}` : ""}`,
+            name: [size, color].filter(Boolean).join(" / "),
+            price: Number(form.price) || 0,
+            stock: 0,
+            lowStockThreshold: Number(form.lowStockThreshold) || 0,
+            attributes,
+            isActive: true,
+          }
+        );
+      }),
+    );
+
+    handleChange("variants", variants);
+    setErrors((previous) => {
+      const next = { ...previous };
+      delete next.variants;
+      return next;
+    });
+  };
+
+  const updateVariant = (index: number, changes: Partial<ProductVariant>) => {
+    const variants = [...(form.variants as ProductVariant[])];
+    variants[index] = { ...variants[index], ...changes };
+    handleChange("variants", variants);
+  };
 
   const fileToDataUri = (file: File) =>
     new Promise<string>((resolve, reject) => {
@@ -182,8 +271,23 @@ export default function ProductForm({
       variants,
       ...productFields
     } = form;
+    const normalizedVariants = (variants as ProductVariant[]).map(
+      (variant) => ({
+        ...variant,
+        price: Number(variant.price),
+        compareAtPrice: variant.compareAtPrice
+          ? Number(variant.compareAtPrice)
+          : undefined,
+        stock: Number(variant.stock),
+        lowStockThreshold: Number(variant.lowStockThreshold),
+        attributes: Object.fromEntries(
+          Object.entries(variant.attributes ?? {}).filter(([, value]) => value),
+        ),
+      }),
+    );
     const payload = {
       ...productFields,
+      variants: normalizedVariants,
       categories: form.categories,
       thumbnailImage: form.thumbnailImage,
       images: form.images,
@@ -202,7 +306,6 @@ export default function ProductForm({
             }
           : undefined,
       attributes,
-      variants,
       seoTitle: form.seoTitle || undefined,
       seoDescription: form.seoDescription || undefined,
       isActive: status === "active",
@@ -536,21 +639,147 @@ export default function ProductForm({
       </div>
 
       <div className="form-group">
-        <label className="form-label">Variants (JSON array)</label>
-        <textarea
-          className="form-textarea"
-          value={JSON.stringify(form.variants, null, 2)}
-          onChange={(e) => {
-            try {
-              const variants = JSON.parse(e.target.value || "[]");
-              if (Array.isArray(variants)) handleChange("variants", variants);
-            } catch {
-              return;
-            }
-          }}
-          rows={5}
-          placeholder="[]"
-        />
+        <label className="form-label">
+          Product options and variant pricing
+        </label>
+        <div style={{ display: "flex", gap: 20, marginBottom: 12 }}>
+          <label>
+            <input
+              type="checkbox"
+              checked={hasSize}
+              onChange={(event) => {
+                const checked = event.target.checked;
+                setHasSize(checked);
+                if (!checked && !hasColor) handleChange("variants", []);
+              }}
+            />{" "}
+            This product has sizes
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={hasColor}
+              onChange={(event) => {
+                const checked = event.target.checked;
+                setHasColor(checked);
+                if (!checked && !hasSize) handleChange("variants", []);
+              }}
+            />{" "}
+            This product has colors
+          </label>
+        </div>
+
+        {(hasSize || hasColor) && (
+          <div
+            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}
+          >
+            {hasSize && (
+              <div>
+                <label className="form-label">Sizes</label>
+                <input
+                  className="form-input"
+                  value={sizeOptions}
+                  onChange={(event) => setSizeOptions(event.target.value)}
+                  placeholder="S, M, L, XL"
+                />
+              </div>
+            )}
+            {hasColor && (
+              <div>
+                <label className="form-label">Colors</label>
+                <input
+                  className="form-input"
+                  value={colorOptions}
+                  onChange={(event) => setColorOptions(event.target.value)}
+                  placeholder="Black, White, Red"
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={generateVariants}
+          style={{ marginTop: 12 }}
+        >
+          Generate variants
+        </button>
+        {errors.variants && <div className="form-error">{errors.variants}</div>}
+
+        {(form.variants as ProductVariant[]).length > 0 && (
+          <div style={{ overflowX: "auto", marginTop: 16 }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Variant</th>
+                  <th>SKU</th>
+                  <th>Price</th>
+                  <th>Stock</th>
+                  <th>Active</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(form.variants as ProductVariant[]).map((variant, index) => (
+                  <tr key={`${variantKey(variant)}-${index}`}>
+                    <td>
+                      {variant.name ||
+                        Object.values(variant.attributes).join(" / ")}
+                    </td>
+                    <td>
+                      <input
+                        className="form-input"
+                        value={variant.sku}
+                        onChange={(event) =>
+                          updateVariant(index, { sku: event.target.value })
+                        }
+                      />
+                    </td>
+                    <td>
+                      <input
+                        className="form-input"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={variant.price}
+                        onChange={(event) =>
+                          updateVariant(index, {
+                            price: Number(event.target.value),
+                          })
+                        }
+                      />
+                    </td>
+                    <td>
+                      <input
+                        className="form-input"
+                        type="number"
+                        min="0"
+                        value={variant.stock}
+                        onChange={(event) =>
+                          updateVariant(index, {
+                            stock: Number(event.target.value),
+                          })
+                        }
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={variant.isActive}
+                        onChange={(event) =>
+                          updateVariant(index, {
+                            isActive: event.target.checked,
+                          })
+                        }
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>

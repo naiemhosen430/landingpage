@@ -80,14 +80,14 @@ export default function CheckoutForm({
             city: form.city,
             state: form.district || undefined,
             zipCode: form.postcode || undefined,
-            country: "Bangladesh",
+            country: "", // optional
           },
         },
         notes: form.notes || undefined,
       }).unwrap();
 
       if (onClear) onClear();
-      router.push(`/thank-you?order=${result.data.id}`);
+      router.push(`/thank-you?order=${result.data?.id || result.id || ""}`);
     } catch (err: any) {
       alert(err?.data?.message || "Failed to place order");
     }
@@ -164,7 +164,7 @@ export default function CheckoutForm({
             className="form-input"
             value={form.city}
             onChange={(e) => setForm({ ...form, city: e.target.value })}
-            placeholder="Dhaka"
+            placeholder="City"
           />
           {errors.city && <div className="form-error">{errors.city}</div>}
         </div>

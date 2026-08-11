@@ -1,278 +1,399 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useAppSelector } from "@/store/hooks";
 import {
+  type MediaAsset,
+  useDeleteMediaMutation,
+  useGetMediaDetailQuery,
   useGetMediaQuery,
   useUploadMediaMutation,
-  useDeleteMediaMutation,
 } from "@/store/mediaApi";
-import Image from "next/image";
+
+const folders = ["general", "products", "categories", "pages"];
+const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+const maxFileSize = 5 * 1024 * 1024;
+
+function fileToDataUri(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function formatBytes(bytes: number) {
+  if (!bytes) return "0 B";
+  const units = ["B", "KB", "MB"];
+  const index = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(1024)),
+    units.length - 1,
+  );
+  return `${(bytes / 1024 ** index).toFixed(index ? 1 : 0)} ${units[index]}`;
+}
 
 export default function MediaPage() {
-  const { data, isLoading, refetch } = useGetMediaQuery({ page: 1, limit: 50 });
-  const [uploadMedia, { isLoading: uploading }] = useUploadMediaMutation();
-  const [deleteMedia] = useDeleteMediaMutation();
+  const user = useAppSelector((state) => state.auth.user);
+  const projectId =
+    user?.projectId ?? user?.project?.id ?? process.env.NEXT_PUBLIC_PROJECT_ID;
   const fileInputRef = useRef<HTMLInputElement>(null);
-
+  const [folder, setFolder] = useState("general");
+  const [cursor, setCursor] = useState<string | undefined>();
+  const [assets, setAssets] = useState<MediaAsset[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
+  const [detailPublicId, setDetailPublicId] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState("");
+  const { data, isLoading, isFetching, refetch } = useGetMediaQuery({
+    projectId,
+    folder,
+    limit: 30,
+    nextCursor: cursor,
+  });
+  const [uploadMedia, { isLoading: uploading }] = useUploadMediaMutation();
+  const [deleteMedia, { isLoading: deleting }] = useDeleteMediaMutation();
+  const detailQuery = useGetMediaDetailQuery(
+    { publicId: detailPublicId ?? "", projectId },
+    { skip: !detailPublicId },
+  );
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
-
-    for (let i = 0; i < files.length; i++) {
-      try {
-        await uploadMedia(files[i]).unwrap();
-      } catch (err) {
-        alert(`Failed to upload ${files[i].name}`);
-      }
+  useEffect(() => {
+    console.log({ data });
+    if (cursor && data?.resources?.length) {
+      setAssets((previous) => {
+        const existing = new Set(previous.map((asset) => asset.publicId));
+        return [
+          ...previous,
+          ...data.resources.filter((asset) => !existing.has(asset.publicId)),
+        ];
+      });
     }
-    refetch();
-    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, [cursor, data?.resources]);
+
+  const changeFolder = (value: string) => {
+    setFolder(value);
+    setCursor(undefined);
+    setAssets([]);
+    setSelected([]);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Delete this file?")) return;
+  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    if (!files.length) return;
+    setUploadError("");
+    if (files.length > 10) {
+      setUploadError("You can upload a maximum of 10 images at a time.");
+      return;
+    }
+    const invalid = files.find(
+      (file) => !allowedTypes.includes(file.type) || file.size > maxFileSize,
+    );
+    if (invalid) {
+      setUploadError("Use JPG, PNG, or WEBP images up to 5 MB each.");
+      return;
+    }
     try {
-      await deleteMedia(id).unwrap();
-      setSelected((prev) => prev.filter((s) => s !== id));
-    } catch (err) {
-      alert("Failed to delete");
+      await uploadMedia({
+        projectId,
+        folder,
+        images: await Promise.all(files.map(fileToDataUri)),
+      }).unwrap();
+      setCursor(undefined);
+      setAssets([]);
+      await refetch();
+    } catch (error: any) {
+      setUploadError(error?.data?.message ?? "Upload failed.");
+    } finally {
+      event.target.value = "";
     }
   };
 
-  const toggleSelect = (id: string) => {
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
+  const removeAssets = async (publicIds: string[]) => {
+    if (
+      !publicIds.length ||
+      !window.confirm(
+        `Delete ${publicIds.length} selected file${publicIds.length === 1 ? "" : "s"}?`,
+      )
+    )
+      return;
+    try {
+      await deleteMedia({ projectId, publicIds }).unwrap();
+      setSelected([]);
+      setCursor(undefined);
+      setAssets([]);
+      await refetch();
+    } catch (error: any) {
+      window.alert(error?.data?.message ?? "Delete failed.");
+    }
+  };
+
+  const toggleSelect = (publicId: string) => {
+    setSelected((previous) =>
+      previous.includes(publicId)
+        ? previous.filter((id) => id !== publicId)
+        : [...previous, publicId],
     );
   };
 
-  const media = data?.data || [];
+  const visibleAssets = cursor ? assets : (data?.resources ?? []);
+  const hasMore = Boolean(data?.nextCursor);
 
   return (
     <div>
       <div className="page-header">
         <div>
           <h1 className="page-title">Media Library</h1>
-          <p className="page-subtitle">Manage your store images and files</p>
+          <p className="page-subtitle">
+            Manage project-scoped Cloudinary image assets
+          </p>
         </div>
-        <div style={{ display: "flex", gap: 12 }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            alignItems: "center",
+            flexWrap: "wrap",
+          }}
+        >
+          <select
+            className="form-select"
+            value={folder}
+            onChange={(event) => changeFolder(event.target.value)}
+          >
+            {folders.map((item) => (
+              <option key={item} value={item}>
+                {item[0].toUpperCase() + item.slice(1)}
+              </option>
+            ))}
+          </select>
           {selected.length > 0 && (
             <button
-              onClick={() => {
-                if (confirm(`Delete ${selected.length} selected files?`)) {
-                  selected.forEach((id) => deleteMedia(id));
-                  setSelected([]);
-                }
-              }}
               className="btn btn-danger"
+              onClick={() => removeAssets(selected)}
+              disabled={deleting}
             >
               Delete ({selected.length})
             </button>
           )}
           <button
-            onClick={() => fileInputRef.current?.click()}
             className="btn btn-primary"
+            onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="17 8 12 3 7 8" />
-              <line x1="12" y1="3" x2="12" y2="15" />
-            </svg>
-            {uploading ? "Uploading..." : "Upload"}
+            {uploading ? "Uploading..." : "Upload images"}
           </button>
           <input
             ref={fileInputRef}
             type="file"
             multiple
-            accept="image/*"
+            accept="image/jpeg,image/jpg,image/png,image/webp"
             onChange={handleUpload}
-            style={{ display: "none" }}
+            hidden
           />
         </div>
       </div>
 
-      {isLoading ? (
+      {uploadError && (
+        <div className="alert alert-error" style={{ marginBottom: 24 }}>
+          {uploadError}
+        </div>
+      )}
+      {isLoading && !assets.length ? (
         <div style={{ padding: 40, display: "flex", justifyContent: "center" }}>
           <div className="spinner" />
         </div>
       ) : (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
-            gap: 16,
-          }}
-        >
-          {media.map((file: any) => (
-            <div
-              key={file.id}
-              onClick={() => toggleSelect(file.id)}
-              style={{
-                position: "relative",
-                borderRadius: "var(--radius-md)",
-                overflow: "hidden",
-                border: selected.includes(file.id)
-                  ? "2px solid var(--primary)"
-                  : "2px solid transparent",
-                cursor: "pointer",
-                background: "var(--bg-primary)",
-                boxShadow: "var(--shadow)",
-              }}
-            >
+        <>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+              gap: 16,
+            }}
+          >
+            {visibleAssets.map((asset) => (
               <div
+                key={asset.publicId}
                 style={{
-                  aspectRatio: "1",
                   position: "relative",
-                  background: "var(--bg-tertiary)",
+                  borderRadius: "var(--radius-md)",
+                  overflow: "hidden",
+                  border: selected.includes(asset.publicId)
+                    ? "2px solid var(--primary)"
+                    : "2px solid transparent",
+                  background: "var(--bg-primary)",
+                  boxShadow: "var(--shadow)",
                 }}
               >
-                {file.type === "image" ? (
-                  <Image
-                    src={file.url}
-                    alt={file.name}
-                    fill
-                    style={{ objectFit: "cover" }}
-                  />
-                ) : (
-                  <div
+                <button
+                  type="button"
+                  onClick={() => setDetailPublicId(asset.publicId)}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    padding: 0,
+                    border: 0,
+                    cursor: "pointer",
+                    background: "var(--bg-tertiary)",
+                  }}
+                >
+                  <img
+                    src={asset.secureUrl || asset.url}
+                    alt={asset.publicId}
                     style={{
+                      display: "block",
                       width: "100%",
-                      height: "100%",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "var(--text-muted)",
+                      aspectRatio: "1",
+                      objectFit: "cover",
                     }}
-                  >
-                    <svg
-                      width="40"
-                      height="40"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                    >
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                      <polyline points="14 2 14 8 20 8" />
-                      <line x1="16" y1="13" x2="8" y2="13" />
-                      <line x1="16" y1="17" x2="8" y2="17" />
-                      <polyline points="10 9 9 9 8 9" />
-                    </svg>
-                  </div>
-                )}
-                {selected.includes(file.id) && (
+                  />
+                </button>
+                <div style={{ padding: 12 }}>
                   <div
                     style={{
-                      position: "absolute",
-                      top: 8,
-                      left: 8,
-                      width: 24,
-                      height: 24,
-                      background: "var(--primary)",
-                      borderRadius: "var(--radius-full)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "white",
+                      fontSize: 13,
+                      fontWeight: 500,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
                     }}
+                    title={asset.publicId}
                   >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
+                    {asset.publicId.split("/").pop()}
                   </div>
-                )}
-              </div>
-              <div style={{ padding: 12 }}>
-                <div
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 500,
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
-                >
-                  {file.name}
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginTop: 6,
-                  }}
-                >
-                  <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                    {(file.size / 1024).toFixed(1)} KB
-                  </span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(file.id);
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: "var(--text-muted)",
+                      marginTop: 6,
                     }}
-                    className="btn btn-ghost btn-sm"
-                    style={{ color: "var(--danger)", padding: 4 }}
                   >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
+                    {asset.width} x {asset.height} · {formatBytes(asset.bytes)}
+                  </div>
+                  <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => toggleSelect(asset.publicId)}
                     >
-                      <polyline points="3 6 5 6 21 6" />
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                    </svg>
-                  </button>
+                      {selected.includes(asset.publicId)
+                        ? "Selected"
+                        : "Select"}
+                    </button>
+                    <button
+                      className="btn btn-danger btn-sm"
+                      onClick={() => removeAssets([asset.publicId])}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-          {media.length === 0 && (
-            <div style={{ gridColumn: "1 / -1" }}>
-              <div className="empty-state">
-                <div className="empty-state-icon">
-                  <svg
-                    width="32"
-                    height="32"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <rect x="3" y="3" width="18" height="18" rx="2" />
-                    <circle cx="8.5" cy="8.5" r="1.5" />
-                    <polyline points="21 15 16 10 5 21" />
-                  </svg>
-                </div>
-                <div className="empty-state-title">No media files</div>
-                <div className="empty-state-desc">
-                  Upload images to use in your products and pages.
+            ))}
+            {!visibleAssets.length && (
+              <div style={{ gridColumn: "1 / -1" }}>
+                <div className="empty-state">
+                  <div className="empty-state-title">No media files</div>
+                  <div className="empty-state-desc">
+                    Upload images to the {folder} folder.
+                  </div>
                 </div>
               </div>
+            )}
+          </div>
+          {hasMore && (
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                marginTop: 24,
+              }}
+            >
+              <button
+                className="btn btn-secondary"
+                disabled={isFetching}
+                onClick={() => {
+                  setAssets(visibleAssets);
+                  setCursor(data?.nextCursor);
+                }}
+              >
+                {isFetching ? "Loading..." : "Load more"}
+              </button>
             </div>
           )}
+        </>
+      )}
+
+      {detailPublicId && (
+        <div
+          className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="media-detail-title"
+        >
+          <div
+            className="modal"
+            style={{ width: "min(560px, calc(100vw - 32px))" }}
+          >
+            <div
+              className="modal-header"
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <h3 id="media-detail-title">Media details</h3>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => setDetailPublicId(null)}
+              >
+                Close
+              </button>
+            </div>
+            <div className="modal-body">
+              {detailQuery.isLoading ? (
+                <div className="spinner" />
+              ) : detailQuery.data ? (
+                <>
+                  <img
+                    src={detailQuery.data.secureUrl || detailQuery.data.url}
+                    alt={detailQuery.data.publicId}
+                    style={{
+                      width: "100%",
+                      maxHeight: 300,
+                      objectFit: "contain",
+                      background: "var(--bg-tertiary)",
+                    }}
+                  />
+                  <dl
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "auto 1fr",
+                      gap: 8,
+                      marginTop: 16,
+                    }}
+                  >
+                    <dt>Public ID</dt>
+                    <dd style={{ overflowWrap: "anywhere" }}>
+                      {detailQuery.data.publicId}
+                    </dd>
+                    <dt>Folder</dt>
+                    <dd>{detailQuery.data.folder}</dd>
+                    <dt>Format</dt>
+                    <dd>{detailQuery.data.format}</dd>
+                    <dt>Dimensions</dt>
+                    <dd>
+                      {detailQuery.data.width} x {detailQuery.data.height}
+                    </dd>
+                    <dt>Size</dt>
+                    <dd>{formatBytes(detailQuery.data.bytes)}</dd>
+                  </dl>
+                </>
+              ) : (
+                <div className="form-error">Unable to load media details.</div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
