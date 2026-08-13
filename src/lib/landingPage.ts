@@ -25,21 +25,27 @@ export async function fetchPublicLandingPage(
     throw new Error("NEXT_PUBLIC_API_URL must be defined");
   }
 
-  const res = await fetch(
-    `${apiBase}/public/v1/landing-pages/${encodeURIComponent(slug)}`,
-    {
-      headers: {
-        "x-project-id": projectId ?? "",
-        "x-project-key": projectKey ?? "",
+  try {
+    const res = await fetch(
+      `${apiBase}/public/v1/landing-pages/${encodeURIComponent(slug)}`,
+      {
+        headers: {
+          "x-project-id": projectId ?? "",
+          "x-project-key": projectKey ?? "",
+        },
+        next: { revalidate: 60 },
       },
-      next: { revalidate: 60 },
-    },
-  );
+    );
 
-  if (!res.ok) {
+    if (!res.ok) {
+      return null;
+    }
+
+    const json = await res.json();
+    return json?.data ?? null;
+  } catch (error) {
+    // Handle network errors gracefully (e.g., during build time when API is unavailable)
+    console.error("Failed to fetch landing page:", error);
     return null;
   }
-
-  const json = await res.json();
-  return json?.data ?? null;
 }
