@@ -86,6 +86,26 @@ export default function LoginPage() {
   const [error, setError] = useState<ParsedError | null>(null);
   const [shake, setShake] = useState(false);
 
+  useEffect(() => {
+    const root = document.querySelector(".prm-auth-page");
+    let theme = "light";
+
+    try {
+      const stored = localStorage.getItem("dashboard-theme");
+      if (stored === "light" || stored === "dark") {
+        theme = stored;
+      } else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+        theme = "dark";
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    if (root) {
+      root.setAttribute("data-theme", theme);
+    }
+  }, []);
+
   // Trigger shake animation when error changes
   useEffect(() => {
     if (error) {
@@ -226,17 +246,44 @@ export default function LoginPage() {
         }
 
         .prm-auth-page {
+          --auth-page-bg: #0b0b10;
+          --auth-card-bg: rgba(17, 17, 27, 0.65);
+          --auth-border: rgba(255, 255, 255, 0.06);
+          --auth-input-bg: rgba(255, 255, 255, 0.025);
+          --auth-input-border: rgba(255, 255, 255, 0.07);
+          --auth-text: #f1f5f9;
+          --auth-muted: #94a3b8;
+          --auth-error-bg: rgba(244, 63, 94, 0.06);
+          --auth-error-border: rgba(244, 63, 94, 0.15);
+          --auth-error-title: #fda4af;
+          --auth-error-text: #fb7185;
+
           margin: 0;
           min-height: 100vh;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: #0b0b10;
+          background: var(--auth-page-bg);
+          color: var(--auth-text);
           font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
           position: relative;
           overflow: hidden;
           padding: 24px;
           box-sizing: border-box;
+        }
+
+        .prm-auth-page[data-theme="light"] {
+          --auth-page-bg: #f8fafc;
+          --auth-card-bg: rgba(255, 255, 255, 0.98);
+          --auth-border: rgba(148, 163, 184, 0.24);
+          --auth-input-bg: #f8fafc;
+          --auth-input-border: #e2e8f0;
+          --auth-text: #0f172a;
+          --auth-muted: #64748b;
+          --auth-error-bg: #fee2e2;
+          --auth-error-border: #fecaca;
+          --auth-error-title: #b91c1c;
+          --auth-error-text: #991b1b;
         }
 
         .prm-auth-page::before {
@@ -292,16 +339,16 @@ export default function LoginPage() {
 
         .prm-auth-logo p {
           font-size: 0.9375rem;
-          color: #94a3b8;
+          color: var(--auth-muted);
           margin: 0;
           font-weight: 400;
         }
 
         .prm-auth-card {
-          background: rgba(17, 17, 27, 0.65);
+          background: var(--auth-card-bg);
           backdrop-filter: blur(24px);
           -webkit-backdrop-filter: blur(24px);
-          border: 1px solid rgba(255, 255, 255, 0.06);
+          border: 1px solid var(--auth-border);
           border-radius: 20px;
           padding: 2.25rem;
           box-shadow:
@@ -329,8 +376,8 @@ export default function LoginPage() {
 
         /* ===== ERROR BANNER ===== */
         .prm-auth-error {
-          background: rgba(244, 63, 94, 0.06);
-          border: 1px solid rgba(244, 63, 94, 0.15);
+          background: var(--auth-error-bg);
+          border: 1px solid var(--auth-error-border);
           border-radius: 14px;
           padding: 1rem 1.125rem;
           margin-bottom: 1.25rem;
@@ -383,7 +430,7 @@ export default function LoginPage() {
         .prm-auth-error-title {
           font-size: 0.8125rem;
           font-weight: 600;
-          color: #fda4af;
+          color: var(--auth-error-title);
           margin: 0 0 0.125rem 0;
           line-height: 1.4;
         }
@@ -391,7 +438,7 @@ export default function LoginPage() {
         .prm-auth-error-msg {
           font-size: 0.8125rem;
           font-weight: 400;
-          color: #fb7185;
+          color: var(--auth-error-text);
           margin: 0;
           line-height: 1.5;
         }
@@ -456,19 +503,27 @@ export default function LoginPage() {
           transform: translateY(-50%);
           width: 1.25rem;
           height: 1.25rem;
-          color: #64748b;
+          color: var(--auth-muted);
           transition: all 0.25s ease;
           pointer-events: none;
           z-index: 2;
         }
 
+        .prm-auth-footer {
+          text-align: center;
+          margin-top: 1.75rem;
+          font-size: 0.8125rem;
+          color: var(--auth-muted);
+          animation: prm-fadeInUp 0.6s ease-out 0.16s both;
+        }
+
         .prm-auth-input {
           width: 100%;
           padding: 0.875rem 1rem 0.875rem 3rem;
-          background: rgba(255, 255, 255, 0.025);
-          border: 1px solid rgba(255, 255, 255, 0.07);
+          background: var(--auth-input-bg);
+          border: 1px solid var(--auth-input-border);
           border-radius: 12px;
-          color: #f1f5f9;
+          color: var(--auth-text);
           font-size: 0.9375rem;
           font-weight: 400;
           outline: none;
@@ -478,7 +533,7 @@ export default function LoginPage() {
         }
 
         .prm-auth-input::placeholder {
-          color: #475569;
+          color: var(--auth-muted);
         }
 
         .prm-auth-input:hover {

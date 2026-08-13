@@ -49,3 +49,8 @@ export function debounce<T extends (...args: any[]) => void>(
     timer = setTimeout(() => fn(...args), delay);
   };
 }
+
+// Simple className join helper used across components
+export function cn(...inputs: Array<string | false | null | undefined>) {
+  return inputs.filter(Boolean).join(" ");
+}

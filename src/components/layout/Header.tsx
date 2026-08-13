@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import ThemeToggle from "@/components/ui/ThemeToggle";
 
 interface HeaderProps {
   expiryDate?: string | null;
@@ -35,6 +36,7 @@ export default function Header({ expiryDate, daysLeft }: HeaderProps) {
       </div>
 
       <div className="header-actions">
+        <ThemeToggle rootSelector=".dashboard-layout" />
         {expiryDate && (
           <span
             style={{

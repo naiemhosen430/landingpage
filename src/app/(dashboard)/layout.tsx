@@ -7,6 +7,7 @@ import { useGetMySubscriptionQuery } from "@/store/packageApi";
 import { formatDate } from "@/lib/utils";
 import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";
+import "@/styles/dashboard.css";
 
 export default function DashboardLayout({
   children,

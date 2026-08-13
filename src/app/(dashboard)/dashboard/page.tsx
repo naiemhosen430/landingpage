@@ -19,7 +19,6 @@ import {
 } from "@/store/packageApi";
 import StatCard from "@/components/dashboard/StatCard";
 import RecentOrdersTable from "@/components/dashboard/RecentOrdersTable";
-import ThemeToggle from "@/components/ui/ThemeToggle";
 import GuideModal from "@/components/ui/GuideModal";
 import Toast from "@/components/ui/Toast";
 import { useUpdateOrderStatusMutation } from "@/store/orderApi";

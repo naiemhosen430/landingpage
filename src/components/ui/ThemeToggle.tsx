@@ -2,21 +2,38 @@
 
 import { useEffect, useState } from "react";
 
-export default function ThemeToggle() {
-  const [theme, setTheme] = useState<string>(() => {
-    try {
-      return localStorage.getItem("dashboard-theme") || "light";
-    } catch (e) {
-      return "light";
-    }
-  });
+interface ThemeToggleProps {
+  rootSelector?: string;
+}
+
+const getInitialTheme = () => {
+  if (typeof window === "undefined") return "light";
+  try {
+    const stored = localStorage.getItem("dashboard-theme");
+    if (stored === "light" || stored === "dark") return stored;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light";
+  } catch (e) {
+    return "light";
+  }
+};
+
+export default function ThemeToggle({ rootSelector }: ThemeToggleProps) {
+  const [theme, setTheme] = useState<string>(getInitialTheme);
 
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
+    const root = rootSelector
+      ? document.querySelector(rootSelector)
+      : document.documentElement;
+
+    if (!root) return;
+
+    root.setAttribute("data-theme", theme);
     try {
       localStorage.setItem("dashboard-theme", theme);
     } catch (e) {}
-  }, [theme]);
+  }, [theme, rootSelector]);
 
   return (
     <button

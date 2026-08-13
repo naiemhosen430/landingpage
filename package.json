@@ -9,7 +9,11 @@
     "seed:packages": "node ./scripts/seed-packages.js"
   },
   "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
     "@reduxjs/toolkit": "^2.12.0",
+    "grapesjs": "^0.23.5",
+    "jodit-react": "^5.4.72",
+    "lucide-react": "^1.31.0",
     "next": "16.3.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
