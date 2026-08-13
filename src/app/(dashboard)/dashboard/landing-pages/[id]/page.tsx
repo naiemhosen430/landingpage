@@ -466,7 +466,7 @@ export default function LandingPageEditorPage() {
             <div className="lp-pane-fill lp-jodit-wrap">
               <JoditEditor
                 value={htmlContent}
-                config={joditConfig}
+                // config={joditConfig}
                 onBlur={(newContent: string) => setHtmlContent(newContent)}
                 onChange={() => {}}
               />
