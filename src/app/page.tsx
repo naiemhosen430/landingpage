@@ -1,13 +1,12 @@
 import LandingContent from "@/components/landing/LandingContent";
 import CheckoutForm from "@/components/checkout/CheckoutForm";
-import { fetchPublicLandingPage } from "@/lib/landingPage";
+import { fetchPublicLandingPage, getCheckoutItems } from "@/lib/landingPage";
 
 export const dynamic = "force-static";
 export const revalidate = 60;
 
 export default async function HomePage() {
   const page = await fetchPublicLandingPage("home");
-
   // If no page found, render a default landing page
   if (!page) {
     return (
@@ -20,7 +19,7 @@ export default async function HomePage() {
             <h1 style={{ fontSize: 44, marginBottom: 20 }}>Welcome</h1>
             <p>Default landing page</p>
             <div>
-              <CheckoutForm items={[] as any} />
+              <CheckoutForm items={[]} />
             </div>
           </div>
         </section>
@@ -35,10 +34,15 @@ export default async function HomePage() {
         style={{ paddingTop: 40, paddingBottom: 80 }}
       >
         <div style={{ maxWidth: 980, margin: "0 auto" }}>
-          <h1 style={{ fontSize: 44, marginBottom: 20 }}>{page.pageName}</h1>
-          <LandingContent html={page.landingContent} />
+          <h1 style={{ fontSize: 44, marginBottom: 20 }}>
+            {page.landingPage.pageName}
+          </h1>
+          <LandingContent html={page.landingPage.landingContent} />
           <div>
-            <CheckoutForm items={[] as any} />
+            <CheckoutForm
+              items={getCheckoutItems(page.products)}
+              deliveryCharge={page.deliveryArea?.price}
+            />
           </div>
         </div>
       </section>

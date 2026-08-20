@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import LandingContent from "@/components/landing/LandingContent";
 import CheckoutForm from "@/components/checkout/CheckoutForm";
-import { fetchPublicLandingPage } from "@/lib/landingPage";
+import { fetchPublicLandingPage, getCheckoutItems } from "@/lib/landingPage";
 
 export const dynamic = "force-static";
 export const revalidate = 60;
@@ -23,10 +23,15 @@ export default async function SlugPage({
         style={{ paddingTop: 40, paddingBottom: 80 }}
       >
         <div style={{ maxWidth: 980, margin: "0 auto" }}>
-          <h1 style={{ fontSize: 44, marginBottom: 20 }}>{page.pageName}</h1>
-          <LandingContent html={page.landingContent} />
+          <h1 style={{ fontSize: 44, marginBottom: 20 }}>
+            {page.landingPage.pageName}
+          </h1>
+          <LandingContent html={page.landingPage.landingContent} />
           <div>
-            <CheckoutForm items={[] as any} />
+            <CheckoutForm
+              items={getCheckoutItems(page.products)}
+              deliveryCharge={page.deliveryArea?.price}
+            />
           </div>
         </div>
       </section>

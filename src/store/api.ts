@@ -104,6 +104,7 @@ export const api = createApi({
     "LandingPages",
     "DeliveryAreas",
     "DeliveryArea",
+    "PaymentMethods",
     "TrackingEvents",
     "TrackingEvent",
   ],

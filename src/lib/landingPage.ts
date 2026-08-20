@@ -1,4 +1,4 @@
-export type LandingPageData = {
+export type LandingPage = {
   id: string;
   projectId: string;
   pageName: string;
@@ -14,13 +14,55 @@ export type LandingPageData = {
   updatedAt?: string;
 };
 
+export type PublicLandingPageData = {
+  project?: {
+    id: string;
+    name: string;
+    status: string;
+    subscriptionStatus: string;
+  };
+  landingPage: LandingPage;
+  deliveryArea?: { price?: number } | null;
+  paymentMethods?: unknown[];
+  products: Array<{
+    id: string;
+    name: string;
+    price: number;
+    stock?: number;
+    isActive?: boolean;
+    thumbnailImage?: { url?: string; secureUrl?: string };
+  }>;
+};
+
+export type CheckoutItemData = {
+  productId: string;
+  name: string;
+  price: number;
+  quantity: number;
+  image?: string;
+};
+
+export function getCheckoutItems(
+  products: PublicLandingPageData["products"] = [],
+): CheckoutItemData[] {
+  return products
+    .filter((product) => product.isActive !== false && (product.stock ?? 1) > 0)
+    .map((product) => ({
+      productId: product.id,
+      name: product.name,
+      price: Number(product.price) || 0,
+      quantity: 1,
+      image: product.thumbnailImage?.secureUrl ?? product.thumbnailImage?.url,
+    }));
+}
+
 const apiBase = process.env.NEXT_PUBLIC_API_URL;
 const projectId = process.env.NEXT_PUBLIC_PROJECT_ID;
 const projectKey = process.env.NEXT_PUBLIC_PROJECT_KEY;
 
 export async function fetchPublicLandingPage(
   slug: string,
-): Promise<LandingPageData | null> {
+): Promise<PublicLandingPageData | null> {
   if (!apiBase) {
     throw new Error("NEXT_PUBLIC_API_URL must be defined");
   }
