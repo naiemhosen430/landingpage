@@ -38,6 +38,7 @@ export default function PaymentMethodsPage() {
     useDeletePaymentMethodMutation();
   const [form, setForm] = useState<PaymentMethodInput>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
   const [detailsText, setDetailsText] = useState("{}");
   const [error, setError] = useState("");
 
@@ -61,6 +62,15 @@ export default function PaymentMethodsPage() {
   }, [editingId, methods]);
 
   const resetForm = () => {
+    setFormOpen(false);
+    setEditingId(null);
+    setForm({ ...emptyForm, details: {} });
+    setDetailsText("{}");
+    setError("");
+  };
+
+  const openNewForm = () => {
+    setFormOpen(true);
     setEditingId(null);
     setForm({ ...emptyForm, details: {} });
     setDetailsText("{}");
@@ -99,6 +109,7 @@ export default function PaymentMethodsPage() {
   const handleEdit = (method: PaymentMethod) => {
     setError("");
     setEditingId(method.id);
+    setFormOpen(true);
   };
 
   const handleDelete = async (method: PaymentMethod) => {
@@ -126,8 +137,8 @@ export default function PaymentMethodsPage() {
             Configure the payment options shown on your public storefront.
           </p>
         </div>
-        <button className="btn btn-primary" onClick={resetForm} type="button">
-          {editingId ? "New payment method" : "Add payment method"}
+        <button className="btn btn-primary" onClick={openNewForm} type="button">
+          Add payment method
         </button>
       </div>
 
@@ -137,153 +148,159 @@ export default function PaymentMethodsPage() {
         </div>
       )}
 
-      <div className="card" style={{ marginBottom: 24 }}>
-        <div className="card-header">
-          <h3 className="card-title">
-            {editingId ? "Edit payment method" : "Add payment method"}
-          </h3>
-        </div>
-        <form className="card-body" onSubmit={handleSubmit}>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-              gap: 16,
-            }}
-          >
-            <div className="form-group">
-              <label className="form-label" htmlFor="payment-code">
-                Code *
-              </label>
-              <input
-                id="payment-code"
-                className="form-input"
-                value={form.code}
-                disabled={Boolean(editingId)}
-                onChange={(event) => updateField("code", event.target.value)}
-                placeholder="bkash"
-                required
-              />
+      {formOpen ? (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal payment-method-modal">
+            <div className="card-header">
+              <h3 className="card-title">
+                {editingId ? "Edit payment method" : "Add payment method"}
+              </h3>
             </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="payment-name">
-                Name *
-              </label>
-              <input
-                id="payment-name"
-                className="form-input"
-                value={form.name}
-                onChange={(event) => updateField("name", event.target.value)}
-                placeholder="bKash"
-                required
-              />
-            </div>
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="payment-description">
-              Description
-            </label>
-            <input
-              id="payment-description"
-              className="form-input"
-              value={form.description}
-              onChange={(event) =>
-                updateField("description", event.target.value)
-              }
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="payment-instructions">
-              Instructions
-            </label>
-            <textarea
-              id="payment-instructions"
-              className="form-textarea"
-              rows={3}
-              value={form.instructions}
-              onChange={(event) =>
-                updateField("instructions", event.target.value)
-              }
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="payment-details">
-              Details (JSON key/value)
-            </label>
-            <textarea
-              id="payment-details"
-              className="form-textarea"
-              rows={5}
-              value={detailsText}
-              onChange={(event) => setDetailsText(event.target.value)}
-              placeholder={'{"accountNumber":"01700000000"}'}
-            />
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "160px 1fr",
-              gap: 16,
-              alignItems: "end",
-            }}
-          >
-            <div className="form-group">
-              <label className="form-label" htmlFor="payment-sort">
-                Sort order
-              </label>
-              <input
-                id="payment-sort"
-                className="form-input"
-                type="number"
-                min="0"
-                value={form.sortOrder}
-                onChange={(event) =>
-                  updateField("sortOrder", Number(event.target.value))
-                }
-              />
-            </div>
-            <label
-              style={{
-                display: "flex",
-                gap: 8,
-                alignItems: "center",
-                paddingBottom: 12,
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={form.isActive}
-                onChange={(event) =>
-                  updateField("isActive", event.target.checked)
-                }
-              />
-              Active on the public storefront
-            </label>
-          </div>
-          <div style={{ display: "flex", gap: 12 }}>
-            <button
-              className="btn btn-primary"
-              type="submit"
-              disabled={isSaving}
-            >
-              {isSaving
-                ? "Saving..."
-                : editingId
-                  ? "Save changes"
-                  : "Add method"}
-            </button>
-            {editingId && (
-              <button
-                className="btn btn-secondary"
-                type="button"
-                onClick={resetForm}
+            <form className="card-body" onSubmit={handleSubmit}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                  gap: 16,
+                }}
               >
-                Cancel
-              </button>
-            )}
+                <div className="form-group">
+                  <label className="form-label" htmlFor="payment-code">
+                    Code *
+                  </label>
+                  <input
+                    id="payment-code"
+                    className="form-input"
+                    value={form.code}
+                    disabled={Boolean(editingId)}
+                    onChange={(event) =>
+                      updateField("code", event.target.value)
+                    }
+                    placeholder="bkash"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="payment-name">
+                    Name *
+                  </label>
+                  <input
+                    id="payment-name"
+                    className="form-input"
+                    value={form.name}
+                    onChange={(event) =>
+                      updateField("name", event.target.value)
+                    }
+                    placeholder="bKash"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="payment-description">
+                  Description
+                </label>
+                <input
+                  id="payment-description"
+                  className="form-input"
+                  value={form.description}
+                  onChange={(event) =>
+                    updateField("description", event.target.value)
+                  }
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="payment-instructions">
+                  Instructions
+                </label>
+                <textarea
+                  id="payment-instructions"
+                  className="form-textarea"
+                  rows={3}
+                  value={form.instructions}
+                  onChange={(event) =>
+                    updateField("instructions", event.target.value)
+                  }
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="payment-details">
+                  Details (JSON key/value)
+                </label>
+                <textarea
+                  id="payment-details"
+                  className="form-textarea"
+                  rows={5}
+                  value={detailsText}
+                  onChange={(event) => setDetailsText(event.target.value)}
+                  placeholder={'{"accountNumber":"01700000000"}'}
+                />
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "160px 1fr",
+                  gap: 16,
+                  alignItems: "end",
+                }}
+              >
+                <div className="form-group">
+                  <label className="form-label" htmlFor="payment-sort">
+                    Sort order
+                  </label>
+                  <input
+                    id="payment-sort"
+                    className="form-input"
+                    type="number"
+                    min="0"
+                    value={form.sortOrder}
+                    onChange={(event) =>
+                      updateField("sortOrder", Number(event.target.value))
+                    }
+                  />
+                </div>
+                <label
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    alignItems: "center",
+                    paddingBottom: 12,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={form.isActive}
+                    onChange={(event) =>
+                      updateField("isActive", event.target.checked)
+                    }
+                  />
+                  Active on the public storefront
+                </label>
+              </div>
+              <div style={{ display: "flex", gap: 12 }}>
+                <button
+                  className="btn btn-primary"
+                  type="submit"
+                  disabled={isSaving}
+                >
+                  {isSaving
+                    ? "Saving..."
+                    : editingId
+                      ? "Save changes"
+                      : "Add method"}
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  type="button"
+                  onClick={resetForm}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
           </div>
-        </form>
-      </div>
+        </div>
+      ) : null}
 
       <div className="card">
         <div className="card-header">

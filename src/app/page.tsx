@@ -1,6 +1,6 @@
 import LandingContent from "@/components/landing/LandingContent";
 import CheckoutForm from "@/components/checkout/CheckoutForm";
-import { fetchPublicLandingPage, getCheckoutItems } from "@/lib/landingPage";
+import { fetchPublicLandingPage } from "@/lib/landingPage";
 
 export const dynamic = "force-static";
 export const revalidate = 60;
@@ -19,7 +19,7 @@ export default async function HomePage() {
             <h1 style={{ fontSize: 44, marginBottom: 20 }}>Welcome</h1>
             <p>Default landing page</p>
             <div>
-              <CheckoutForm items={[]} />
+              <CheckoutForm products={[]} />
             </div>
           </div>
         </section>
@@ -29,19 +29,17 @@ export default async function HomePage() {
 
   return (
     <main className="lp-root">
+      <LandingContent html={page.landingPage.landingContent} />
       <section
         className="lp-section"
         style={{ paddingTop: 40, paddingBottom: 80 }}
       >
-        <div style={{ maxWidth: 980, margin: "0 auto" }}>
-          <h1 style={{ fontSize: 44, marginBottom: 20 }}>
-            {page.landingPage.pageName}
-          </h1>
-          <LandingContent html={page.landingPage.landingContent} />
+        <div id="checkout" style={{ maxWidth: 980, margin: "0 auto" }}>
           <div>
             <CheckoutForm
-              items={getCheckoutItems(page.products)}
-              deliveryCharge={page.deliveryArea?.price}
+              products={page.products}
+              deliveryArea={page.deliveryArea}
+              paymentMethods={page.paymentMethods}
             />
           </div>
         </div>

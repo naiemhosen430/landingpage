@@ -1,0 +1,745 @@
+/* ============================================
+   CheckoutForm — Modern Light Mode Styles
+   ============================================ */
+
+/* ---------- CSS Custom Properties ---------- */
+:root {
+  --cf-color-primary: #2563eb;
+  --cf-color-primary-hover: #1d4ed8;
+  --cf-color-primary-light: #eff6ff;
+  --cf-color-primary-border: #bfdbfe;
+  --cf-color-success: #16a34a;
+  --cf-color-success-light: #f0fdf4;
+  --cf-color-danger: #dc2626;
+  --cf-color-danger-light: #fef2f2;
+  --cf-color-surface: #ffffff;
+  --cf-color-surface-elevated: #fafafa;
+  --cf-color-surface-muted: #f3f4f6;
+  --cf-color-border: #e5e7eb;
+  --cf-color-border-strong: #d1d5db;
+  --cf-color-text-primary: #111827;
+  --cf-color-text-secondary: #4b5563;
+  --cf-color-text-tertiary: #9ca3af;
+  --cf-color-text-inverse: #ffffff;
+  --cf-radius-sm: 6px;
+  --cf-radius-md: 10px;
+  --cf-radius-lg: 14px;
+  --cf-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+  --cf-shadow-md:
+    0 4px 6px -1px rgb(0 0 0 / 0.06), 0 2px 4px -2px rgb(0 0 0 / 0.04);
+  --cf-shadow-lg:
+    0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.04);
+  --cf-transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --cf-transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --cf-max-width: 1200px;
+  --cf-sidebar-width: 360px;
+}
+
+/* ---------- Reset & Base ---------- */
+.checkout-form-modern-light {
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+  color: var(--cf-color-text-primary);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.checkout-form-modern-light *,
+.checkout-form-modern-light *::before,
+.checkout-form-modern-light *::after {
+  box-sizing: border-box;
+}
+
+.checkout-form-modern-light input,
+.checkout-form-modern-light select,
+.checkout-form-modern-light textarea,
+.checkout-form-modern-light button {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+.checkout-form-modern-light img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* ---------- Layout ---------- */
+.checkout-form-modern-light__wrapper {
+  max-width: var(--cf-max-width);
+  margin: 0 auto;
+  padding: 2rem 1rem;
+  padding-top: 0;
+}
+
+@media (min-width: 768px) {
+  .checkout-form-modern-light__wrapper {
+    padding: 0;
+  }
+}
+
+.checkout-form-modern-light__grid-container {
+  display: grid;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (min-width: 1024px) {
+  .checkout-form-modern-light__grid-container {
+    grid-template-columns: minmax(0, 1fr) var(--cf-sidebar-width);
+    gap: 2rem;
+  }
+}
+
+/* ---------- Empty State ---------- */
+.checkout-form-modern-light__empty-state {
+  text-align: center;
+  padding: 4rem 1.5rem;
+  color: var(--cf-color-text-secondary);
+  font-size: 1.125rem;
+  background: var(--cf-color-surface);
+  border: 1px dashed var(--cf-color-border);
+  border-radius: var(--cf-radius-lg);
+}
+
+/* ---------- Section Cards ---------- */
+.checkout-form-modern-light__section-card {
+  background: var(--cf-color-surface);
+  border: 1px solid var(--cf-color-border);
+  border-radius: var(--cf-radius-lg);
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  box-shadow: var(--cf-shadow-sm);
+  transition: box-shadow var(--cf-transition-base);
+}
+
+.checkout-form-modern-light__section-card:hover {
+  box-shadow: var(--cf-shadow-md);
+}
+
+@media (min-width: 768px) {
+  .checkout-form-modern-light__section-card {
+    padding: 1.125rem;
+    margin-bottom: 0.875rem;
+  }
+}
+
+/* ---------- Section Header ---------- */
+.checkout-form-modern-light__section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.625rem;
+  margin-bottom: 0.875rem;
+}
+
+.checkout-form-modern-light__section-header-group {
+  display: flex;
+  gap: 0.625rem;
+  align-items: flex-start;
+}
+
+.checkout-form-modern-light__step-indicator {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--cf-color-primary);
+  color: var(--cf-color-text-inverse);
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 0 0 4px var(--cf-color-primary-light);
+}
+
+.checkout-form-modern-light__section-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 0 0 0.25rem 0;
+  color: var(--cf-color-text-primary);
+}
+
+.checkout-form-modern-light__section-description {
+  font-size: 0.8125rem;
+  color: var(--cf-color-text-secondary);
+  margin: 0;
+}
+
+.checkout-form-modern-light__selected-count-badge {
+  font-size: 0.75rem;
+  color: var(--cf-color-text-tertiary);
+  font-weight: 500;
+  white-space: nowrap;
+  background: var(--cf-color-surface-muted);
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+}
+
+/* ---------- Product List ---------- */
+.checkout-form-modern-light__product-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.625rem;
+}
+
+/* ---------- Product Card ---------- */
+.checkout-form-modern-light__product-card {
+  padding: 0.625rem;
+  border: 1.5px solid var(--cf-color-border);
+  border-radius: var(--cf-radius-md);
+  background: var(--cf-color-surface);
+  cursor: pointer;
+  transition:
+    border-color var(--cf-transition-fast),
+    background var(--cf-transition-fast),
+    transform var(--cf-transition-fast),
+    box-shadow var(--cf-transition-fast);
+}
+
+.checkout-form-modern-light__product-card:hover {
+  border-color: var(--cf-color-primary-border);
+  box-shadow: var(--cf-shadow-sm);
+}
+
+.checkout-form-modern-light__product-card--selected {
+  border-color: var(--cf-color-primary);
+  background: var(--cf-color-primary-light);
+  box-shadow: 0 0 0 1px var(--cf-color-primary);
+}
+
+.checkout-form-modern-light__product-card--selected:hover {
+  border-color: var(--cf-color-primary-hover);
+}
+
+.checkout-form-modern-light__product-card-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  cursor: pointer;
+}
+
+.checkout-form-modern-light__product-checkbox {
+  width: 1.125rem;
+  height: 1.125rem;
+  accent-color: var(--cf-color-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.checkout-form-modern-light__product-thumbnail-wrapper {
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: var(--cf-radius-sm);
+  background: var(--cf-color-surface-muted);
+  border: 1px solid var(--cf-color-border);
+}
+
+.checkout-form-modern-light__product-thumbnail-wrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.checkout-form-modern-light__product-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.checkout-form-modern-light__product-name-text {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--cf-color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.checkout-form-modern-light__product-price-text {
+  font-weight: 700;
+  font-size: 0.9375rem;
+  color: var(--cf-color-primary);
+  white-space: nowrap;
+}
+
+/* ---------- Product Controls (Variants + Quantity) ---------- */
+.checkout-form-modern-light__product-controls-panel {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0 2.5rem;
+  cursor: default;
+}
+
+@media (max-width: 640px) {
+  .checkout-form-modern-light__product-controls-panel {
+    margin-left: 0;
+    margin-top: 0.625rem;
+    padding-left: 2rem;
+  }
+}
+
+.checkout-form-modern-light__variant-dropdown {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--cf-color-border-strong);
+  border-radius: var(--cf-radius-sm);
+  background: var(--cf-color-surface);
+  color: var(--cf-color-text-primary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  min-width: 160px;
+  transition:
+    border-color var(--cf-transition-fast),
+    box-shadow var(--cf-transition-fast);
+}
+
+.checkout-form-modern-light__variant-dropdown:focus {
+  outline: none;
+  border-color: var(--cf-color-primary);
+  box-shadow: 0 0 0 3px var(--cf-color-primary-light);
+}
+
+/* ---------- Quantity Stepper ---------- */
+.checkout-form-modern-light__quantity-stepper {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--cf-color-border-strong);
+  border-radius: var(--cf-radius-sm);
+  background: var(--cf-color-surface);
+  overflow: hidden;
+}
+
+.checkout-form-modern-light__quantity-stepper-button {
+  width: 2.25rem;
+  height: 2.25rem;
+  display: grid;
+  place-items: center;
+  background: var(--cf-color-surface);
+  border: none;
+  color: var(--cf-color-text-secondary);
+  font-size: 1.125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background var(--cf-transition-fast),
+    color var(--cf-transition-fast);
+}
+
+.checkout-form-modern-light__quantity-stepper-button:hover {
+  background: var(--cf-color-surface-muted);
+  color: var(--cf-color-text-primary);
+}
+
+.checkout-form-modern-light__quantity-stepper-button:active {
+  background: var(--cf-color-border);
+}
+
+.checkout-form-modern-light__quantity-stepper-value {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.25rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--cf-color-text-primary);
+  border-left: 1px solid var(--cf-color-border);
+  border-right: 1px solid var(--cf-color-border);
+}
+
+/* ---------- Form Elements ---------- */
+.checkout-form-modern-light__form-group {
+  margin-bottom: 0.75rem;
+}
+
+.checkout-form-modern-light__form-label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--cf-color-text-primary);
+  margin-bottom: 0.25rem;
+  letter-spacing: 0.01em;
+}
+
+.checkout-form-modern-light__form-label-optional {
+  font-weight: 400;
+  color: var(--cf-color-text-tertiary);
+  font-size: 0.75rem;
+  margin-left: 0.25rem;
+}
+
+.checkout-form-modern-light__form-input,
+.checkout-form-modern-light__form-textarea,
+.checkout-form-modern-light__form-select {
+  width: 100%;
+  padding: 0.5rem 0.625rem;
+  border: 1.5px solid var(--cf-color-border);
+  border-radius: var(--cf-radius-sm);
+  background: var(--cf-color-surface);
+  color: var(--cf-color-text-primary);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  transition:
+    border-color var(--cf-transition-fast),
+    box-shadow var(--cf-transition-fast),
+    background var(--cf-transition-fast);
+}
+
+.checkout-form-modern-light__form-input::placeholder,
+.checkout-form-modern-light__form-textarea::placeholder {
+  color: var(--cf-color-text-tertiary);
+}
+
+.checkout-form-modern-light__form-input:hover,
+.checkout-form-modern-light__form-textarea:hover,
+.checkout-form-modern-light__form-select:hover {
+  border-color: var(--cf-color-border-strong);
+}
+
+.checkout-form-modern-light__form-input:focus,
+.checkout-form-modern-light__form-textarea:focus,
+.checkout-form-modern-light__form-select:focus {
+  outline: none;
+  border-color: var(--cf-color-primary);
+  box-shadow: 0 0 0 3px var(--cf-color-primary-light);
+  background: var(--cf-color-surface);
+}
+
+.checkout-form-modern-light__form-textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.checkout-form-modern-light__form-select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.625rem center;
+  background-repeat: no-repeat;
+  background-size: 1.25rem;
+  padding-right: 2.5rem;
+}
+
+.checkout-form-modern-light__form-error-message {
+  font-size: 0.8125rem;
+  color: var(--cf-color-danger);
+  margin-top: 0.375rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.checkout-form-modern-light__form-error-message::before {
+  content: "⚠";
+  font-size: 0.75rem;
+}
+
+/* ---------- Two Column Fields ---------- */
+.checkout-form-modern-light__fields-grid-two-col {
+  display: grid;
+  gap: 0.625rem;
+}
+
+@media (min-width: 640px) {
+  .checkout-form-modern-light__fields-grid-two-col {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.625rem;
+  }
+}
+
+/* ---------- Delivery Zones ---------- */
+.checkout-form-modern-light__delivery-zones {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.checkout-form-modern-light__delivery-zone-card {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  border: 1.5px solid var(--cf-color-border);
+  border-radius: var(--cf-radius-md);
+  background: var(--cf-color-surface);
+  cursor: pointer;
+  transition:
+    border-color var(--cf-transition-fast),
+    background var(--cf-transition-fast),
+    box-shadow var(--cf-transition-fast);
+}
+
+.checkout-form-modern-light__delivery-zone-card:hover {
+  border-color: var(--cf-color-primary-border);
+  background: var(--cf-color-surface-elevated);
+}
+
+.checkout-form-modern-light__delivery-zone-card--active {
+  border-color: var(--cf-color-primary);
+  background: var(--cf-color-primary-light);
+  box-shadow: 0 0 0 1px var(--cf-color-primary);
+}
+
+.checkout-form-modern-light__delivery-zone-radio {
+  width: 1.125rem;
+  height: 1.125rem;
+  accent-color: var(--cf-color-primary);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.checkout-form-modern-light__delivery-zone-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.checkout-form-modern-light__delivery-zone-details strong {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--cf-color-text-primary);
+}
+
+.checkout-form-modern-light__delivery-zone-details span {
+  font-size: 0.8125rem;
+  color: var(--cf-color-text-secondary);
+}
+
+.checkout-form-modern-light__delivery-zone-price {
+  font-weight: 700;
+  font-size: 0.9375rem;
+  color: var(--cf-color-primary);
+  white-space: nowrap;
+}
+
+/* ---------- Payment Methods ---------- */
+.checkout-form-modern-light__payment-methods-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.checkout-form-modern-light__payment-method-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  border: 1.5px solid var(--cf-color-border);
+  border-radius: var(--cf-radius-md);
+  background: var(--cf-color-surface);
+  cursor: pointer;
+  transition:
+    border-color var(--cf-transition-fast),
+    background var(--cf-transition-fast),
+    box-shadow var(--cf-transition-fast);
+}
+
+.checkout-form-modern-light__payment-method-card:hover {
+  border-color: var(--cf-color-primary-border);
+  background: var(--cf-color-surface-elevated);
+}
+
+.checkout-form-modern-light__payment-method-card--active {
+  border-color: var(--cf-color-primary);
+  background: var(--cf-color-primary-light);
+  box-shadow: 0 0 0 1px var(--cf-color-primary);
+}
+
+.checkout-form-modern-light__payment-method-radio {
+  width: 1.125rem;
+  height: 1.125rem;
+  accent-color: var(--cf-color-primary);
+  margin-top: 0.125rem;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.checkout-form-modern-light__payment-method-details {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.checkout-form-modern-light__payment-method-name {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--cf-color-text-primary);
+}
+
+.checkout-form-modern-light__payment-method-description {
+  font-size: 0.8125rem;
+  color: var(--cf-color-text-secondary);
+  line-height: 1.4;
+}
+
+.checkout-form-modern-light__payment-method-instructions {
+  font-size: 0.75rem;
+  color: var(--cf-color-text-tertiary);
+  line-height: 1.4;
+  margin-top: 0.125rem;
+  padding: 0.5rem 0.625rem;
+  background: var(--cf-color-surface);
+  border-radius: var(--cf-radius-sm);
+  border: 1px solid var(--cf-color-border);
+}
+
+/* ---------- Order Summary Sidebar ---------- */
+.checkout-form-modern-light__order-summary-sidebar {
+  background: var(--cf-color-surface);
+  border: 1px solid var(--cf-color-border);
+  border-radius: var(--cf-radius-lg);
+  padding: 1.5rem;
+  box-shadow: var(--cf-shadow-sm);
+}
+
+@media (min-width: 1024px) {
+  .checkout-form-modern-light__order-summary-sidebar {
+    position: sticky;
+    top: 1.25rem;
+  }
+}
+
+.checkout-form-modern-light__order-summary-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin: 0 0 1.25rem 0;
+  color: var(--cf-color-text-primary);
+}
+
+.checkout-form-modern-light__summary-line-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.625rem 0;
+  font-size: 0.9375rem;
+  color: var(--cf-color-text-secondary);
+  border-bottom: 1px solid var(--cf-color-border);
+}
+
+.checkout-form-modern-light__summary-line-item:last-of-type {
+  border-bottom: none;
+}
+
+.checkout-form-modern-light__summary-line-item-label {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.checkout-form-modern-light__summary-line-item-label small {
+  color: var(--cf-color-text-tertiary);
+  font-size: 0.8125rem;
+}
+
+.checkout-form-modern-light__summary-line-item-value {
+  font-weight: 600;
+  color: var(--cf-color-text-primary);
+  white-space: nowrap;
+}
+
+.checkout-form-modern-light__summary-total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.5rem;
+  padding-top: 1rem;
+  border-top: 2px solid var(--cf-color-border);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--cf-color-text-primary);
+}
+
+.checkout-form-modern-light__summary-total-amount {
+  color: var(--cf-color-primary);
+  font-size: 1.375rem;
+}
+
+.checkout-form-modern-light__summary-empty-hint {
+  color: var(--cf-color-text-tertiary);
+  font-size: 0.9375rem;
+  text-align: center;
+  padding: 1.5rem 0;
+  font-style: italic;
+}
+
+/* ---------- Submit Button ---------- */
+.checkout-form-modern-light__submit-order-button {
+  width: 100%;
+  margin-top: 1.25rem;
+  padding: 0.875rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--cf-color-text-inverse);
+  background: var(--cf-color-primary);
+  border: none;
+  border-radius: var(--cf-radius-md);
+  cursor: pointer;
+  transition:
+    background var(--cf-transition-fast),
+    transform var(--cf-transition-fast),
+    box-shadow var(--cf-transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.checkout-form-modern-light__submit-order-button:hover:not(:disabled) {
+  background: var(--cf-color-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--cf-shadow-md);
+}
+
+.checkout-form-modern-light__submit-order-button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: var(--cf-shadow-sm);
+}
+
+.checkout-form-modern-light__submit-order-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: var(--cf-color-text-tertiary);
+}
+
+/* ---------- Mobile Order First ---------- */
+@media (max-width: 1023px) {
+  .checkout-form-modern-light__order-summary-sidebar {
+    order: -1;
+    position: static;
+    margin-bottom: 0.5rem;
+  }
+}
+
+/* ---------- Reduced Motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .checkout-form-modern-light *,
+  .checkout-form-modern-light *::before,
+  .checkout-form-modern-light *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

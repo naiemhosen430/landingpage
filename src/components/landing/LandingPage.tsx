@@ -37,7 +37,11 @@ export default function LandingPage({ slug }: LandingPageProps) {
           <h1 style={{ fontSize: 44, marginBottom: 20 }}>{data.pageName}</h1>
           <LandingContent html={data.landingContent} />
           <div>
-            <CheckoutForm items={[] as any} />
+            <CheckoutForm
+              products={data.products}
+              deliveryArea={data.deliveryArea}
+              paymentMethods={data.paymentMethods}
+            />
           </div>
         </div>
       </section>

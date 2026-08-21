@@ -21,14 +21,16 @@ export type PaymentMethodInput = Omit<
 
 const unwrapData = (response: any) => response?.data ?? response;
 
+const unwrapPaymentMethods = (response: any): PaymentMethod[] => {
+  const data = unwrapData(response);
+  return Array.isArray(data) ? data : (data?.data ?? []);
+};
+
 export const paymentMethodApi = api.injectEndpoints({
   endpoints: (builder) => ({
     getPaymentMethodsAdmin: builder.query<PaymentMethod[], void>({
       query: () => "/admin/payment-methods",
-      transformResponse: (response: any) => {
-        const data = unwrapData(response);
-        return Array.isArray(data) ? data : [];
-      },
+      transformResponse: unwrapPaymentMethods,
       providesTags: ["PaymentMethods"],
     }),
     createPaymentMethod: builder.mutation<PaymentMethod, PaymentMethodInput>({

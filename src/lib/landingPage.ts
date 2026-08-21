@@ -22,8 +22,8 @@ export type PublicLandingPageData = {
     subscriptionStatus: string;
   };
   landingPage: LandingPage;
-  deliveryArea?: { price?: number } | null;
-  paymentMethods?: unknown[];
+  deliveryArea?: PublicDeliveryArea | null;
+  paymentMethods?: PublicPaymentMethod[];
   products: Array<{
     id: string;
     name: string;
@@ -31,7 +31,32 @@ export type PublicLandingPageData = {
     stock?: number;
     isActive?: boolean;
     thumbnailImage?: { url?: string; secureUrl?: string };
+    slug?: string;
+    variants?: unknown[];
+    images?: unknown[];
+    categories?: string[];
+    tags?: string[];
   }>;
+};
+
+export type PublicDeliveryArea = {
+  id?: string;
+  name?: string;
+  deliveryCharge?: number;
+  price?: number;
+  zones?: Array<{ zone: string; price: number }>;
+  isActive?: boolean;
+};
+
+export type PublicPaymentMethod = {
+  id: string;
+  code: string;
+  name: string;
+  description?: string;
+  instructions?: string;
+  details?: Record<string, string>;
+  isActive?: boolean;
+  sortOrder?: number;
 };
 
 export type CheckoutItemData = {

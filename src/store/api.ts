@@ -3,13 +3,19 @@ import type { RootState } from "./index";
 
 const baseQuery = fetchBaseQuery({
   baseUrl: process.env.NEXT_PUBLIC_API_URL,
-  prepareHeaders: (headers, { getState }) => {
+  prepareHeaders: (headers, { getState, endpoint }) => {
     const token = (getState() as RootState).auth.token;
     const projectId = process.env.NEXT_PUBLIC_PROJECT_ID;
     const projectKey = process.env.NEXT_PUBLIC_PROJECT_KEY;
 
-    headers.set("x-project-id", projectId || "");
-    headers.set("x-project-key", projectKey || "");
+    if (
+      !endpoint.startsWith("getStorageUsage") &&
+      !endpoint.startsWith("listStorageModule") &&
+      !endpoint.startsWith("deleteStorageRecords")
+    ) {
+      headers.set("x-project-id", projectId || "");
+      headers.set("x-project-key", projectKey || "");
+    }
 
     if (token) {
       headers.set("authorization", `Bearer ${token}`);
@@ -107,6 +113,7 @@ export const api = createApi({
     "PaymentMethods",
     "TrackingEvents",
     "TrackingEvent",
+    "Storage",
   ],
   endpoints: () => ({}),
 });

@@ -59,18 +59,53 @@ export type Product = {
   updatedAt: string;
 };
 
+export type ProductListResponse = {
+  data: Product[];
+  meta?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNextPage?: boolean;
+    hasPrevPage?: boolean;
+  };
+};
+
+export type ProductQueryParams = {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+  category?: string;
+  featured?: boolean;
+  inStock?: boolean;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+};
+
+const unwrapPayload = (response: any) => response?.data ?? response;
+
+const normalizeProductList = (response: any): ProductListResponse => {
+  const payload = unwrapPayload(response);
+  if (Array.isArray(payload)) return { data: payload };
+  return {
+    data: Array.isArray(payload?.data) ? payload.data : [],
+    meta: payload?.meta,
+  };
+};
+
 export const productApi = api.injectEndpoints({
   endpoints: (builder) => ({
-    getProducts: builder.query<any, Record<string, any> | void>({
+    getProducts: builder.query<ProductListResponse, ProductQueryParams | void>({
       query: (params) => ({
         url: "/admin/products",
         params: params ?? {},
       }),
-      transformResponse: (response: any) => response?.data ?? response,
+      transformResponse: normalizeProductList,
       providesTags: (result) =>
         result
           ? [
-              ...result.data.map(({ id }: { id: string }) => ({
+              ...result.data.map(({ id }) => ({
                 type: "Product" as const,
                 id,
               })),
@@ -78,12 +113,12 @@ export const productApi = api.injectEndpoints({
             ]
           : ["Products"],
     }),
-    getProduct: builder.query<any, string>({
+    getProduct: builder.query<Product, string>({
       query: (id) => `/admin/products/${id}`,
-      transformResponse: (response: any) => response?.data ?? response,
+      transformResponse: (response: any) => unwrapPayload(response),
       providesTags: (result, error, id) => [{ type: "Product", id }],
     }),
-    createProduct: builder.mutation({
+    createProduct: builder.mutation<Product, Partial<Product>>({
       query: (data) => ({
         url: "/admin/products",
         method: "POST",
@@ -91,7 +126,10 @@ export const productApi = api.injectEndpoints({
       }),
       invalidatesTags: ["Products"],
     }),
-    updateProduct: builder.mutation<any, { id: string; [key: string]: any }>({
+    updateProduct: builder.mutation<
+      Product,
+      { id: string; [key: string]: any }
+    >({
       query: ({ id, ...data }) => ({
         url: `/admin/products/${id}`,
         method: "PUT",
@@ -118,7 +156,7 @@ export const productApi = api.injectEndpoints({
         method: "POST",
         body,
       }),
-      transformResponse: (response: any) => response?.data ?? response,
+      transformResponse: (response: any) => unwrapPayload(response),
     }),
     deleteImages: builder.mutation<
       any,

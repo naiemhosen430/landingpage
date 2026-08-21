@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import LandingContent from "@/components/landing/LandingContent";
 import CheckoutForm from "@/components/checkout/CheckoutForm";
-import { fetchPublicLandingPage, getCheckoutItems } from "@/lib/landingPage";
+import { fetchPublicLandingPage } from "@/lib/landingPage";
 
 export const dynamic = "force-static";
 export const revalidate = 60;
@@ -29,8 +29,9 @@ export default async function SlugPage({
           <LandingContent html={page.landingPage.landingContent} />
           <div>
             <CheckoutForm
-              items={getCheckoutItems(page.products)}
-              deliveryCharge={page.deliveryArea?.price}
+              products={page.products}
+              deliveryArea={page.deliveryArea}
+              paymentMethods={page.paymentMethods}
             />
           </div>
         </div>

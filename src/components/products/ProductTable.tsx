@@ -19,6 +19,7 @@ interface Product {
 interface ProductTableProps {
   products: Product[];
   onDelete: (id: string) => void;
+  onEdit?: (product: Product) => void;
 }
 
 const statusMap: Record<string, string> = {
@@ -30,6 +31,7 @@ const statusMap: Record<string, string> = {
 export default function ProductTable({
   products,
   onDelete,
+  onEdit,
 }: ProductTableProps) {
   if (!products?.length) {
     return (
@@ -195,6 +197,12 @@ export default function ProductTable({
                   <Link
                     href={`/dashboard/products/${product.id}/edit`}
                     className="btn btn-ghost btn-sm"
+                    onClick={(event) => {
+                      if (onEdit) {
+                        event.preventDefault();
+                        onEdit(product);
+                      }
+                    }}
                   >
                     <svg
                       width="16"

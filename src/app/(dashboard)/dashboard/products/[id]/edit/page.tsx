@@ -17,7 +17,7 @@ export default function EditProductPage() {
     );
   }
 
-  const product = data?.data ?? data;
+  const product = data;
 
   if (!product) {
     return (

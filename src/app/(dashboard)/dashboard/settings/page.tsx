@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAppSelector } from "@/store/hooks";
 import {
   useGetSettingsQuery,
   useUpdateStoreInfoMutation,
+  useUpdateSocialMutation,
 } from "@/store/settingsApi";
 import { useUploadMediaMutation } from "@/store/mediaApi";
 
@@ -23,6 +24,7 @@ export default function SettingsPage() {
     user?.projectId ?? user?.project?.id ?? process.env.NEXT_PUBLIC_PROJECT_ID;
   const { data: settingsData, isLoading } = useGetSettingsQuery(undefined);
   const [updateStoreInfo] = useUpdateStoreInfoMutation();
+  const [updateSocial] = useUpdateSocialMutation();
   const [uploadMedia] = useUploadMediaMutation();
   const fileRef = useRef<HTMLInputElement | null>(null);
 
@@ -41,6 +43,37 @@ export default function SettingsPage() {
   });
 
   const [saved, setSaved] = useState(false);
+  const [socialTracking, setSocialTracking] = useState(() => ({
+    facebook: {
+      enabled: settings.socialTracking?.facebook?.enabled ?? false,
+      pixelId: settings.socialTracking?.facebook?.pixelId ?? "",
+      accessToken: "",
+      testEventCode: settings.socialTracking?.facebook?.testEventCode ?? "",
+    },
+    tiktok: {
+      enabled: settings.socialTracking?.tiktok?.enabled ?? false,
+      pixelId: settings.socialTracking?.tiktok?.pixelId ?? "",
+      accessToken: "",
+      testEventCode: settings.socialTracking?.tiktok?.testEventCode ?? "",
+    },
+  }));
+  const [socialSaved, setSocialSaved] = useState(false);
+
+  useEffect(() => {
+    if (!settingsData?.data?.socialTracking) return;
+    setSocialTracking((current) => ({
+      facebook: {
+        ...current.facebook,
+        ...settingsData.data.socialTracking.facebook,
+        accessToken: "",
+      },
+      tiktok: {
+        ...current.tiktok,
+        ...settingsData.data.socialTracking.tiktok,
+        accessToken: "",
+      },
+    }));
+  }, [settingsData]);
 
   const handleSave = async () => {
     try {
@@ -49,6 +82,34 @@ export default function SettingsPage() {
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
       alert("Failed to save settings");
+    }
+  };
+
+  const handleSaveSocialTracking = async () => {
+    try {
+      const payload = {
+        facebook: {
+          enabled: socialTracking.facebook.enabled,
+          pixelId: socialTracking.facebook.pixelId,
+          testEventCode: socialTracking.facebook.testEventCode,
+          ...(socialTracking.facebook.accessToken
+            ? { accessToken: socialTracking.facebook.accessToken }
+            : {}),
+        },
+        tiktok: {
+          enabled: socialTracking.tiktok.enabled,
+          pixelId: socialTracking.tiktok.pixelId,
+          testEventCode: socialTracking.tiktok.testEventCode,
+          ...(socialTracking.tiktok.accessToken
+            ? { accessToken: socialTracking.tiktok.accessToken }
+            : {}),
+        },
+      };
+      await updateSocial({ settings: { socialTracking: payload } }).unwrap();
+      setSocialSaved(true);
+      setTimeout(() => setSocialSaved(false), 3000);
+    } catch (error) {
+      alert("Failed to save social tracking settings");
     }
   };
 
@@ -286,6 +347,154 @@ export default function SettingsPage() {
                 Save Settings
               </button>
             </div>
+          </div>
+        </div>
+
+        <div className="card" style={{ marginTop: 24 }}>
+          <div className="card-header">
+            <h3 className="card-title">Social tracking</h3>
+            {socialSaved && (
+              <span style={{ color: "var(--success)", fontSize: 13 }}>
+                Saved
+              </span>
+            )}
+          </div>
+          <div className="card-body">
+            <p className="form-hint" style={{ marginBottom: 20 }}>
+              Configure server-side Facebook Conversions API and TikTok Events
+              API delivery. Access tokens are stored by the backend and are not
+              returned after saving.
+            </p>
+            {(["facebook", "tiktok"] as const).map((provider) => {
+              const providerForm = socialTracking[provider];
+              const label =
+                provider === "facebook"
+                  ? "Facebook Conversions API"
+                  : "TikTok Events API";
+              return (
+                <div
+                  key={provider}
+                  style={{
+                    borderTop: "1px solid var(--border-color)",
+                    paddingTop: 16,
+                    marginTop: 16,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: 12,
+                    }}
+                  >
+                    <strong>{label}</strong>
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        fontSize: 13,
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={providerForm.enabled}
+                        onChange={(event) =>
+                          setSocialTracking({
+                            ...socialTracking,
+                            [provider]: {
+                              ...providerForm,
+                              enabled: event.target.checked,
+                            },
+                          })
+                        }
+                      />
+                      Enabled
+                    </label>
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: 12,
+                    }}
+                  >
+                    <div className="form-group">
+                      <label className="form-label">Pixel ID / code</label>
+                      <input
+                        className="form-input"
+                        value={providerForm.pixelId}
+                        onChange={(event) =>
+                          setSocialTracking({
+                            ...socialTracking,
+                            [provider]: {
+                              ...providerForm,
+                              pixelId: event.target.value,
+                            },
+                          })
+                        }
+                        placeholder={
+                          provider === "facebook"
+                            ? "Facebook pixel ID"
+                            : "TikTok pixel code"
+                        }
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Access token</label>
+                      <input
+                        type="password"
+                        className="form-input"
+                        value={providerForm.accessToken}
+                        onChange={(event) =>
+                          setSocialTracking({
+                            ...socialTracking,
+                            [provider]: {
+                              ...providerForm,
+                              accessToken: event.target.value,
+                            },
+                          })
+                        }
+                        placeholder="Enter token to update"
+                        autoComplete="new-password"
+                      />
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">
+                      Test event code{" "}
+                      <span
+                        style={{ color: "var(--text-muted)", fontWeight: 400 }}
+                      >
+                        (optional)
+                      </span>
+                    </label>
+                    <input
+                      className="form-input"
+                      value={providerForm.testEventCode}
+                      onChange={(event) =>
+                        setSocialTracking({
+                          ...socialTracking,
+                          [provider]: {
+                            ...providerForm,
+                            testEventCode: event.target.value,
+                          },
+                        })
+                      }
+                      placeholder="Only for provider testing"
+                    />
+                  </div>
+                </div>
+              );
+            })}
+            <button
+              onClick={handleSaveSocialTracking}
+              className="btn btn-primary"
+              style={{ marginTop: 8 }}
+            >
+              Save social tracking
+            </button>
           </div>
         </div>
       </div>

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { JSX } from "react/jsx-runtime";
 
 interface StatCardProps {
@@ -6,6 +7,7 @@ interface StatCardProps {
   change?: number;
   icon: string;
   color: "blue" | "green" | "yellow" | "red";
+  href?: string;
 }
 
 const colorMap = {
@@ -133,11 +135,12 @@ export default function StatCard({
   change,
   icon,
   color,
+  href,
 }: StatCardProps) {
   const isPositive = change && change >= 0;
 
-  return (
-    <div className="stat-card">
+  const card = (
+    <div className={`stat-card${href ? " stat-card-clickable" : ""}`}>
       <div className="stat-header">
         <span className="stat-label">{label}</span>
         <div className={`stat-icon ${colorMap[color]}`}>{icons[icon]}</div>
@@ -166,4 +169,6 @@ export default function StatCard({
       )}
     </div>
   );
+
+  return href ? <Link href={href}>{card}</Link> : card;
 }

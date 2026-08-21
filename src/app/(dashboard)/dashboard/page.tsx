@@ -115,7 +115,6 @@ export default function DashboardPage() {
     currentSubscription?.plan ??
     currentSubscription ??
     null;
-  console.log({ currentPackage, currentSubscription });
   const packageLimits = currentPackage?.limits ?? {};
   const packageFeatures = currentPackage?.features ?? [];
   const packageName = currentPackage?.name ?? "No active package";
@@ -167,7 +166,6 @@ export default function DashboardPage() {
     : 0;
 
   const isExpired = Boolean(endDate && endDate.getTime() <= Date.now());
-  console.log({ isExpired, endDate, currentPackage, subscriptionLoading });
   const canShowNoPackage =
     !subscriptionLoading && (!currentPackage || isExpired);
   const showRenewalBanner = daysLeft !== null && daysLeft <= 10;
@@ -404,30 +402,35 @@ export default function DashboardPage() {
           change={12}
           icon="orders"
           color="blue"
+          href="/dashboard/orders"
         />
         <StatCard
           label="Today's Orders"
           value={s?.todayOrders || 0}
           icon="orders"
           color="blue"
+          href="/dashboard/orders"
         />
         <StatCard
           label="Pending Orders"
           value={s?.pendingOrders || 0}
           icon="pending"
           color="yellow"
+          href="/dashboard/orders"
         />
         <StatCard
           label="Delivered"
           value={s?.deliveredOrders || 0}
           icon="delivered"
           color="green"
+          href="/dashboard/orders"
         />
         <StatCard
           label="Cancelled"
           value={s?.cancelledOrders || 0}
           icon="cancelled"
           color="red"
+          href="/dashboard/orders"
         />
         <StatCard
           label="Visitors"
@@ -435,6 +438,7 @@ export default function DashboardPage() {
           change={8}
           icon="visitors"
           color="blue"
+          href="/dashboard/analytics"
         />
         <StatCard
           label="Revenue"
@@ -442,12 +446,14 @@ export default function DashboardPage() {
           change={15}
           icon="revenue"
           color="green"
+          href="/dashboard/analytics"
         />
         <StatCard
           label="Storage Used"
           value={`${s?.storageUsed || 0} MB`}
           icon="storage"
           color="blue"
+          href="/dashboard/storage"
         />
       </div>
 

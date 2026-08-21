@@ -33,7 +33,7 @@ export default function DeliveryAreasPage() {
   };
 
   const handleEdit = (area: any) => {
-    setEditing(area.id);
+    setEditing(area._id);
     setForm({
       name: area.name || "",
       zones: area.zones || [],
@@ -89,7 +89,15 @@ export default function DeliveryAreasPage() {
           ) : (
             <div style={{ display: "grid", gap: 8 }}>
               {(data?.data || []).map((area: any) => (
-                <div key={area.id} className="card-row">
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                  key={area._id}
+                  className="card-row"
+                >
                   <div>
                     <div style={{ fontWeight: 600 }}>{area.name}</div>
                     <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
@@ -107,7 +115,7 @@ export default function DeliveryAreasPage() {
                     </button>
                     <button
                       className="btn btn-danger btn-sm"
-                      onClick={() => handleDelete(area.id)}
+                      onClick={() => handleDelete(area._id)}
                     >
                       Delete
                     </button>
@@ -120,83 +128,85 @@ export default function DeliveryAreasPage() {
       </div>
 
       {formVisible && (
-        <div className="card" style={{ marginTop: 16 }}>
-          <div className="card-header">
-            <h3 className="card-title">
-              {editing ? "Edit Area" : "Create Area"}
-            </h3>
-          </div>
-          <div className="card-body">
-            <div className="form-group">
-              <label className="form-label">Name</label>
-              <input
-                className="form-input"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-              />
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal delivery-area-modal">
+            <div className="modal-header">
+              <h3 className="card-title">
+                {editing ? "Edit Area" : "Create Area"}
+              </h3>
             </div>
-            <div className="form-group">
-              <label className="form-label">Zones</label>
-              {form.zones.map((z: any, idx: number) => (
-                <div
-                  key={idx}
-                  style={{ display: "flex", gap: 8, marginBottom: 8 }}
-                >
-                  <input
-                    className="form-input"
-                    placeholder="Zone"
-                    value={z.zone}
-                    onChange={(e) => {
-                      const zones = [...form.zones];
-                      zones[idx].zone = e.target.value;
-                      setForm({ ...form, zones });
-                    }}
-                  />
-                  <input
-                    className="form-input"
-                    placeholder="Price"
-                    type="number"
-                    value={z.price}
-                    onChange={(e) => {
-                      const zones = [...form.zones];
-                      zones[idx].price = Number(e.target.value);
-                      setForm({ ...form, zones });
-                    }}
-                  />
-                  <button
-                    className="btn btn-danger"
-                    onClick={() => {
-                      setForm({
-                        ...form,
-                        zones: form.zones.filter(
-                          (_: any, i: number) => i !== idx,
-                        ),
-                      });
-                    }}
+            <div className="modal-body">
+              <div className="form-group">
+                <label className="form-label">Name</label>
+                <input
+                  className="form-input"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Zones</label>
+                {form.zones.map((z: any, idx: number) => (
+                  <div
+                    key={idx}
+                    style={{ display: "flex", gap: 8, marginBottom: 8 }}
                   >
-                    Remove
-                  </button>
-                </div>
-              ))}
-              <button
-                className="btn"
-                onClick={() =>
-                  setForm({
-                    ...form,
-                    zones: [...form.zones, { zone: "", price: 0 }],
-                  })
-                }
-              >
-                Add zone
-              </button>
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button className="btn btn-primary" onClick={handleSave}>
-                Save
-              </button>
-              <button className="btn" onClick={() => setFormVisible(false)}>
-                Cancel
-              </button>
+                    <input
+                      className="form-input"
+                      placeholder="Zone"
+                      value={z.zone}
+                      onChange={(e) => {
+                        const zones = [...form.zones];
+                        zones[idx].zone = e.target.value;
+                        setForm({ ...form, zones });
+                      }}
+                    />
+                    <input
+                      className="form-input"
+                      placeholder="Price"
+                      type="number"
+                      value={z.price}
+                      onChange={(e) => {
+                        const zones = [...form.zones];
+                        zones[idx].price = Number(e.target.value);
+                        setForm({ ...form, zones });
+                      }}
+                    />
+                    <button
+                      className="btn btn-danger"
+                      onClick={() => {
+                        setForm({
+                          ...form,
+                          zones: form.zones.filter(
+                            (_: any, i: number) => i !== idx,
+                          ),
+                        });
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+                <button
+                  className="btn"
+                  onClick={() =>
+                    setForm({
+                      ...form,
+                      zones: [...form.zones, { zone: "", price: 0 }],
+                    })
+                  }
+                >
+                  Add zone
+                </button>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="btn btn-primary" onClick={handleSave}>
+                  Save
+                </button>
+                <button className="btn" onClick={() => setFormVisible(false)}>
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>

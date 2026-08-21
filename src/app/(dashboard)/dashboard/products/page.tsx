@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import ProductForm from "@/components/products/ProductForm";
 import {
   useGetProductsQuery,
   useDeleteProductMutation,
@@ -13,6 +14,10 @@ export default function ProductsPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
+  const [productModal, setProductModal] = useState<{
+    open: boolean;
+    product?: any;
+  }>({ open: false });
 
   const { data, isLoading } = useGetProductsQuery({
     page,
@@ -47,7 +52,11 @@ export default function ProductsPage() {
           <h1 className="page-title">Products</h1>
           <p className="page-subtitle">Manage your store products</p>
         </div>
-        <Link href="/dashboard/products/new" className="btn btn-primary">
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={() => setProductModal({ open: true })}
+        >
           <svg
             width="16"
             height="16"
@@ -62,7 +71,7 @@ export default function ProductsPage() {
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
           Add Product
-        </Link>
+        </button>
       </div>
 
       <div className="card">
@@ -126,7 +135,11 @@ export default function ProductsPage() {
               <div className="spinner" />
             </div>
           ) : (
-            <ProductTable products={products} onDelete={handleDelete} />
+            <ProductTable
+              products={products}
+              onDelete={handleDelete}
+              onEdit={(product) => setProductModal({ open: true, product })}
+            />
           )}
         </div>
         {meta && meta.totalPages > 1 && (
@@ -181,6 +194,32 @@ export default function ProductsPage() {
           </div>
         )}
       </div>
+
+      {productModal.open && (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal product-form-modal">
+            <div className="modal-header">
+              <h3>{productModal.product ? "Edit Product" : "Add Product"}</h3>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setProductModal({ open: false })}
+                aria-label="Close product form"
+              >
+                Close
+              </button>
+            </div>
+            <div className="modal-body">
+              <ProductForm
+                initialData={productModal.product}
+                productId={productModal.product?.id}
+                onSuccess={() => setProductModal({ open: false })}
+                onCancel={() => setProductModal({ open: false })}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

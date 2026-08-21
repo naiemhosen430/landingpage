@@ -1,10 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import {
-  useGetOrderQuery,
-  useUpdateOrderStatusMutation,
-} from "@/store/orderApi";
+import { useGetOrderQuery } from "@/store/orderApi";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
 const statusMap: Record<string, string> = {
@@ -17,30 +14,11 @@ const statusMap: Record<string, string> = {
   returned: "badge-danger",
 };
 
-const allStatuses = [
-  "pending",
-  "confirmed",
-  "processing",
-  "shipped",
-  "delivered",
-  "cancelled",
-];
-
 export default function OrderDetailPage() {
   const { id } = useParams();
   const { data, isLoading } = useGetOrderQuery(id as string);
-  const [updateStatus, { isLoading: updating }] =
-    useUpdateOrderStatusMutation();
 
-  const order = data?.data;
-
-  const handleStatusChange = async (status: string) => {
-    try {
-      await updateStatus({ id: id as string, status }).unwrap();
-    } catch (err) {
-      alert("Failed to update status");
-    }
-  };
+  const order = data;
 
   if (isLoading) {
     return (
@@ -100,27 +78,29 @@ export default function OrderDetailPage() {
                     {order.items.map((item: any) => (
                       <tr key={item.id}>
                         <td>
-                          <div style={{ fontWeight: 500 }}>{item.name}</div>
-                          {item.variant && (
+                          <div style={{ fontWeight: 500 }}>
+                            {item.name ?? item.productName}
+                          </div>
+                          {(item.variant || item.variantName) && (
                             <div
                               style={{
                                 fontSize: 12,
                                 color: "var(--text-muted)",
                               }}
                             >
-                              {item.variant}
+                              {item.variant ?? item.variantName}
                             </div>
                           )}
                           <div
                             style={{ fontSize: 12, color: "var(--text-muted)" }}
                           >
-                            SKU: {item.sku}
+                            SKU: {item.sku ?? "-"}
                           </div>
                         </td>
-                        <td>{formatCurrency(item.price)}</td>
+                        <td>{formatCurrency(item.unitPrice ?? item.price)}</td>
                         <td>{item.quantity}</td>
                         <td style={{ textAlign: "right", fontWeight: 600 }}>
-                          {formatCurrency(item.total)}
+                          {formatCurrency(item.totalPrice ?? item.total)}
                         </td>
                       </tr>
                     ))}
@@ -224,45 +204,6 @@ export default function OrderDetailPage() {
         <div>
           <div className="card" style={{ marginBottom: 24 }}>
             <div className="card-header">
-              <h3 className="card-title">Update Status</h3>
-            </div>
-            <div className="card-body">
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {allStatuses.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => handleStatusChange(s)}
-                    disabled={order.status === s || updating}
-                    className={`btn ${order.status === s ? "btn-primary" : "btn-secondary"}`}
-                    style={{
-                      justifyContent: "flex-start",
-                      textTransform: "capitalize",
-                    }}
-                  >
-                    {s}
-                    {order.status === s && (
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        style={{ marginLeft: "auto" }}
-                      >
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="card" style={{ marginBottom: 24 }}>
-            <div className="card-header">
               <h3 className="card-title">Customer</h3>
             </div>
             <div className="card-body">
@@ -297,7 +238,9 @@ export default function OrderDetailPage() {
                       Address
                     </div>
                     <div style={{ fontWeight: 500, fontSize: 14 }}>
-                      {order.customer.address}
+                      {typeof order.customer.address === "string"
+                        ? order.customer.address
+                        : Object.values(order.customer.address).join(", ")}
                     </div>
                     <div
                       style={{ fontSize: 13, color: "var(--text-secondary)" }}
@@ -330,7 +273,7 @@ export default function OrderDetailPage() {
                   </span>
                   <span>{formatCurrency(order.subtotal)}</span>
                 </div>
-                {order.discount > 0 && (
+                {(order.discount ?? order.discountAmount ?? 0) > 0 && (
                   <div
                     style={{
                       display: "flex",
@@ -339,7 +282,9 @@ export default function OrderDetailPage() {
                     }}
                   >
                     <span>Discount</span>
-                    <span>-{formatCurrency(order.discount)}</span>
+                    <span>
+                      -{formatCurrency(order.discount ?? order.discountAmount)}
+                    </span>
                   </div>
                 )}
                 <div
@@ -348,7 +293,14 @@ export default function OrderDetailPage() {
                   <span style={{ color: "var(--text-secondary)" }}>
                     Delivery
                   </span>
-                  <span>{formatCurrency(order.deliveryCharge)}</span>
+                  <span>
+                    {formatCurrency(
+                      order.deliveryCharge ??
+                        order.shippingAmount ??
+                        order.shipping ??
+                        0,
+                    )}
+                  </span>
                 </div>
                 {order.codCharge > 0 && (
                   <div
@@ -360,12 +312,12 @@ export default function OrderDetailPage() {
                     <span>{formatCurrency(order.codCharge)}</span>
                   </div>
                 )}
-                {order.tax > 0 && (
+                {(order.tax ?? order.taxAmount ?? 0) > 0 && (
                   <div
                     style={{ display: "flex", justifyContent: "space-between" }}
                   >
                     <span style={{ color: "var(--text-secondary)" }}>Tax</span>
-                    <span>{formatCurrency(order.tax)}</span>
+                    <span>{formatCurrency(order.tax ?? order.taxAmount)}</span>
                   </div>
                 )}
                 <div

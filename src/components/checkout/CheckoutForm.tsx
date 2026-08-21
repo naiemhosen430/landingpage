@@ -1,333 +1,847 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { usePlaceOrderMutation } from "@/store/publicApi";
+import {
+  useCreateIncompleteOrderMutation,
+  usePlaceOrderMutation,
+  useTrackAnalyticsEventMutation,
+  useUpdateIncompleteOrderMutation,
+} from "@/store/publicApi";
 import { formatCurrency } from "@/lib/utils";
+import { trackStorefrontEvent } from "@/lib/tracking";
+import type {
+  PublicDeliveryArea,
+  PublicLandingPageData,
+  PublicPaymentMethod,
+} from "@/lib/landingPage";
 
-interface CheckoutItem {
-  productId: string;
-  name: string;
-  price: number;
+// Import the raw CSS file in your layout or page:
+import "./checkout-modern-light.css";
+
+type PublicProduct = PublicLandingPageData["products"][number];
+
+type PublicVariant = {
+  id?: string;
+  name?: string;
+  price?: number;
+  stock?: number;
+  isActive?: boolean;
+};
+
+type Selection = {
+  product: PublicProduct;
+  variantId?: string;
   quantity: number;
-  image?: string;
-}
+  isSelected: boolean;
+};
 
 interface CheckoutFormProps {
-  items: CheckoutItem[];
+  products: PublicProduct[];
   deliveryCharge?: number;
+  deliveryArea?: PublicDeliveryArea | null;
+  paymentMethods?: PublicPaymentMethod[];
   codCharge?: number;
   onClear?: () => void;
 }
 
+const variantsOf = (product: PublicProduct): PublicVariant[] =>
+  (Array.isArray(product.variants) ? product.variants : []) as PublicVariant[];
+
+const availableVariantsOf = (product: PublicProduct) =>
+  variantsOf(product).filter(
+    (variant) => variant.isActive !== false && (variant.stock ?? 1) > 0,
+  );
+
+const priceOf = (selection: Selection) => {
+  const variant = variantsOf(selection.product).find(
+    (item) => item.id === selection.variantId,
+  );
+  return Number(variant?.price ?? selection.product.price) || 0;
+};
+
+const createSelection = (product: PublicProduct): Selection => ({
+  product,
+  variantId: availableVariantsOf(product)[0]?.id,
+  quantity: 1,
+  isSelected: false,
+});
+
+const isValidPhone = (phone: string) =>
+  /^[+]?[0-9\s-]{10,15}$/.test(phone.trim());
+
 export default function CheckoutForm({
-  items,
+  products,
   deliveryCharge = 60,
+  deliveryArea,
+  paymentMethods = [],
   codCharge = 0,
   onClear,
 }: CheckoutFormProps) {
   const router = useRouter();
-  const [placeOrder, { isLoading }] = usePlaceOrderMutation();
 
-  const [form, setForm] = useState({
-    name: "",
-    phone: "",
-    email: "",
-    address: "",
-    city: "",
-    district: "",
-    postcode: "",
-    notes: "",
-    paymentMethod: "cod" as "cod" | "online",
+  const [placeOrder, { isLoading: isPlacingOrder }] = usePlaceOrderMutation();
+  const [trackAnalyticsEvent] = useTrackAnalyticsEventMutation();
+  const [createIncompleteOrder] = useCreateIncompleteOrderMutation();
+  const [updateIncompleteOrder] = useUpdateIncompleteOrderMutation();
+  const incompleteOrderId = useRef<string | null>(null);
+  const hasPlacedOrder = useRef(false);
+  const hasTrackedInitialEvents = useRef(false);
+  const previousSelectedIds = useRef<string[]>([]);
+
+  const availableProducts = products;
+
+  const paymentOptions = paymentMethods.filter(
+    (method) => method.isActive !== false,
+  );
+
+  const activePaymentMethods = paymentOptions.length
+    ? paymentOptions
+    : [{ id: "cod", code: "cod", name: "Cash on Delivery" }];
+
+  // Initialize ALL products so controls are always visible.
+  // Pre-select the first product only.
+  const [selectedItems, setSelectedItems] = useState<Selection[]>(() =>
+    availableProducts.map((product, index) => ({
+      ...createSelection(product),
+      isSelected: index === 0,
+    })),
+  );
+
+  const [formValues, setFormValues] = useState({
+    customerName: "",
+    customerPhone: "",
+    deliveryAddress: "",
+    orderNotes: "",
+    selectedPaymentMethod: activePaymentMethods[0].code,
+    selectedDeliveryZone: deliveryArea?.zones?.[0]?.zone ?? "",
   });
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formValidationErrors, setFormValidationErrors] = useState<
+    Record<string, string>
+  >({});
 
-  const subtotal = items.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0,
-  );
-  const total =
-    subtotal + deliveryCharge + (form.paymentMethod === "cod" ? codCharge : 0);
-
-  const validate = () => {
-    const e: Record<string, string> = {};
-    if (!form.name.trim()) e.name = "Name is required";
-    if (!form.phone.trim()) e.phone = "Phone is required";
-    if (!form.email.trim()) e.email = "Email is required";
-    if (!form.address.trim()) e.address = "Address is required";
-    if (!form.city.trim()) e.city = "City is required";
-    setErrors(e);
-    return Object.keys(e).length === 0;
+  const handleToggleProductSelection = (product: PublicProduct) => {
+    setSelectedItems((current) =>
+      current.map((selection) =>
+        selection.product.id === product.id
+          ? { ...selection, isSelected: !selection.isSelected }
+          : selection,
+      ),
+    );
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate() || items.length === 0) return;
+  const handleUpdateProductSelection = (
+    product: PublicProduct,
+    changes: Partial<Omit<Selection, "product">>,
+  ) => {
+    setSelectedItems((current) =>
+      current.map((selection) =>
+        selection.product.id === product.id
+          ? { ...selection, ...changes }
+          : selection,
+      ),
+    );
+  };
+
+  const matchedDeliveryZone = deliveryArea?.zones?.find(
+    (zone) => zone.zone === formValues.selectedDeliveryZone,
+  );
+
+  const computedDeliveryCost =
+    matchedDeliveryZone?.price ??
+    deliveryArea?.price ??
+    deliveryArea?.deliveryCharge ??
+    deliveryCharge;
+
+  const selectedCount = selectedItems.filter((item) => item.isSelected).length;
+
+  const orderSubtotal = selectedItems
+    .filter((item) => item.isSelected)
+    .reduce((sum, item) => sum + priceOf(item) * item.quantity, 0);
+
+  const orderTotalAmount =
+    orderSubtotal +
+    computedDeliveryCost +
+    (formValues.selectedPaymentMethod === "cod" ? codCharge : 0);
+
+  const trackingContext = {
+    url: typeof window === "undefined" ? undefined : window.location.href,
+    currency: "BDT",
+  };
+  const trackingPageKey =
+    typeof window === "undefined" ? "landing" : window.location.pathname;
+
+  const trackCheckoutEvent = (
+    eventType:
+      | "page_view"
+      | "product_view"
+      | "add_to_cart"
+      | "checkout_started",
+    eventName: string,
+    payload: Record<string, unknown>,
+    dedupeKey: string,
+  ) => {
+    trackStorefrontEvent(
+      {
+        eventType,
+        eventName,
+        payload: { ...trackingContext, ...payload },
+        url: trackingContext.url,
+      },
+      dedupeKey,
+      trackAnalyticsEvent,
+    );
+  };
+
+  useEffect(() => {
+    if (hasTrackedInitialEvents.current || !availableProducts.length) return;
+    hasTrackedInitialEvents.current = true;
+    const firstProduct = selectedItems.find((item) => item.isSelected)?.product;
+    trackCheckoutEvent(
+      "page_view",
+      "page_view",
+      {},
+      `landing-page-view-${trackingPageKey}`,
+    );
+    trackCheckoutEvent(
+      "product_view",
+      "view_content",
+      {
+        contentIds: firstProduct ? [firstProduct.id] : [],
+        contentName: firstProduct?.name,
+        contentType: "product",
+      },
+      `landing-view-content-${trackingPageKey}`,
+    );
+    trackCheckoutEvent(
+      "add_to_cart",
+      "add_to_cart",
+      {
+        contentIds: firstProduct ? [firstProduct.id] : [],
+        contentName: firstProduct?.name,
+        quantity: 1,
+        value: firstProduct ? Number(firstProduct.price) || 0 : 0,
+      },
+      `landing-initial-add-to-cart-${trackingPageKey}`,
+    );
+    trackCheckoutEvent(
+      "checkout_started",
+      "checkout_started",
+      {
+        value: orderTotalAmount,
+        contentIds: firstProduct ? [firstProduct.id] : [],
+      },
+      `landing-initial-checkout-${trackingPageKey}`,
+    );
+    previousSelectedIds.current = selectedItems
+      .filter((item) => item.isSelected)
+      .map((item) => item.product.id);
+  }, [availableProducts.length, orderTotalAmount, selectedItems]);
+
+  useEffect(() => {
+    if (!hasTrackedInitialEvents.current) return;
+    const selectedIds = selectedItems
+      .filter((item) => item.isSelected)
+      .map((item) => item.product.id);
+    const addedId = selectedIds.find(
+      (id) => !previousSelectedIds.current.includes(id),
+    );
+    if (addedId) {
+      const added = selectedItems.find((item) => item.product.id === addedId);
+      if (added) {
+        trackCheckoutEvent(
+          "add_to_cart",
+          "add_to_cart",
+          {
+            contentIds: [added.product.id],
+            contentName: added.product.name,
+            quantity: added.quantity,
+            price: priceOf(added),
+            value: priceOf(added) * added.quantity,
+          },
+          `landing-add-to-cart-${added.product.id}-${added.quantity}`,
+        );
+      }
+    }
+    previousSelectedIds.current = selectedIds;
+  }, [selectedItems]);
+
+  const buildIncompleteOrderData = () => ({
+    customer: {
+      name: formValues.customerName || undefined,
+      phone: formValues.customerPhone,
+      address: formValues.deliveryAddress || undefined,
+    },
+    items: selectedItems
+      .filter((item) => item.isSelected)
+      .map((item) => ({
+        productId: item.product.id,
+        ...(item.variantId ? { variantId: item.variantId } : {}),
+        quantity: item.quantity,
+      })),
+    notes: formValues.orderNotes || undefined,
+    paymentMethod: formValues.selectedPaymentMethod || undefined,
+    shippingMethod: "standard",
+    deliveryZone: formValues.selectedDeliveryZone || undefined,
+  });
+
+  useEffect(() => {
+    if (!isValidPhone(formValues.customerPhone) || incompleteOrderId.current) {
+      return;
+    }
+
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await createIncompleteOrder({
+          phone: formValues.customerPhone.trim(),
+        }).unwrap();
+        incompleteOrderId.current = response?.data?.id ?? response?.id ?? null;
+        if (incompleteOrderId.current) {
+          await updateIncompleteOrder({
+            id: incompleteOrderId.current,
+            data: buildIncompleteOrderData(),
+          }).unwrap();
+        }
+      } catch {
+        // A failed draft save must not block the normal checkout flow.
+      }
+    }, 500);
+
+    return () => window.clearTimeout(timer);
+  }, [createIncompleteOrder, formValues.customerPhone]);
+
+  useEffect(() => {
+    const orderId = incompleteOrderId.current;
+    if (!orderId || !isValidPhone(formValues.customerPhone)) return;
+
+    const timer = window.setTimeout(() => {
+      updateIncompleteOrder({
+        id: orderId,
+        data: buildIncompleteOrderData(),
+      }).catch(() => undefined);
+    }, 500);
+
+    return () => window.clearTimeout(timer);
+  }, [formValues, selectedItems, updateIncompleteOrder]);
+
+  useEffect(() => {
+    const saveDraftOnLeave = () => {
+      const orderId = incompleteOrderId.current;
+      if (
+        !orderId ||
+        hasPlacedOrder.current ||
+        !isValidPhone(formValues.customerPhone)
+      ) {
+        return;
+      }
+
+      const apiBase = process.env.NEXT_PUBLIC_API_URL;
+      const projectId = process.env.NEXT_PUBLIC_PROJECT_ID;
+      const projectKey = process.env.NEXT_PUBLIC_PROJECT_KEY;
+      if (!apiBase) return;
+
+      void fetch(
+        `${apiBase}/public/v1/orders/incomplete/${encodeURIComponent(orderId)}`,
+        {
+          method: "PATCH",
+          headers: {
+            "content-type": "application/json",
+            "x-project-id": projectId ?? "",
+            "x-project-key": projectKey ?? "",
+          },
+          body: JSON.stringify(buildIncompleteOrderData()),
+          keepalive: true,
+        },
+      ).catch(() => undefined);
+    };
+
+    window.addEventListener("pagehide", saveDraftOnLeave);
+    return () => window.removeEventListener("pagehide", saveDraftOnLeave);
+  }, [formValues, selectedItems]);
+
+  const validateCheckoutForm = () => {
+    const nextErrors: Record<string, string> = {};
+    if (!formValues.customerName.trim())
+      nextErrors.customerName = "Full name is required";
+    if (!formValues.customerPhone.trim())
+      nextErrors.customerPhone = "Phone is required";
+    if (!formValues.deliveryAddress.trim())
+      nextErrors.deliveryAddress = "Address is required";
+    setFormValidationErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const handlePlaceOrderSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!validateCheckoutForm() || selectedCount === 0) return;
 
     try {
+      hasPlacedOrder.current = true;
       const result = await placeOrder({
-        items: items.map((i) => ({
-          productId: i.productId,
-          quantity: i.quantity,
-        })),
+        items: selectedItems
+          .filter((item) => item.isSelected)
+          .map((item) => ({
+            productId: item.product.id,
+            ...(item.variantId ? { variantId: item.variantId } : {}),
+            quantity: item.quantity,
+          })),
         customer: {
-          name: form.name,
-          phone: form.phone,
-          email: form.email,
-          address: {
-            street: form.address,
-            city: form.city,
-            state: form.district || undefined,
-            zipCode: form.postcode || undefined,
-            country: "", // optional
-          },
+          name: formValues.customerName,
+          phone: formValues.customerPhone,
+          address: formValues.deliveryAddress,
         },
-        notes: form.notes || undefined,
+        notes: formValues.orderNotes || undefined,
+        paymentMethod: formValues.selectedPaymentMethod,
+        shippingMethod: "standard",
+        deliveryZone: formValues.selectedDeliveryZone || undefined,
       }).unwrap();
 
-      if (onClear) onClear();
-      router.push(`/thank-you?order=${result.data?.id || result.id || ""}`);
-    } catch (err: any) {
-      alert(err?.data?.message || "Failed to place order");
+      onClear?.();
+      router.push(`/thank-you/${result.data?.id || result.id || ""}`);
+    } catch (error: any) {
+      alert(error?.data?.message || "Failed to place order");
     }
   };
 
-  if (items.length === 0) {
+  if (!availableProducts.length) {
     return (
-      <div style={{ textAlign: "center", padding: "40px 20px" }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>🛒</div>
-        <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>
-          Your cart is empty
-        </h3>
-        <p style={{ color: "var(--text-secondary)", fontSize: 14 }}>
-          Add products to continue
-        </p>
+      <div className="checkout-form-modern-light">
+        <div className="checkout-form-modern-light__wrapper">
+          <div className="checkout-form-modern-light__empty-state">
+            No products are available right now.
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-        <div className="form-group">
-          <label className="form-label">Full Name *</label>
-          <input
-            className="form-input"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="Your full name"
-          />
-          {errors.name && <div className="form-error">{errors.name}</div>}
-        </div>
-        <div className="form-group">
-          <label className="form-label">Phone *</label>
-          <input
-            className="form-input"
-            value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })}
-            placeholder="01XXXXXXXXX"
-          />
-          {errors.phone && <div className="form-error">{errors.phone}</div>}
-        </div>
-      </div>
+    <form
+      className="checkout-form-modern-light"
+      onSubmit={handlePlaceOrderSubmit}
+    >
+      {/* Section 1: Product Selection */}
+      <section className="checkout-form-modern-light__section-card">
+        <div className="checkout-form-modern-light__product-list">
+          {availableProducts.map((product) => {
+            const selection = selectedItems.find(
+              (s) => s.product.id === product.id,
+            );
+            const isProductSelected = selection?.isSelected ?? false;
+            const productVariants = availableVariantsOf(product);
 
-      <div className="form-group">
-        <label className="form-label">Email</label>
-        <input
-          type="email"
-          className="form-input"
-          value={form.email}
-          onChange={(e) => setForm({ ...form, email: e.target.value })}
-          placeholder="you@example.com"
-        />
-      </div>
+            return (
+              <div
+                className={[
+                  "checkout-form-modern-light__product-card",
+                  isProductSelected
+                    ? "checkout-form-modern-light__product-card--selected"
+                    : "",
+                ].join(" ")}
+                key={product.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => handleToggleProductSelection(product)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    handleToggleProductSelection(product);
+                  }
+                }}
+              >
+                <label
+                  className="checkout-form-modern-light__product-card-inner"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <input
+                    type="checkbox"
+                    className="checkout-form-modern-light__product-checkbox"
+                    checked={isProductSelected}
+                    onChange={() => handleToggleProductSelection(product)}
+                    onClick={(event) => event.stopPropagation()}
+                  />
+                  <span className="checkout-form-modern-light__product-thumbnail-wrapper">
+                    {product.thumbnailImage?.secureUrl ||
+                    product.thumbnailImage?.url ? (
+                      <img
+                        src={
+                          product.thumbnailImage.secureUrl ??
+                          product.thumbnailImage.url
+                        }
+                        alt={product.name}
+                        loading="lazy"
+                      />
+                    ) : null}
+                  </span>
+                  <span className="checkout-form-modern-light__product-info-row">
+                    <strong className="checkout-form-modern-light__product-name-text">
+                      {product.name}
+                    </strong>
+                    <span className="checkout-form-modern-light__product-price-text">
+                      {formatCurrency(
+                        selection
+                          ? priceOf(selection)
+                          : Number(product.price) || 0,
+                      )}
+                    </span>
+                  </span>
+                </label>
 
-      <div className="form-group">
-        <label className="form-label">Delivery Address *</label>
-        <textarea
-          className="form-textarea"
-          value={form.address}
-          onChange={(e) => setForm({ ...form, address: e.target.value })}
-          placeholder="House, Road, Area"
-          rows={2}
-        />
-        {errors.address && <div className="form-error">{errors.address}</div>}
-      </div>
+                {/* Controls always visible */}
+                <div
+                  className="checkout-form-modern-light__product-controls-panel"
+                  onClick={(event) => {
+                    // Only block card toggle when already selected.
+                    // When not selected, let the click bubble so the card
+                    // selects itself first.
+                    if (isProductSelected) {
+                      event.stopPropagation();
+                    }
+                  }}
+                >
+                  {productVariants.length > 0 && (
+                    <select
+                      className="checkout-form-modern-light__variant-dropdown"
+                      aria-label={`${product.name} variant`}
+                      value={selection?.variantId ?? ""}
+                      onChange={(event) =>
+                        handleUpdateProductSelection(product, {
+                          variantId: event.target.value,
+                        })
+                      }
+                    >
+                      {productVariants.map((variant, index) => (
+                        <option
+                          key={variant.id ?? index}
+                          value={variant.id ?? ""}
+                        >
+                          {variant.name || `Option ${index + 1}`} —{" "}
+                          {formatCurrency(Number(variant.price) || 0)}
+                        </option>
+                      ))}
+                    </select>
+                  )}
 
-      <div
-        style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}
-      >
-        <div className="form-group">
-          <label className="form-label">City *</label>
-          <input
-            className="form-input"
-            value={form.city}
-            onChange={(e) => setForm({ ...form, city: e.target.value })}
-            placeholder="City"
-          />
-          {errors.city && <div className="form-error">{errors.city}</div>}
+                  <div className="checkout-form-modern-light__quantity-stepper">
+                    <button
+                      type="button"
+                      className="checkout-form-modern-light__quantity-stepper-button"
+                      aria-label={`Decrease ${product.name} quantity`}
+                      onClick={() =>
+                        handleUpdateProductSelection(product, {
+                          quantity: Math.max(1, (selection?.quantity ?? 1) - 1),
+                        })
+                      }
+                    >
+                      −
+                    </button>
+                    <span className="checkout-form-modern-light__quantity-stepper-value">
+                      {selection?.quantity ?? 1}
+                    </span>
+                    <button
+                      type="button"
+                      className="checkout-form-modern-light__quantity-stepper-button"
+                      aria-label={`Increase ${product.name} quantity`}
+                      onClick={() =>
+                        handleUpdateProductSelection(product, {
+                          quantity: (selection?.quantity ?? 1) + 1,
+                        })
+                      }
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
-        <div className="form-group">
-          <label className="form-label">District</label>
-          <input
-            className="form-input"
-            value={form.district}
-            onChange={(e) => setForm({ ...form, district: e.target.value })}
-          />
-        </div>
-        <div className="form-group">
-          <label className="form-label">Postcode</label>
-          <input
-            className="form-input"
-            value={form.postcode}
-            onChange={(e) => setForm({ ...form, postcode: e.target.value })}
-          />
-        </div>
-      </div>
+      </section>
+      <div className="checkout-form-modern-light__wrapper">
+        <div className="checkout-form-modern-light__grid-container">
+          {/* ---------- Main Content ---------- */}
+          <div className="checkout-form-modern-light__main-content">
+            {/* Section 3: Customer Details */}
+            <section className="checkout-form-modern-light__section-card">
+              <div className="checkout-form-modern-light__fields-grid-two-col">
+                <div className="checkout-form-modern-light__form-group">
+                  <label className="checkout-form-modern-light__form-label">
+                    Full name{" "}
+                    <span className="checkout-form-modern-light__form-label-optional">
+                      *
+                    </span>
+                  </label>
+                  <input
+                    type="text"
+                    className="checkout-form-modern-light__form-input"
+                    value={formValues.customerName}
+                    onChange={(event) =>
+                      setFormValues({
+                        ...formValues,
+                        customerName: event.target.value,
+                      })
+                    }
+                    placeholder="Your full name"
+                  />
+                  {formValidationErrors.customerName && (
+                    <div className="checkout-form-modern-light__form-error-message">
+                      {formValidationErrors.customerName}
+                    </div>
+                  )}
+                </div>
 
-      <div className="form-group">
-        <label className="form-label">Order Notes</label>
-        <textarea
-          className="form-textarea"
-          value={form.notes}
-          onChange={(e) => setForm({ ...form, notes: e.target.value })}
-          placeholder="Any special instructions..."
-          rows={2}
-        />
-      </div>
+                <div className="checkout-form-modern-light__form-group">
+                  <label className="checkout-form-modern-light__form-label">
+                    Phone{" "}
+                    <span className="checkout-form-modern-light__form-label-optional">
+                      *
+                    </span>
+                  </label>
+                  <input
+                    type="tel"
+                    className="checkout-form-modern-light__form-input"
+                    value={formValues.customerPhone}
+                    onChange={(event) =>
+                      setFormValues({
+                        ...formValues,
+                        customerPhone: event.target.value,
+                      })
+                    }
+                    placeholder="01XXXXXXXXX"
+                  />
+                  {formValidationErrors.customerPhone && (
+                    <div className="checkout-form-modern-light__form-error-message">
+                      {formValidationErrors.customerPhone}
+                    </div>
+                  )}
+                </div>
+              </div>
 
-      <div style={{ marginBottom: 20 }}>
-        <label className="form-label">Payment Method</label>
-        <div style={{ display: "flex", gap: 12 }}>
-          <label
-            style={{
-              flex: 1,
-              padding: 16,
-              border: `2px solid ${form.paymentMethod === "cod" ? "var(--primary)" : "var(--border-color)"}`,
-              borderRadius: "var(--radius)",
-              cursor: "pointer",
-              background:
-                form.paymentMethod === "cod"
-                  ? "var(--primary-light)"
-                  : "var(--bg-primary)",
-            }}
-          >
-            <input
-              type="radio"
-              name="payment"
-              value="cod"
-              checked={form.paymentMethod === "cod"}
-              onChange={() => setForm({ ...form, paymentMethod: "cod" })}
-              style={{ marginRight: 8 }}
-            />
-            <span style={{ fontWeight: 600 }}>Cash on Delivery</span>
-          </label>
-          <label
-            style={{
-              flex: 1,
-              padding: 16,
-              border: `2px solid ${form.paymentMethod === "online" ? "var(--primary)" : "var(--border-color)"}`,
-              borderRadius: "var(--radius)",
-              cursor: "pointer",
-              background:
-                form.paymentMethod === "online"
-                  ? "var(--primary-light)"
-                  : "var(--bg-primary)",
-            }}
-          >
-            <input
-              type="radio"
-              name="payment"
-              value="online"
-              checked={form.paymentMethod === "online"}
-              onChange={() => setForm({ ...form, paymentMethod: "online" })}
-              style={{ marginRight: 8 }}
-            />
-            <span style={{ fontWeight: 600 }}>Online Payment</span>
-          </label>
-        </div>
-      </div>
+              <div className="checkout-form-modern-light__form-group">
+                <label className="checkout-form-modern-light__form-label">
+                  Delivery address{" "}
+                  <span className="checkout-form-modern-light__form-label-optional">
+                    *
+                  </span>
+                </label>
+                <textarea
+                  className="checkout-form-modern-light__form-textarea"
+                  rows={3}
+                  value={formValues.deliveryAddress}
+                  onChange={(event) =>
+                    setFormValues({
+                      ...formValues,
+                      deliveryAddress: event.target.value,
+                    })
+                  }
+                  placeholder="House, road, area"
+                />
+                {formValidationErrors.deliveryAddress && (
+                  <div className="checkout-form-modern-light__form-error-message">
+                    {formValidationErrors.deliveryAddress}
+                  </div>
+                )}
+              </div>
 
-      <div
-        style={{
-          background: "var(--bg-secondary)",
-          borderRadius: "var(--radius)",
-          padding: 20,
-          marginBottom: 20,
-        }}
-      >
-        <h4 style={{ marginBottom: 12, fontSize: 16 }}>Order Summary</h4>
-        {items.map((item) => (
-          <div
-            key={item.productId}
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              padding: "6px 0",
-              fontSize: 14,
-            }}
-          >
-            <span>
-              {item.name} x{item.quantity}
-            </span>
-            <span style={{ fontWeight: 500 }}>
-              {formatCurrency(item.price * item.quantity)}
-            </span>
+              <div className="checkout-form-modern-light__form-group">
+                <label className="checkout-form-modern-light__form-label">
+                  Order note
+                  <span className="checkout-form-modern-light__form-label-optional">
+                    Optional
+                  </span>
+                </label>
+                <textarea
+                  className="checkout-form-modern-light__form-textarea"
+                  rows={2}
+                  value={formValues.orderNotes}
+                  onChange={(event) =>
+                    setFormValues({
+                      ...formValues,
+                      orderNotes: event.target.value,
+                    })
+                  }
+                  placeholder="Any special instructions?"
+                />
+              </div>
+            </section>
+
+            {/* Section 2: Delivery & Payment */}
+            <section className="checkout-form-modern-light__section-card">
+              {deliveryArea?.zones?.length ? (
+                <div className="checkout-form-modern-light__form-group">
+                  <label className="checkout-form-modern-light__form-label">
+                    Delivery area
+                  </label>
+                  <div className="checkout-form-modern-light__delivery-zones">
+                    {deliveryArea.zones.map((zone) => (
+                      <label
+                        className={[
+                          "checkout-form-modern-light__delivery-zone-card",
+                          formValues.selectedDeliveryZone === zone.zone
+                            ? "checkout-form-modern-light__delivery-zone-card--active"
+                            : "",
+                        ].join(" ")}
+                        key={zone.zone}
+                      >
+                        <input
+                          type="radio"
+                          name="deliveryZone"
+                          value={zone.zone}
+                          className="checkout-form-modern-light__delivery-zone-radio"
+                          checked={
+                            formValues.selectedDeliveryZone === zone.zone
+                          }
+                          onChange={() =>
+                            setFormValues({
+                              ...formValues,
+                              selectedDeliveryZone: zone.zone,
+                            })
+                          }
+                        />
+                        <span className="checkout-form-modern-light__delivery-zone-details">
+                          <strong>{zone.zone}</strong>
+                        </span>
+                        <strong className="checkout-form-modern-light__delivery-zone-price">
+                          {formatCurrency(zone.price)}
+                        </strong>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="checkout-form-modern-light__form-group">
+                <label className="checkout-form-modern-light__form-label">
+                  Payment method
+                </label>
+                <div className="checkout-form-modern-light__payment-methods-list">
+                  {activePaymentMethods.map((method) => (
+                    <label
+                      className={[
+                        "checkout-form-modern-light__payment-method-card",
+                        formValues.selectedPaymentMethod === method.code
+                          ? "checkout-form-modern-light__payment-method-card--active"
+                          : "",
+                      ].join(" ")}
+                      key={method.id}
+                    >
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        className="checkout-form-modern-light__payment-method-radio"
+                        checked={
+                          formValues.selectedPaymentMethod === method.code
+                        }
+                        onChange={() =>
+                          setFormValues({
+                            ...formValues,
+                            selectedPaymentMethod: method.code,
+                          })
+                        }
+                      />
+                      <span className="checkout-form-modern-light__payment-method-details">
+                        <strong className="checkout-form-modern-light__payment-method-name">
+                          {method.name}
+                        </strong>
+
+                        {method.instructions &&
+                          formValues.selectedPaymentMethod === method.code && (
+                            <small className="checkout-form-modern-light__payment-method-instructions">
+                              {method.instructions}
+                            </small>
+                          )}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </section>
           </div>
-        ))}
-        <div
-          style={{
-            borderTop: "1px solid var(--border-color)",
-            marginTop: 8,
-            paddingTop: 8,
-            display: "flex",
-            justifyContent: "space-between",
-            fontSize: 14,
-          }}
-        >
-          <span style={{ color: "var(--text-secondary)" }}>Delivery</span>
-          <span>{formatCurrency(deliveryCharge)}</span>
-        </div>
-        {form.paymentMethod === "cod" && codCharge > 0 && (
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              fontSize: 14,
-              padding: "4px 0",
-            }}
-          >
-            <span style={{ color: "var(--text-secondary)" }}>COD Charge</span>
-            <span>{formatCurrency(codCharge)}</span>
-          </div>
-        )}
-        <div
-          style={{
-            borderTop: "1px solid var(--border-color)",
-            marginTop: 8,
-            paddingTop: 12,
-            display: "flex",
-            justifyContent: "space-between",
-            fontWeight: 700,
-            fontSize: 18,
-          }}
-        >
-          <span>Total</span>
-          <span>{formatCurrency(total)}</span>
+
+          {/* ---------- Order Summary Sidebar ---------- */}
+          <aside className="checkout-form-modern-light__order-summary-sidebar">
+            <h2 className="checkout-form-modern-light__order-summary-title">
+              Order summary
+            </h2>
+
+            {selectedCount === 0 ? (
+              <p className="checkout-form-modern-light__summary-empty-hint">
+                Select a product to continue.
+              </p>
+            ) : (
+              selectedItems
+                .filter((item) => item.isSelected)
+                .map((item) => (
+                  <div
+                    className="checkout-form-modern-light__summary-line-item"
+                    key={item.product.id}
+                  >
+                    <span className="checkout-form-modern-light__summary-line-item-label">
+                      {item.product.name} <small>x{item.quantity}</small>
+                    </span>
+                    <strong className="checkout-form-modern-light__summary-line-item-value">
+                      {formatCurrency(priceOf(item) * item.quantity)}
+                    </strong>
+                  </div>
+                ))
+            )}
+
+            <div className="checkout-form-modern-light__summary-line-item">
+              <span className="checkout-form-modern-light__summary-line-item-label">
+                Delivery
+              </span>
+              <strong className="checkout-form-modern-light__summary-line-item-value">
+                {formatCurrency(computedDeliveryCost)}
+              </strong>
+            </div>
+
+            {formValues.selectedPaymentMethod === "cod" && codCharge > 0 && (
+              <div className="checkout-form-modern-light__summary-line-item">
+                <span className="checkout-form-modern-light__summary-line-item-label">
+                  COD charge
+                </span>
+                <strong className="checkout-form-modern-light__summary-line-item-value">
+                  {formatCurrency(codCharge)}
+                </strong>
+              </div>
+            )}
+
+            <div className="checkout-form-modern-light__summary-total-row">
+              <span>Total</span>
+              <strong className="checkout-form-modern-light__summary-total-amount">
+                {formatCurrency(orderTotalAmount)}
+              </strong>
+            </div>
+
+            <button
+              type="submit"
+              className="checkout-form-modern-light__submit-order-button"
+              disabled={isPlacingOrder || selectedCount === 0}
+            >
+              {isPlacingOrder ? (
+                <>
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                  </svg>
+                  Placing order…
+                </>
+              ) : (
+                "Order now"
+              )}
+            </button>
+          </aside>
         </div>
       </div>
-
-      <button
-        type="submit"
-        className="btn btn-primary btn-lg"
-        disabled={isLoading}
-        style={{ width: "100%" }}
-      >
-        {isLoading
-          ? "Placing Order..."
-          : `Place Order - ${formatCurrency(total)}`}
-      </button>
     </form>
   );
 }

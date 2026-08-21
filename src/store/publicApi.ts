@@ -24,6 +24,11 @@ export type PublicAnalyticsResponse = {
   errors?: string[];
 };
 
+export type PublicDeliveryPrice = {
+  price: number;
+  deliveryCharge: number;
+};
+
 export const publicApi = api.injectEndpoints({
   endpoints: (builder) => ({
     getPublicProducts: builder.query<any, Record<string, any> | void>({
@@ -34,13 +39,45 @@ export const publicApi = api.injectEndpoints({
       transformResponse: (response: any) => response?.data ?? response,
     }),
     getPublicProduct: builder.query<any, string>({
-      query: (slug) => `/public/v1/products/slug/${slug}`,
+      query: (slug) => `/public/v1/products/${encodeURIComponent(slug)}`,
+      transformResponse: (response: any) => response?.data ?? response,
+    }),
+    getPublicPaymentMethods: builder.query<any[], void>({
+      query: () => "/public/v1/payment-methods",
+      transformResponse: (response: any) => response?.data ?? response ?? [],
+    }),
+    getPublicDeliveryPrice: builder.query<PublicDeliveryPrice, string | void>({
+      query: (zone) => ({
+        url: "/public/v1/delivery-prices",
+        params: zone ? { zone } : undefined,
+      }),
       transformResponse: (response: any) => response?.data ?? response,
     }),
     placeOrder: builder.mutation<any, Record<string, any>>({
       query: (data) => ({
         url: "/public/v1/orders",
         method: "POST",
+        body: data,
+      }),
+    }),
+    getPublicOrder: builder.query<any, string>({
+      query: (id) => `/public/v1/orders/${encodeURIComponent(id)}`,
+      transformResponse: (response: any) => response?.data ?? response,
+    }),
+    createIncompleteOrder: builder.mutation<any, { phone: string }>({
+      query: (data) => ({
+        url: "/public/v1/orders/incomplete",
+        method: "POST",
+        body: data,
+      }),
+    }),
+    updateIncompleteOrder: builder.mutation<
+      any,
+      { id: string; data: Record<string, any> }
+    >({
+      query: ({ id, data }) => ({
+        url: `/public/v1/orders/incomplete/${encodeURIComponent(id)}`,
+        method: "PATCH",
         body: data,
       }),
     }),
@@ -65,7 +102,7 @@ export const publicApi = api.injectEndpoints({
     }),
     trackPageView: builder.mutation<PublicAnalyticsResponse, string | void>({
       query: (visitorId) => ({
-        url: "/public/v1/analytics",
+        url: "/public/v1/tracking",
         method: "GET",
         params: visitorId ? { visitorId } : undefined,
       }),
@@ -75,7 +112,7 @@ export const publicApi = api.injectEndpoints({
       PublicAnalyticsEvent
     >({
       query: (data) => ({
-        url: "/public/v1/analytics",
+        url: "/public/v1/tracking",
         method: "POST",
         body: data,
       }),
@@ -86,7 +123,12 @@ export const publicApi = api.injectEndpoints({
 export const {
   useGetPublicProductsQuery,
   useGetPublicProductQuery,
+  useGetPublicPaymentMethodsQuery,
+  useGetPublicDeliveryPriceQuery,
   usePlaceOrderMutation,
+  useGetPublicOrderQuery,
+  useCreateIncompleteOrderMutation,
+  useUpdateIncompleteOrderMutation,
   useTrackPageViewMutation,
   useTrackAnalyticsEventMutation,
   useSubscribeNewsletterMutation,

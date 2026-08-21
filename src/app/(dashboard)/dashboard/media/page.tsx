@@ -58,7 +58,6 @@ export default function MediaPage() {
   );
 
   useEffect(() => {
-    console.log({ data });
     if (cursor && data?.resources?.length) {
       setAssets((previous) => {
         const existing = new Set(previous.map((asset) => asset.publicId));

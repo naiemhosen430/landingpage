@@ -17,11 +17,15 @@ import { useAppSelector } from "@/store/hooks";
 interface ProductFormProps {
   initialData?: any;
   productId?: string;
+  onSuccess?: () => void;
+  onCancel?: () => void;
 }
 
 export default function ProductForm({
   initialData,
   productId,
+  onSuccess,
+  onCancel,
 }: ProductFormProps) {
   const router = useRouter();
   const isEdit = !!productId;
@@ -323,6 +327,8 @@ export default function ProductForm({
         await createProduct(payload).unwrap();
       }
       router.push("/dashboard/products");
+      if (onSuccess) onSuccess();
+      else router.push("/dashboard/products");
     } catch (err: any) {
       alert(err?.data?.message || "Something went wrong");
     }
@@ -835,7 +841,9 @@ export default function ProductForm({
         <button
           type="button"
           className="btn btn-secondary btn-lg"
-          onClick={() => router.push("/dashboard/products")}
+          onClick={() =>
+            onCancel ? onCancel() : router.push("/dashboard/products")
+          }
         >
           Cancel
         </button>
