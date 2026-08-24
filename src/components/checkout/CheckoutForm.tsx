@@ -1,5 +1,5 @@
      import React from "react";
-import "./CheckoutForm.css";
+import "./checkout-modern-light.css";
 
 export default function CheckoutForm({
   products = [],
