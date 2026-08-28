@@ -5,6 +5,7 @@ export type LandingPage = {
   slug: string;
   status: "ACTIVE" | "INACTIVE";
   landingContent: string;
+  productIds: string[];
   seo?: {
     title?: string;
     description?: string;
@@ -37,6 +38,15 @@ export type PublicLandingPageData = {
     categories?: string[];
     tags?: string[];
   }>;
+};
+
+export type PublicSettingsData = {
+  store?: {
+    socialTracking?: {
+      facebook?: { enabled?: boolean; pixelId?: string };
+      tiktok?: { enabled?: boolean; pixelId?: string };
+    };
+  };
 };
 
 export type PublicDeliveryArea = {
@@ -114,5 +124,33 @@ export async function fetchPublicLandingPage(
     // Handle network errors gracefully (e.g., during build time when API is unavailable)
     console.error("Failed to fetch landing page:", error);
     return null;
+  }
+}
+
+export async function fetchPublicSettings(): Promise<PublicSettingsData> {
+  if (!apiBase) {
+    throw new Error("NEXT_PUBLIC_API_URL must be defined");
+  }
+
+  try {
+    const res = await fetch(`${apiBase}/public/v1/settings`, {
+      headers: {
+        "x-project-id": projectId ?? "",
+        "x-project-key": projectKey ?? "",
+      },
+      next: { revalidate: 60 },
+    });
+
+    console.log(res);
+
+    if (!res.ok) return {};
+    const json = await res.json();
+
+    console.log("Fetched public settings:", json);
+
+    return json?.data ?? {};
+  } catch (error) {
+    console.error("Failed to fetch public settings:", error);
+    return {};
   }
 }

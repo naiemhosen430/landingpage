@@ -1,12 +1,25 @@
 import LandingContent from "@/components/landing/LandingContent";
 import CheckoutForm from "@/components/checkout/CheckoutForm";
-import { fetchPublicLandingPage } from "@/lib/landingPage";
+import { fetchPublicLandingPage, fetchPublicSettings } from "@/lib/landingPage";
 
 export const dynamic = "force-static";
 export const revalidate = 60;
 
 export default async function HomePage() {
-  const page = await fetchPublicLandingPage("home");
+  const [page, publicSettings] = await Promise.all([
+    fetchPublicLandingPage("home"),
+    fetchPublicSettings(),
+  ]);
+  const facebookPixelId = publicSettings.store?.socialTracking?.facebook
+    ?.enabled
+    ? publicSettings.store.socialTracking.facebook.pixelId
+    : undefined;
+  const tiktokPixelId = publicSettings.store?.socialTracking?.tiktok?.enabled
+    ? publicSettings.store.socialTracking.tiktok.pixelId
+    : undefined;
+
+  console.log({ publicSettings, facebookPixelId, tiktokPixelId });
+
   // If no page found, render a default landing page
   if (!page) {
     return (
@@ -19,7 +32,11 @@ export default async function HomePage() {
             <h1 style={{ fontSize: 44, marginBottom: 20 }}>Welcome</h1>
             <p>Default landing page</p>
             <div>
-              <CheckoutForm products={[]} />
+              <CheckoutForm
+                products={[]}
+                facebookPixelId={facebookPixelId}
+                tiktokPixelId={tiktokPixelId}
+              />
             </div>
           </div>
         </section>
@@ -40,6 +57,8 @@ export default async function HomePage() {
               products={page.products}
               deliveryArea={page.deliveryArea}
               paymentMethods={page.paymentMethods}
+              facebookPixelId={facebookPixelId}
+              tiktokPixelId={tiktokPixelId}
             />
           </div>
         </div>

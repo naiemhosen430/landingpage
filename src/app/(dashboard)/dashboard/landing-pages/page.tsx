@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import {
   useGetLandingPagesQuery,
   useCreateLandingPageMutation,
@@ -46,8 +45,12 @@ export default function LandingPagesPage() {
       }
       setFormOpen(false);
       setEditingId(null);
-    } catch {
-      alert("Failed to save landing page");
+    } catch (error: any) {
+      const message =
+        error?.data?.message ??
+        error?.data?.errors?.[0]?.message ??
+        "Failed to save landing page";
+      alert(message);
     }
   };
 
@@ -310,11 +313,6 @@ export default function LandingPagesPage() {
           display: flex;
           align-items: center;
           gap: 6px;
-          opacity: 0;
-          transition: opacity 0.15s;
-        }
-        .lp-row:hover .lp-actions {
-          opacity: 1;
         }
 
         .lp-empty {
@@ -444,13 +442,13 @@ export default function LandingPagesPage() {
                 </div>
 
                 <div className="lp-actions">
-                  <Link
-                    href={`/admin/landing-pages/${pageItem.id}`}
+                  <button
+                    onClick={() => handleEdit(pageItem)}
                     className="lp-btn lp-btn-ghost lp-btn-icon"
                     title="Edit"
                   >
                     <Pencil size={13} />
-                  </Link>
+                  </button>
                   <button
                     className="lp-btn lp-btn-ghost lp-btn-icon"
                     title="Duplicate"

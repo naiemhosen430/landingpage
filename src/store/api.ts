@@ -108,6 +108,8 @@ export const api = createApi({
     "Package",
     "LandingPage",
     "LandingPages",
+    "Category",
+    "Categories",
     "DeliveryAreas",
     "DeliveryArea",
     "PaymentMethods",

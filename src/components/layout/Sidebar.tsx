@@ -13,6 +13,7 @@ const menuItems = [
     items: [
       { label: "Dashboard", href: "/dashboard", icon: "dashboard" },
       { label: "Products", href: "/dashboard/products", icon: "box" },
+      { label: "Categories", href: "/dashboard/categories", icon: "tag" },
       { label: "Orders", href: "/dashboard/orders", icon: "shopping-bag" },
       { label: "Analytics", href: "/dashboard/analytics", icon: "bar-chart" },
       { label: "Storage", href: "/dashboard/storage", icon: "hard-drive" },
@@ -170,6 +171,19 @@ const icons: Record<string, JSX.Element> = {
       <path d="M3 9h18M9 21V9" />
     </svg>
   ),
+  tag: (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M20.59 13.41 11 3.83V3H4v7h.83l9.58 9.59a2 2 0 0 0 2.83 0l3.35-3.35a2 2 0 0 0 0-2.83Z" />
+      <circle cx="7.5" cy="6.5" r="1" />
+    </svg>
+  ),
   "hard-drive": (
     <svg
       viewBox="0 0 24 24"
@@ -187,7 +201,12 @@ const icons: Record<string, JSX.Element> = {
   ),
 };
 
-export default function Sidebar() {
+interface SidebarProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+export default function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
   const user = useAppSelector((state) => state.auth.user);
   const dispatch = useAppDispatch();
@@ -199,7 +218,7 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${open ? "open" : ""}`}>
       <div className="sidebar-header">
         <span className="sidebar-logo">
           {process.env.NEXT_PUBLIC_STORE_NAME || "Store"}
@@ -215,6 +234,7 @@ export default function Sidebar() {
                 key={item.href}
                 href={item.href}
                 className={`sidebar-link ${pathname === item.href || pathname.startsWith(item.href + "/") ? "active" : ""}`}
+                onClick={onClose}
               >
                 {icons[item.icon]}
                 <span>{item.label}</span>

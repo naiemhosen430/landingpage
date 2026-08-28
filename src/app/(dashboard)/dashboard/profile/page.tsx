@@ -6,6 +6,7 @@ import {
   useUpdateProfileMutation,
   useChangePasswordMutation,
 } from "@/store/authApi";
+import { Input } from "@/components/ui/FormControls";
 
 export default function ProfilePage() {
   const { data: user, isLoading } = useGetMeQuery(undefined);
@@ -145,7 +146,7 @@ export default function ProfilePage() {
 
             <div className="form-group">
               <label className="form-label">Full Name</label>
-              <input
+              <Input
                 className="form-input"
                 value={profileForm.name}
                 onChange={(e) =>
@@ -155,7 +156,7 @@ export default function ProfilePage() {
             </div>
             <div className="form-group">
               <label className="form-label">Email</label>
-              <input
+              <Input
                 type="email"
                 className="form-input"
                 value={profileForm.email}
@@ -166,7 +167,7 @@ export default function ProfilePage() {
             </div>
             <div className="form-group">
               <label className="form-label">Phone</label>
-              <input
+              <Input
                 className="form-input"
                 value={profileForm.phone}
                 onChange={(e) =>
@@ -208,7 +209,7 @@ export default function ProfilePage() {
             )}
             <div className="form-group">
               <label className="form-label">Current Password</label>
-              <input
+              <Input
                 type="password"
                 className="form-input"
                 value={passwordForm.currentPassword}
@@ -222,7 +223,7 @@ export default function ProfilePage() {
             </div>
             <div className="form-group">
               <label className="form-label">New Password</label>
-              <input
+              <Input
                 type="password"
                 className="form-input"
                 value={passwordForm.newPassword}
@@ -236,7 +237,7 @@ export default function ProfilePage() {
             </div>
             <div className="form-group">
               <label className="form-label">Confirm New Password</label>
-              <input
+              <Input
                 type="password"
                 className="form-input"
                 value={passwordForm.confirmPassword}

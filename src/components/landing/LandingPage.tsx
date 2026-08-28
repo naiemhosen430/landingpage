@@ -2,7 +2,10 @@
 
 import CheckoutForm from "@/components/checkout/CheckoutForm";
 import LandingContent from "@/components/landing/LandingContent";
-import { useGetLandingPageQuery } from "@/store/publicApi";
+import {
+  useGetLandingPageQuery,
+  useGetPublicSettingsQuery,
+} from "@/store/publicApi";
 
 interface LandingPageProps {
   slug: string;
@@ -10,6 +13,7 @@ interface LandingPageProps {
 
 export default function LandingPage({ slug }: LandingPageProps) {
   const { data, error, isLoading } = useGetLandingPageQuery(slug);
+  const { data: publicSettings } = useGetPublicSettingsQuery();
 
   if (isLoading) {
     return (
@@ -41,6 +45,16 @@ export default function LandingPage({ slug }: LandingPageProps) {
               products={data.products}
               deliveryArea={data.deliveryArea}
               paymentMethods={data.paymentMethods}
+              facebookPixelId={
+                publicSettings?.store?.socialTracking?.facebook?.enabled
+                  ? publicSettings.store.socialTracking.facebook.pixelId
+                  : undefined
+              }
+              tiktokPixelId={
+                publicSettings?.store?.socialTracking?.tiktok?.enabled
+                  ? publicSettings.store.socialTracking.tiktok.pixelId
+                  : undefined
+              }
             />
           </div>
         </div>

@@ -1,12 +1,48 @@
 import { api } from "./api";
 
+export type SocialProviderSettings = {
+  enabled: boolean;
+  pixelId?: string;
+  testEventCode?: string;
+  accessToken?: string;
+};
+
+export type SettingsData = {
+  store: {
+    currency: string;
+    timezone: string;
+    language: string;
+    taxRate: number;
+    shippingEnabled: boolean;
+    guestCheckout: boolean;
+    inventoryTracking: boolean;
+    lowStockThreshold: number;
+    socialTracking?: {
+      facebook?: SocialProviderSettings;
+      tiktok?: SocialProviderSettings;
+    };
+  };
+  branding: {
+    primaryColor: string;
+    secondaryColor: string;
+    fontFamily: string;
+    customCss?: string;
+  };
+  contact: {
+    email: string;
+    phone?: string;
+    address?: Record<string, string>;
+    socialLinks?: Record<string, string>;
+  };
+};
+
 export const settingsApi = api.injectEndpoints({
   endpoints: (builder) => ({
-    getSettings: builder.query({
+    getSettings: builder.query<{ data: SettingsData }, void>({
       query: () => "/admin/settings",
       providesTags: ["Settings"],
     }),
-    updateStoreInfo: builder.mutation({
+    updateStoreInfo: builder.mutation<unknown, Record<string, unknown>>({
       query: (data) => ({
         url: "/admin/settings/store",
         method: "PATCH",
@@ -14,41 +50,25 @@ export const settingsApi = api.injectEndpoints({
       }),
       invalidatesTags: ["Settings"],
     }),
-    updateSeo: builder.mutation({
+    updateBranding: builder.mutation<unknown, Record<string, unknown>>({
       query: (data) => ({
-        url: "/admin/settings/seo",
+        url: "/admin/settings/branding",
         method: "PATCH",
         body: data,
       }),
       invalidatesTags: ["Settings"],
     }),
-    updateSocial: builder.mutation({
+    updateContact: builder.mutation<unknown, Record<string, unknown>>({
       query: (data) => ({
-        url: "/admin/settings/social",
+        url: "/admin/settings/contact",
         method: "PATCH",
         body: data,
       }),
       invalidatesTags: ["Settings"],
     }),
-    updatePixels: builder.mutation({
+    updateAllSettings: builder.mutation<unknown, Record<string, unknown>>({
       query: (data) => ({
-        url: "/admin/settings/pixels",
-        method: "PATCH",
-        body: data,
-      }),
-      invalidatesTags: ["Settings"],
-    }),
-    updateTheme: builder.mutation({
-      query: (data) => ({
-        url: "/admin/settings/theme",
-        method: "PATCH",
-        body: data,
-      }),
-      invalidatesTags: ["Settings"],
-    }),
-    updateCustomCode: builder.mutation({
-      query: (data) => ({
-        url: "/admin/settings/custom-code",
+        url: "/admin/settings",
         method: "PATCH",
         body: data,
       }),
@@ -60,9 +80,7 @@ export const settingsApi = api.injectEndpoints({
 export const {
   useGetSettingsQuery,
   useUpdateStoreInfoMutation,
-  useUpdateSeoMutation,
-  useUpdateSocialMutation,
-  useUpdatePixelsMutation,
-  useUpdateThemeMutation,
-  useUpdateCustomCodeMutation,
+  useUpdateBrandingMutation,
+  useUpdateContactMutation,
+  useUpdateAllSettingsMutation,
 } = settingsApi;

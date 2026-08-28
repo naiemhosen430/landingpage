@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useGetMeQuery } from "@/store/authApi";
 import { useGetMySubscriptionQuery } from "@/store/packageApi";
@@ -14,6 +14,7 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const router = useRouter();
   const { data: user, isLoading } = useGetMeQuery(undefined, {
     refetchOnMountOrArgChange: true,
@@ -56,9 +57,17 @@ export default function DashboardLayout({
 
   return (
     <div className="dashboard-layout">
-      <Sidebar />
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      {sidebarOpen && (
+        <button
+          className="sidebar-overlay"
+          aria-label="Close navigation"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
       <div className="dashboard-main">
         <Header
+          onMenuClick={() => setSidebarOpen(true)}
           expiryDate={expiryDate ? formatDate(expiryDate) : null}
           daysLeft={daysLeft}
         />

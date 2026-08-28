@@ -112,6 +112,48 @@ select {
   color: inherit;
 }
 
+:where(input:not([type="checkbox"]):not([type="radio"]), textarea, select) {
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  outline: none;
+  transition:
+    border-color var(--transition),
+    box-shadow var(--transition);
+}
+
+:where(
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select
+):focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+:where(textarea) {
+  min-height: 100px;
+  resize: vertical;
+}
+
+:where(input[type="file"]) {
+  min-height: 40px;
+  padding: 7px 10px;
+  cursor: pointer;
+}
+
+:where(input[type="checkbox"], input[type="radio"]) {
+  accent-color: var(--primary);
+}
+
+:where(label) {
+  color: var(--text-primary);
+}
+
 img {
   max-width: 100%;
   display: block;

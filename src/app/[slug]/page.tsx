@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import LandingContent from "@/components/landing/LandingContent";
 import CheckoutForm from "@/components/checkout/CheckoutForm";
-import { fetchPublicLandingPage } from "@/lib/landingPage";
+import { fetchPublicLandingPage, fetchPublicSettings } from "@/lib/landingPage";
 
 export const dynamic = "force-static";
 export const revalidate = 60;
@@ -11,7 +11,10 @@ export default async function SlugPage({
 }: {
   params: { slug: string };
 }) {
-  const page = await fetchPublicLandingPage(params.slug);
+  const [page, publicSettings] = await Promise.all([
+    fetchPublicLandingPage(params.slug),
+    fetchPublicSettings(),
+  ]);
   if (!page) {
     notFound();
   }
@@ -32,6 +35,16 @@ export default async function SlugPage({
               products={page.products}
               deliveryArea={page.deliveryArea}
               paymentMethods={page.paymentMethods}
+              facebookPixelId={
+                publicSettings.store?.socialTracking?.facebook?.enabled
+                  ? publicSettings.store.socialTracking.facebook.pixelId
+                  : undefined
+              }
+              tiktokPixelId={
+                publicSettings.store?.socialTracking?.tiktok?.enabled
+                  ? publicSettings.store.socialTracking.tiktok.pixelId
+                  : undefined
+              }
             />
           </div>
         </div>

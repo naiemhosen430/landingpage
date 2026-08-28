@@ -214,33 +214,33 @@ export default function OrderDetailPage() {
                   <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
                     Name
                   </div>
-                  <div style={{ fontWeight: 500 }}>{order.customer.name}</div>
+                  <div style={{ fontWeight: 500 }}>{order.customer?.name}</div>
                 </div>
                 <div>
                   <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
                     Phone
                   </div>
-                  <div style={{ fontWeight: 500 }}>{order.customer.phone}</div>
+                  <div style={{ fontWeight: 500 }}>{order.customer?.phone}</div>
                 </div>
-                {order.customer.email && (
+                {order.customer?.email && (
                   <div>
                     <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
                       Email
                     </div>
                     <div style={{ fontWeight: 500 }}>
-                      {order.customer.email}
+                      {order.customer?.email}
                     </div>
                   </div>
                 )}
-                {order.customer.address && (
+                {order.customer?.address && (
                   <div>
                     <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
                       Address
                     </div>
                     <div style={{ fontWeight: 500, fontSize: 14 }}>
-                      {typeof order.customer.address === "string"
-                        ? order.customer.address
-                        : Object.values(order.customer.address).join(", ")}
+                      {typeof order.customer?.address === "string"
+                        ? order.customer?.address
+                        : Object.values(order.customer?.address).join(", ")}
                     </div>
                     <div
                       style={{ fontSize: 13, color: "var(--text-secondary)" }}

@@ -13,6 +13,7 @@ export type LandingPage = {
   slug: string;
   status: "ACTIVE" | "INACTIVE";
   landingContent: string;
+  productIds: string[];
   seo?: LandingSeo;
   createdAt?: string;
   updatedAt?: string;

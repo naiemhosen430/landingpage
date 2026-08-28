@@ -3,13 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  useCreateIncompleteOrderMutation,
   usePlaceOrderMutation,
   useTrackAnalyticsEventMutation,
-  useUpdateIncompleteOrderMutation,
 } from "@/store/publicApi";
 import { formatCurrency } from "@/lib/utils";
 import { trackStorefrontEvent } from "@/lib/tracking";
+import { initializeBrowserPixels } from "@/lib/tracking";
 import type {
   PublicDeliveryArea,
   PublicLandingPageData,
@@ -43,6 +42,8 @@ interface CheckoutFormProps {
   paymentMethods?: PublicPaymentMethod[];
   codCharge?: number;
   onClear?: () => void;
+  facebookPixelId?: string;
+  tiktokPixelId?: string;
 }
 
 const variantsOf = (product: PublicProduct): PublicVariant[] =>
@@ -77,17 +78,20 @@ export default function CheckoutForm({
   paymentMethods = [],
   codCharge = 0,
   onClear,
+  facebookPixelId,
+  tiktokPixelId,
 }: CheckoutFormProps) {
   const router = useRouter();
 
   const [placeOrder, { isLoading: isPlacingOrder }] = usePlaceOrderMutation();
   const [trackAnalyticsEvent] = useTrackAnalyticsEventMutation();
-  const [createIncompleteOrder] = useCreateIncompleteOrderMutation();
-  const [updateIncompleteOrder] = useUpdateIncompleteOrderMutation();
-  const incompleteOrderId = useRef<string | null>(null);
   const hasPlacedOrder = useRef(false);
   const hasTrackedInitialEvents = useRef(false);
   const previousSelectedIds = useRef<string[]>([]);
+
+  useEffect(() => {
+    initializeBrowserPixels({ facebookPixelId, tiktokPixelId });
+  }, [facebookPixelId, tiktokPixelId]);
 
   const availableProducts = products;
 
@@ -287,73 +291,19 @@ export default function CheckoutForm({
   });
 
   useEffect(() => {
-    if (!isValidPhone(formValues.customerPhone) || incompleteOrderId.current) {
-      return;
-    }
-
-    const timer = window.setTimeout(async () => {
-      try {
-        const response = await createIncompleteOrder({
-          phone: formValues.customerPhone.trim(),
-        }).unwrap();
-        incompleteOrderId.current = response?.data?.id ?? response?.id ?? null;
-        if (incompleteOrderId.current) {
-          await updateIncompleteOrder({
-            id: incompleteOrderId.current,
-            data: buildIncompleteOrderData(),
-          }).unwrap();
-        }
-      } catch {
-        // A failed draft save must not block the normal checkout flow.
-      }
-    }, 500);
-
-    return () => window.clearTimeout(timer);
-  }, [createIncompleteOrder, formValues.customerPhone]);
-
-  useEffect(() => {
-    const orderId = incompleteOrderId.current;
-    if (!orderId || !isValidPhone(formValues.customerPhone)) return;
-
-    const timer = window.setTimeout(() => {
-      updateIncompleteOrder({
-        id: orderId,
-        data: buildIncompleteOrderData(),
-      }).catch(() => undefined);
-    }, 500);
-
-    return () => window.clearTimeout(timer);
-  }, [formValues, selectedItems, updateIncompleteOrder]);
-
-  useEffect(() => {
     const saveDraftOnLeave = () => {
-      const orderId = incompleteOrderId.current;
-      if (
-        !orderId ||
-        hasPlacedOrder.current ||
-        !isValidPhone(formValues.customerPhone)
-      ) {
+      if (hasPlacedOrder.current || !isValidPhone(formValues.customerPhone)) {
         return;
       }
 
-      const apiBase = process.env.NEXT_PUBLIC_API_URL;
-      const projectId = process.env.NEXT_PUBLIC_PROJECT_ID;
-      const projectKey = process.env.NEXT_PUBLIC_PROJECT_KEY;
-      if (!apiBase) return;
-
-      void fetch(
-        `${apiBase}/public/v1/orders/incomplete/${encodeURIComponent(orderId)}`,
-        {
-          method: "PATCH",
-          headers: {
-            "content-type": "application/json",
-            "x-project-id": projectId ?? "",
-            "x-project-key": projectKey ?? "",
-          },
-          body: JSON.stringify(buildIncompleteOrderData()),
-          keepalive: true,
-        },
-      ).catch(() => undefined);
+      void fetch("/api/incomplete-order", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          ...buildIncompleteOrderData(),
+        }),
+        keepalive: true,
+      }).catch(() => undefined);
     };
 
     window.addEventListener("pagehide", saveDraftOnLeave);
@@ -562,7 +512,6 @@ export default function CheckoutForm({
       {/* Main Layout Wrapper: Stacked (flex-col) on small screens, Side-by-Side on large screens (lg:flex-row) */}
       <div className="checkout-form-modern-light__wrapper">
         <div className="checkout-form-modern-light__grid-container flex flex-col lg:flex-row gap-6">
-          
           {/* ---------- Form Fields (First on small screens, left side on large screens) ---------- */}
           <div className="checkout-form-modern-light__main-content flex-1 order-1">
             {/* Section 3: Customer Details */}
@@ -847,4 +796,4 @@ export default function CheckoutForm({
       </div>
     </form>
   );
-}                          
+}

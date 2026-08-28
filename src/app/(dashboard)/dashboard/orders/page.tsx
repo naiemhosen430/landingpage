@@ -77,11 +77,11 @@ export default function OrdersPage() {
   const openEditOrder = (order: any) => {
     setEditingOrder(order);
     setEditForm({
-      name: order.customer?.name ?? "",
-      phone: order.customer?.phone ?? "",
+      name: order?.customer?.name ?? "",
+      phone: order?.customer?.phone ?? "",
       address:
-        typeof order.customer?.address === "string"
-          ? order.customer.address
+        typeof order?.customer?.address === "string"
+          ? order?.customer?.address
           : "",
       notes: order.notes ?? "",
       status: String(order.status ?? "pending").toLowerCase(),
@@ -241,12 +241,12 @@ export default function OrdersPage() {
                       </td>
                       <td>
                         <div style={{ fontWeight: 500 }}>
-                          {order.customer.name}
+                          {order?.customer?.name}
                         </div>
                         <div
                           style={{ fontSize: 12, color: "var(--text-muted)" }}
                         >
-                          {order.customer.phone}
+                          {order?.customer?.phone}
                         </div>
                       </td>
                       <td>{order.items.length} items</td>

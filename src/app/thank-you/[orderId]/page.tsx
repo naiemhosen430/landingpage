@@ -38,7 +38,7 @@ export default function Page() {
       orderId,
       value: Number(order.total) || 0,
       currency: order.currency || "BDT",
-      phone: customer.phone || order.customerPhone,
+      phone: customer?.phone || order.customerPhone,
       contentIds: (order.items ?? [])
         .map((item: any) => item.productId)
         .filter(Boolean),

@@ -9,10 +9,16 @@ import {
   useUpdateProductMutation,
   useDeleteImagesMutation,
   useUploadImagesMutation,
-  useGetCategoriesQuery,
 } from "@/store/productApi";
+import { useGetCategoriesQuery } from "@/store/categoryApi";
 import { slugify } from "@/lib/utils";
 import { useAppSelector } from "@/store/hooks";
+import {
+  Input,
+  MultiSelect,
+  Select,
+  Textarea,
+} from "@/components/ui/FormControls";
 
 interface ProductFormProps {
   initialData?: any;
@@ -41,7 +47,7 @@ export default function ProductForm({
   const [form, setForm] = useState({
     name: initialData?.name || "",
     slug: initialData?.slug || "",
-    description: initialData?.description || "",
+    description: initialData?.description || "none",
     shortDescription: initialData?.shortDescription || "",
     price: initialData?.price || "",
     comparePrice:
@@ -69,7 +75,7 @@ export default function ProductForm({
       height: "",
     },
     seoTitle: initialData?.seoTitle ?? "",
-    seoDescription: initialData?.seoDescription ?? "",
+    seoDescription: initialData?.seoDescription ?? "none",
     attributes: initialData?.attributes ?? {},
     variants: initialData?.variants ?? [],
   });
@@ -92,33 +98,25 @@ export default function ProductForm({
   );
   const [hasSize, setHasSize] = useState(initialSizeValues.length > 0);
   const [hasColor, setHasColor] = useState(initialColorValues.length > 0);
-  const [sizeOptions, setSizeOptions] = useState(initialSizeValues.join(", "));
-  const [colorOptions, setColorOptions] = useState(
-    initialColorValues.join(", "),
-  );
+  const [sizeOptions, setSizeOptions] = useState<string[]>(initialSizeValues);
+  const [colorOptions, setColorOptions] =
+    useState<string[]>(initialColorValues);
 
-  const parseOptions = (value: string) =>
-    Array.from(
-      new Set(
-        value
-          .split(",")
-          .map((item) => item.trim())
-          .filter(Boolean),
-      ),
-    );
+  const [newSize, setNewSize] = useState("");
+  const [newColor, setNewColor] = useState("");
 
   const variantKey = (variant: ProductVariant) =>
     `${variant.attributes?.size ?? ""}|${variant.attributes?.color ?? ""}`;
 
-  const generateVariants = () => {
-    const sizes = hasSize ? parseOptions(sizeOptions) : [undefined];
-    const colors = hasColor ? parseOptions(colorOptions) : [undefined];
+  const generateVariants = (
+    nextSizes = sizeOptions,
+    nextColors = colorOptions,
+  ) => {
+    const sizes = hasSize ? nextSizes : [undefined];
+    const colors = hasColor ? nextColors : [undefined];
 
     if ((hasSize && sizes.length === 0) || (hasColor && colors.length === 0)) {
-      setErrors((previous) => ({
-        ...previous,
-        variants: "Add at least one size or color option.",
-      }));
+      handleChange("variants", []);
       return;
     }
 
@@ -128,17 +126,25 @@ export default function ProductForm({
         variant,
       ]),
     );
+
     const variants = sizes.flatMap((size) =>
       colors.map((color) => {
         const attributes: Record<string, string> = {};
+
         if (size) attributes.size = size;
         if (color) attributes.color = color;
+
         const previous = existing.get(
           variantKey({ attributes } as ProductVariant),
         );
+
         return (
           previous ?? {
-            sku: `${form.sku}${size || color ? `-${[size, color].filter(Boolean).join("-").toUpperCase()}` : ""}`,
+            sku: `${form.sku}${
+              size || color
+                ? `-${[size, color].filter(Boolean).join("-").toUpperCase()}`
+                : ""
+            }`,
             name: [size, color].filter(Boolean).join(" / "),
             price: Number(form.price) || 0,
             stock: 0,
@@ -151,11 +157,56 @@ export default function ProductForm({
     );
 
     handleChange("variants", variants);
-    setErrors((previous) => {
-      const next = { ...previous };
-      delete next.variants;
-      return next;
-    });
+  };
+
+  const addSize = () => {
+    const value = newSize.trim();
+
+    if (!value) return;
+
+    if (sizeOptions.includes(value)) {
+      setNewSize("");
+      return;
+    }
+
+    const nextSizes = [...sizeOptions, value];
+
+    setSizeOptions(nextSizes);
+    setNewSize("");
+
+    generateVariants(nextSizes, colorOptions);
+  };
+
+  const removeSize = (size: string) => {
+    const nextSizes = sizeOptions.filter((item) => item !== size);
+
+    setSizeOptions(nextSizes);
+    generateVariants(nextSizes, colorOptions);
+  };
+
+  const addColor = () => {
+    const value = newColor.trim();
+
+    if (!value) return;
+
+    if (colorOptions.includes(value)) {
+      setNewColor("");
+      return;
+    }
+
+    const nextColors = [...colorOptions, value];
+
+    setColorOptions(nextColors);
+    setNewColor("");
+
+    generateVariants(sizeOptions, nextColors);
+  };
+
+  const removeColor = (color: string) => {
+    const nextColors = colorOptions.filter((item) => item !== color);
+
+    setColorOptions(nextColors);
+    generateVariants(sizeOptions, nextColors);
   };
 
   const updateVariant = (index: number, changes: Partial<ProductVariant>) => {
@@ -254,7 +305,7 @@ export default function ProductForm({
     const e: Record<string, string> = {};
     if (!form.name.trim()) e.name = "Product name is required";
     if (!form.slug.trim()) e.slug = "Slug is required";
-    if (!form.description.trim()) e.description = "Description is required";
+    // if (!form.description.trim()) e.description = "Description is required";
     if (!form.price || Number(form.price) <= 0)
       e.price = "Valid price is required";
     if (!form.sku.trim()) e.sku = "SKU is required";
@@ -338,43 +389,55 @@ export default function ProductForm({
 
   return (
     <form onSubmit={handleSubmit} style={{ maxWidth: 800 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-        <div className="form-group">
-          <label className="form-label">Product Name *</label>
-          <input
-            className="form-input"
-            value={form.name}
-            onChange={(e) => handleNameChange(e.target.value)}
-            placeholder="e.g. Wireless Headphones"
-          />
-          {errors.name && <div className="form-error">{errors.name}</div>}
-        </div>
+      {/* <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}> */}
+      <div className="form-group">
+        <label className="form-label">Product Name *</label>
+        <Input
+          className="form-input"
+          value={form.name}
+          onChange={(e) => handleNameChange(e.target.value)}
+          placeholder="e.g. Wireless Headphones"
+        />
+        {errors.name && <div className="form-error">{errors.name}</div>}
+      </div>
 
-        <div className="form-group">
+      {/* <div className="form-group">
           <label className="form-label">Slug *</label>
-          <input
+          <Input
             className="form-input"
             value={form.slug}
             onChange={(e) => handleChange("slug", e.target.value)}
             placeholder="product-url-slug"
           />
           {errors.slug && <div className="form-error">{errors.slug}</div>}
-        </div>
-      </div>
+        </div> */}
+      {/* </div> */}
 
-      <div className="form-group">
+      {/* <MultiSelect
+        label="Categories"
+        hint="Choose one or more categories for this product."
+        value={form.categories}
+        options={(categoriesData?.data ?? []).map((category: any) => ({
+          value: category.id,
+          label: category.name,
+        }))}
+        onChange={(values) => handleChange("categories", values)}
+        placeholder="Select categories"
+      /> */}
+
+      {/* <div className="form-group">
         <label className="form-label">Short Description</label>
-        <input
+        <Input
           className="form-input"
           value={form.shortDescription}
           onChange={(e) => handleChange("shortDescription", e.target.value)}
           placeholder="Brief product summary"
         />
-      </div>
+      </div> */}
 
-      <div className="form-group">
+      {/* <div className="form-group">
         <label className="form-label">Description</label>
-        <textarea
+        <Textarea
           className="form-textarea"
           value={form.description}
           onChange={(e) => handleChange("description", e.target.value)}
@@ -384,14 +447,14 @@ export default function ProductForm({
         {errors.description && (
           <div className="form-error">{errors.description}</div>
         )}
-      </div>
+      </div> */}
 
       <div
         style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}
       >
         <div className="form-group">
           <label className="form-label">Price *</label>
-          <input
+          <Input
             type="number"
             className="form-input"
             value={form.price}
@@ -403,9 +466,21 @@ export default function ProductForm({
           {errors.price && <div className="form-error">{errors.price}</div>}
         </div>
 
+        {/* <div className="form-group">
+          <label className="form-label">Cost Price</label>
+          <Input
+            type="number"
+            className="form-input"
+            value={form.costPrice}
+            onChange={(e) => handleChange("costPrice", e.target.value)}
+            min="0"
+            step="0.01"
+          />
+        </div> */}
+
         <div className="form-group">
           <label className="form-label">Compare at Price</label>
-          <input
+          <Input
             type="number"
             className="form-input"
             value={form.comparePrice}
@@ -418,7 +493,7 @@ export default function ProductForm({
 
         <div className="form-group">
           <label className="form-label">SKU *</label>
-          <input
+          <Input
             className="form-input"
             value={form.sku}
             onChange={(e) => handleChange("sku", e.target.value)}
@@ -431,66 +506,31 @@ export default function ProductForm({
       <div
         style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}
       >
-        <div className="form-group">
+        {/* <div className="form-group">
           <label className="form-label">Stock Quantity</label>
-          <input
+          <Input
             type="number"
             className="form-input"
             value={form.stock}
             onChange={(e) => handleChange("stock", e.target.value)}
             min="0"
           />
-        </div>
+        </div> */}
 
-        <div className="form-group">
-          <label className="form-label">Status</label>
-          <select
-            className="form-select"
-            value={form.status}
-            onChange={(e) => handleChange("status", e.target.value)}
-          >
-            <option value="active">Active</option>
-            <option value="draft">Draft</option>
-            <option value="archived">Archived</option>
-          </select>
-        </div>
-
-        <div className="form-group">
+        {/* <div className="form-group">
           <label className="form-label">Tags</label>
-          <input
+          <Input
             className="form-input"
             value={form.tags}
             onChange={(e) => handleChange("tags", e.target.value)}
             placeholder="tag1, tag2, tag3"
           />
-        </div>
-      </div>
-
-      <div className="form-group">
-        <label className="form-label">Categories</label>
-        <select
-          multiple
-          className="form-select"
-          value={form.categories}
-          onChange={(e) => {
-            const values = Array.from(e.target.selectedOptions).map(
-              (o) => o.value,
-            );
-            handleChange("categories", values);
-          }}
-          style={{ minHeight: 100 }}
-        >
-          {categoriesData?.data?.map((cat: any) => (
-            <option key={cat.id} value={cat.id}>
-              {cat.name}
-            </option>
-          ))}
-        </select>
+        </div> */}
       </div>
 
       <div className="form-group">
         <label className="form-label">Product Images</label>
-        <input
+        <Input
           className="form-input"
           type="file"
           accept="image/jpeg,image/jpg,image/png,image/webp"
@@ -564,30 +604,19 @@ export default function ProductForm({
       <div
         style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}
       >
-        <div className="form-group">
-          <label className="form-label">Cost Price</label>
-          <input
-            type="number"
-            className="form-input"
-            value={form.costPrice}
-            onChange={(e) => handleChange("costPrice", e.target.value)}
-            min="0"
-            step="0.01"
-          />
-        </div>
-        <div className="form-group">
+        {/* <div className="form-group">
           <label className="form-label">Low Stock Threshold</label>
-          <input
+          <Input
             type="number"
             className="form-input"
             value={form.lowStockThreshold}
             onChange={(e) => handleChange("lowStockThreshold", e.target.value)}
             min="0"
           />
-        </div>
-        <div className="form-group">
+        </div> */}
+        {/* <div className="form-group">
           <label className="form-label">Weight</label>
-          <input
+          <Input
             type="number"
             className="form-input"
             value={form.weight}
@@ -595,10 +624,10 @@ export default function ProductForm({
             min="0"
             step="0.01"
           />
-        </div>
+        </div> */}
       </div>
 
-      <div className="form-group">
+      {/* <div className="form-group">
         <label className="form-label">Dimensions</label>
         <div
           style={{
@@ -608,7 +637,7 @@ export default function ProductForm({
           }}
         >
           {(["length", "width", "height"] as const).map((dimension) => (
-            <input
+            <Input
               key={dimension}
               type="number"
               className="form-input"
@@ -625,11 +654,11 @@ export default function ProductForm({
             />
           ))}
         </div>
-      </div>
+      </div> */}
 
-      <div className="form-group">
+      {/* <div className="form-group">
         <label className="form-label">Attributes (JSON)</label>
-        <textarea
+        <Textarea
           className="form-textarea"
           value={JSON.stringify(form.attributes, null, 2)}
           onChange={(e) => {
@@ -642,76 +671,228 @@ export default function ProductForm({
           rows={3}
           placeholder='{"material":"canvas"}'
         />
-      </div>
+      </div> */}
 
       <div className="form-group">
-        <label className="form-label">
-          Product options and variant pricing
-        </label>
         <div style={{ display: "flex", gap: 20, marginBottom: 12 }}>
           <label>
-            <input
+            <Input
               type="checkbox"
               checked={hasSize}
               onChange={(event) => {
                 const checked = event.target.checked;
                 setHasSize(checked);
-                if (!checked && !hasColor) handleChange("variants", []);
+
+                if (!checked) {
+                  generateVariants([], colorOptions);
+                } else {
+                  generateVariants(sizeOptions, colorOptions);
+                }
               }}
             />{" "}
-            This product has sizes
+            Has sizes?
           </label>
           <label>
-            <input
+            <Input
               type="checkbox"
               checked={hasColor}
               onChange={(event) => {
                 const checked = event.target.checked;
                 setHasColor(checked);
-                if (!checked && !hasSize) handleChange("variants", []);
+
+                if (!checked) {
+                  generateVariants(sizeOptions, []);
+                } else {
+                  generateVariants(sizeOptions, colorOptions);
+                }
               }}
             />{" "}
-            This product has colors
+            Has colors?
           </label>
         </div>
 
         {(hasSize || hasColor) && (
           <div
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}
+            style={{
+              display: "grid",
+              gridTemplateColumns: hasSize && hasColor ? "1fr 1fr" : "1fr",
+              gap: 20,
+              marginTop: 16,
+            }}
           >
+            {/* SIZE */}
             {hasSize && (
-              <div>
+              <div
+                style={{
+                  border: "1px solid var(--border-color)",
+                  borderRadius: "var(--radius)",
+                  padding: 16,
+                }}
+              >
                 <label className="form-label">Sizes</label>
-                <input
-                  className="form-input"
-                  value={sizeOptions}
-                  onChange={(event) => setSizeOptions(event.target.value)}
-                  placeholder="S, M, L, XL"
-                />
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    alignItems: "center",
+                  }}
+                >
+                  <Input
+                    className="form-input"
+                    value={newSize}
+                    onChange={(event) => setNewSize(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        addSize();
+                      }
+                    }}
+                    placeholder="e.g. S, M, L, XL"
+                  />
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={addSize}
+                  >
+                    Add
+                  </button>
+                </div>
+
+                {sizeOptions.length > 0 && (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 8,
+                      marginTop: 12,
+                    }}
+                  >
+                    {sizeOptions.map((size) => (
+                      <div
+                        key={size}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 8,
+                          padding: "6px 10px",
+                          borderRadius: 999,
+                          background: "var(--bg-secondary)",
+                          border: "1px solid var(--border-color)",
+                        }}
+                      >
+                        <span>{size}</span>
+
+                        <button
+                          type="button"
+                          onClick={() => removeSize(size)}
+                          aria-label={`Remove ${size}`}
+                          style={{
+                            border: 0,
+                            background: "transparent",
+                            cursor: "pointer",
+                            padding: 0,
+                            fontSize: 16,
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
+
+            {/* COLOR */}
             {hasColor && (
-              <div>
+              <div
+                style={{
+                  border: "1px solid var(--border-color)",
+                  borderRadius: "var(--radius)",
+                  padding: 16,
+                }}
+              >
                 <label className="form-label">Colors</label>
-                <input
-                  className="form-input"
-                  value={colorOptions}
-                  onChange={(event) => setColorOptions(event.target.value)}
-                  placeholder="Black, White, Red"
-                />
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    alignItems: "center",
+                  }}
+                >
+                  <Input
+                    className="form-input"
+                    value={newColor}
+                    onChange={(event) => setNewColor(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        addColor();
+                      }
+                    }}
+                    placeholder="e.g. Black, White, Red"
+                  />
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={addColor}
+                  >
+                    Add
+                  </button>
+                </div>
+
+                {colorOptions.length > 0 && (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 8,
+                      marginTop: 12,
+                    }}
+                  >
+                    {colorOptions.map((color) => (
+                      <div
+                        key={color}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 8,
+                          padding: "6px 10px",
+                          borderRadius: 999,
+                          background: "var(--bg-secondary)",
+                          border: "1px solid var(--border-color)",
+                        }}
+                      >
+                        <span>{color}</span>
+
+                        <button
+                          type="button"
+                          onClick={() => removeColor(color)}
+                          aria-label={`Remove ${color}`}
+                          style={{
+                            border: 0,
+                            background: "transparent",
+                            cursor: "pointer",
+                            padding: 0,
+                            fontSize: 16,
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
         )}
 
-        <button
-          type="button"
-          className="btn btn-secondary"
-          onClick={generateVariants}
-          style={{ marginTop: 12 }}
-        >
-          Generate variants
-        </button>
+        {errors.variants && <div className="form-error">{errors.variants}</div>}
         {errors.variants && <div className="form-error">{errors.variants}</div>}
 
         {(form.variants as ProductVariant[]).length > 0 && (
@@ -722,7 +903,7 @@ export default function ProductForm({
                   <th>Variant</th>
                   <th>SKU</th>
                   <th>Price</th>
-                  <th>Stock</th>
+                  {/* <th>Stock</th> */}
                   <th>Active</th>
                 </tr>
               </thead>
@@ -734,7 +915,7 @@ export default function ProductForm({
                         Object.values(variant.attributes).join(" / ")}
                     </td>
                     <td>
-                      <input
+                      <Input
                         className="form-input"
                         value={variant.sku}
                         onChange={(event) =>
@@ -743,7 +924,7 @@ export default function ProductForm({
                       />
                     </td>
                     <td>
-                      <input
+                      <Input
                         className="form-input"
                         type="number"
                         min="0"
@@ -756,8 +937,8 @@ export default function ProductForm({
                         }
                       />
                     </td>
-                    <td>
-                      <input
+                    {/* <td>
+                      <Input
                         className="form-input"
                         type="number"
                         min="0"
@@ -768,9 +949,9 @@ export default function ProductForm({
                           })
                         }
                       />
-                    </td>
+                    </td> */}
                     <td>
-                      <input
+                      <Input
                         type="checkbox"
                         checked={variant.isActive}
                         onChange={(event) =>
@@ -788,10 +969,10 @@ export default function ProductForm({
         )}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      {/* <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <div className="form-group">
           <label className="form-label">SEO Title</label>
-          <input
+          <Input
             className="form-input"
             value={form.seoTitle}
             onChange={(e) => handleChange("seoTitle", e.target.value)}
@@ -799,17 +980,17 @@ export default function ProductForm({
         </div>
         <div className="form-group">
           <label className="form-label">SEO Description</label>
-          <input
+          <Input
             className="form-input"
             value={form.seoDescription}
             onChange={(e) => handleChange("seoDescription", e.target.value)}
           />
         </div>
-      </div>
+      </div> */}
 
-      <div style={{ display: "flex", gap: 20, marginTop: 12 }}>
+      {/* <div style={{ display: "flex", gap: 20, marginTop: 12 }}>
         <label>
-          <input
+          <Input
             type="checkbox"
             checked={form.trackInventory}
             onChange={(e) => handleChange("trackInventory", e.target.checked)}
@@ -817,13 +998,26 @@ export default function ProductForm({
           Track inventory
         </label>
         <label>
-          <input
+          <Input
             type="checkbox"
             checked={form.isFeatured}
             onChange={(e) => handleChange("isFeatured", e.target.checked)}
           />{" "}
           Featured product
         </label>
+      </div> */}
+
+      <div className="form-group">
+        <label className="form-label">Status</label>
+        <Select
+          className="form-select"
+          value={form.status}
+          onChange={(e) => handleChange("status", e.target.value)}
+        >
+          <option value="active">Active</option>
+          <option value="draft">Draft</option>
+          <option value="archived">Archived</option>
+        </Select>
       </div>
 
       <div style={{ display: "flex", gap: 12, marginTop: 24 }}>

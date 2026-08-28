@@ -168,9 +168,6 @@ export const productApi = api.injectEndpoints({
         body,
       }),
     }),
-    getCategories: builder.query({
-      query: () => "/admin/categories",
-    }),
   }),
 });
 
@@ -182,5 +179,4 @@ export const {
   useDeleteProductMutation,
   useUploadImagesMutation,
   useDeleteImagesMutation,
-  useGetCategoriesQuery,
 } = productApi;

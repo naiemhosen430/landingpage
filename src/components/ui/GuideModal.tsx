@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Modal from "./Modal";
 
 interface GuideModalProps {
   open: boolean;
@@ -33,8 +34,6 @@ export default function GuideModal({ open, onClose }: GuideModalProps) {
     if (!open) setStep(0);
   }, [open]);
 
-  if (!open) return null;
-
   const next = () => setStep((s) => Math.min(s + 1, STEPS.length - 1));
   const prev = () => setStep((s) => Math.max(s - 1, 0));
   const finish = () => {
@@ -45,21 +44,13 @@ export default function GuideModal({ open, onClose }: GuideModalProps) {
   const cur = STEPS[step];
 
   return (
-    <div className="modal-overlay" role="dialog" aria-modal="true">
-      <div className="modal" style={{ maxWidth: 720 }}>
-        <div className="modal-header">
-          <h3>{cur.title}</h3>
-          <div
-            style={{ fontSize: 12, color: "var(--text-muted)" }}
-          >{`Step ${step + 1} of ${STEPS.length}`}</div>
-        </div>
-        <div className="modal-body">
-          <p>{cur.desc}</p>
-        </div>
-        <div
-          className="modal-actions"
-          style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}
-        >
+    <Modal
+      open={open}
+      title={cur.title}
+      size="lg"
+      footer={
+        <>
+          <div className="modal-step-count">{`Step ${step + 1} of ${STEPS.length}`}</div>
           <button className="btn btn-ghost" onClick={onClose}>
             Close
           </button>
@@ -81,8 +72,10 @@ export default function GuideModal({ open, onClose }: GuideModalProps) {
               </button>
             )}
           </div>
-        </div>
-      </div>
-    </div>
+        </>
+      }
+    >
+      <p>{cur.desc}</p>
+    </Modal>
   );
 }

@@ -29,6 +29,15 @@ export type PublicDeliveryPrice = {
   deliveryCharge: number;
 };
 
+export type PublicSettings = {
+  store?: {
+    socialTracking?: {
+      facebook?: { enabled?: boolean; pixelId?: string };
+      tiktok?: { enabled?: boolean; pixelId?: string };
+    };
+  };
+};
+
 export const publicApi = api.injectEndpoints({
   endpoints: (builder) => ({
     getPublicProducts: builder.query<any, Record<string, any> | void>({
@@ -64,23 +73,6 @@ export const publicApi = api.injectEndpoints({
       query: (id) => `/public/v1/orders/${encodeURIComponent(id)}`,
       transformResponse: (response: any) => response?.data ?? response,
     }),
-    createIncompleteOrder: builder.mutation<any, { phone: string }>({
-      query: (data) => ({
-        url: "/public/v1/orders/incomplete",
-        method: "POST",
-        body: data,
-      }),
-    }),
-    updateIncompleteOrder: builder.mutation<
-      any,
-      { id: string; data: Record<string, any> }
-    >({
-      query: ({ id, data }) => ({
-        url: `/public/v1/orders/incomplete/${encodeURIComponent(id)}`,
-        method: "PATCH",
-        body: data,
-      }),
-    }),
     subscribeNewsletter: builder.mutation({
       query: (email) => ({
         url: "/public/newsletter",
@@ -99,6 +91,10 @@ export const publicApi = api.injectEndpoints({
       query: (slug: string) =>
         `/public/v1/landing-pages/${encodeURIComponent(slug)}`,
       transformResponse: (response: any) => response?.data ?? response,
+    }),
+    getPublicSettings: builder.query<PublicSettings, void>({
+      query: () => "/public/v1/settings",
+      transformResponse: (response: any) => response?.data ?? response ?? {},
     }),
     trackPageView: builder.mutation<PublicAnalyticsResponse, string | void>({
       query: (visitorId) => ({
@@ -127,11 +123,10 @@ export const {
   useGetPublicDeliveryPriceQuery,
   usePlaceOrderMutation,
   useGetPublicOrderQuery,
-  useCreateIncompleteOrderMutation,
-  useUpdateIncompleteOrderMutation,
   useTrackPageViewMutation,
   useTrackAnalyticsEventMutation,
   useSubscribeNewsletterMutation,
   useSubmitContactMutation,
   useGetLandingPageQuery,
+  useGetPublicSettingsQuery,
 } = publicApi;

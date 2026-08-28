@@ -3,17 +3,30 @@
 import { useState } from "react";
 import Link from "next/link";
 import ThemeToggle from "@/components/ui/ThemeToggle";
+import { Menu } from "lucide-react";
 
 interface HeaderProps {
+  onMenuClick: () => void;
   expiryDate?: string | null;
   daysLeft?: number | null;
 }
 
-export default function Header({ expiryDate, daysLeft }: HeaderProps) {
+export default function Header({
+  onMenuClick,
+  expiryDate,
+  daysLeft,
+}: HeaderProps) {
   const [search, setSearch] = useState("");
 
   return (
     <header className="header">
+      <button
+        className="header-menu-btn"
+        onClick={onMenuClick}
+        aria-label="Open navigation"
+      >
+        <Menu size={21} />
+      </button>
       <div className="header-search">
         <svg
           className="header-search-icon"

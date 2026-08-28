@@ -1,7 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, Save, FileText, Globe, Tag } from "lucide-react";
+import dynamic from "next/dynamic";
+import {
+  X,
+  Save,
+  FileText,
+  Globe,
+  Tag,
+  Code2,
+  Eye,
+  Pencil,
+} from "lucide-react";
+import { useGetProductsQuery } from "@/store/productApi";
+
+const MonacoEditor = dynamic(
+  () => import("@monaco-editor/react").then((mod) => mod.Editor),
+  { ssr: false },
+);
 
 type Props = {
   open: boolean;
@@ -19,13 +35,20 @@ export function LandingPageFormModal({
   initialData,
 }: Props) {
   const [activeTab, setActiveTab] = useState<"general" | "seo">("general");
+  const [codeEditorOpen, setCodeEditorOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [htmlDraft, setHtmlDraft] = useState("");
   const [form, setForm] = useState({
     pageName: "",
     slug: "",
     status: "ACTIVE",
     landingContent: "",
+    productIds: [] as string[],
     seo: { title: "", description: "", keywords: [] as string[] },
   });
+  const { data: productsData, isLoading: productsLoading } =
+    useGetProductsQuery({ limit: 100 });
+  const [productToAdd, setProductToAdd] = useState("");
 
   useEffect(() => {
     if (open) {
@@ -35,6 +58,9 @@ export function LandingPageFormModal({
           slug: initialData.slug || "",
           status: initialData.status || "ACTIVE",
           landingContent: initialData.landingContent || "",
+          productIds: Array.isArray(initialData.productIds)
+            ? initialData.productIds
+            : [],
           seo: {
             title: initialData.seo?.title || "",
             description: initialData.seo?.description || "",
@@ -47,16 +73,27 @@ export function LandingPageFormModal({
           slug: "",
           status: "ACTIVE",
           landingContent: "",
+          productIds: [],
           seo: { title: "", description: "", keywords: [] },
         });
       }
       setActiveTab("general");
+      setCodeEditorOpen(false);
+      setPreviewOpen(false);
+      setProductToAdd("");
     }
   }, [open, initialData]);
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        if (codeEditorOpen) {
+          setCodeEditorOpen(false);
+          setPreviewOpen(false);
+        } else {
+          onClose();
+        }
+      }
     };
     if (open) {
       document.addEventListener("keydown", handleEsc);
@@ -66,7 +103,7 @@ export function LandingPageFormModal({
       document.removeEventListener("keydown", handleEsc);
       document.body.style.overflow = "";
     };
-  }, [open, onClose]);
+  }, [open, onClose, codeEditorOpen]);
 
   if (!open) return null;
 
@@ -78,12 +115,18 @@ export function LandingPageFormModal({
     onSave(form);
   };
 
+  const products = productsData?.data ?? [];
+  const selectedProducts = form.productIds
+    .map((id) => products.find((product) => product.id === id))
+    .filter(Boolean);
+
   return (
-    <div
-      className="lp-modal-overlay"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <style>{`
+    <>
+      <div
+        className="lp-modal-overlay"
+        onClick={(e) => e.target === e.currentTarget && onClose()}
+      >
+        <style>{`
         [data-theme="light"] .lp-modal-overlay {
           --lp-bg: #ffffff;
           --lp-surface: #f8fafc;
@@ -274,10 +317,121 @@ export function LandingPageFormModal({
           resize: vertical;
           min-height: 80px;
         }
+        .lp-html-preview {
+          min-height: 320px;
+          width: 100%;
+          border: 1px solid var(--lp-border);
+          border-radius: 6px;
+          background: #fff;
+        }
+        .lp-html-summary {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 12px;
+          border: 1px solid var(--lp-border) !important;
+          border-radius: 6px !important;
+          background: var(--lp-surface);
+        }
+        .lp-html-summary span {
+          color: var(--lp-text-secondary);
+          font-size: 12px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .lp-code-modal-overlay {
+          z-index: 60;
+          padding: 16px;
+          align-items: center;
+        }
+        .lp-code-modal {
+          width: 100%;
+          max-width: 1100px;
+          height: min(800px, 90vh);
+          background: var(--lp-bg);
+          border: 1px solid var(--lp-border);
+          border-radius: 10px;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+        }
+        .lp-code-modal-body {
+          flex: 1;
+          min-height: 0;
+          padding: 12px;
+          background: #1e1e1e;
+        }
+        .lp-code-modal-body > div {
+          height: 100%;
+          border-radius: 6px;
+          overflow: hidden;
+        }
+        .lp-code-modal-body.preview {
+          background: var(--lp-surface);
+        }
         .lp-form-hint {
           font-size: 11px;
           color: var(--lp-text-secondary);
           margin-top: 4px;
+        }
+        .lp-selected-products {
+          display: grid;
+          gap: 6px;
+          margin-top: 10px;
+        }
+        .lp-selected-product {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          min-height: 42px;
+          padding: 5px 8px;
+          border: 1px solid var(--lp-border);
+          border-radius: 6px;
+          background: var(--lp-surface);
+        }
+        .lp-product-order {
+          width: 18px;
+          color: var(--lp-text-secondary);
+          font-size: 11px;
+          text-align: center;
+        }
+        .lp-product-thumb {
+          width: 32px;
+          height: 32px;
+          flex: 0 0 32px;
+          border-radius: 4px;
+          object-fit: cover;
+          background: var(--lp-muted);
+        }
+        .lp-product-thumb-empty {
+          border: 1px solid var(--lp-border);
+        }
+        .lp-product-name {
+          flex: 1;
+          min-width: 0;
+          overflow: hidden;
+          color: var(--lp-text);
+          font-size: 12px;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .lp-product-remove {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 26px;
+          height: 26px;
+          border: 0;
+          border-radius: 4px;
+          background: transparent;
+          color: var(--lp-text-secondary);
+          cursor: pointer;
+        }
+        .lp-product-remove:hover {
+          background: var(--lp-accent);
+          color: var(--lp-danger);
         }
 
         .lp-input-prefix {
@@ -344,196 +498,396 @@ export function LandingPageFormModal({
         }
       `}</style>
 
-      <div
-        className="lp-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="lp-modal-title"
-      >
-        <div className="lp-modal-header">
-          <div>
-            <h2 id="lp-modal-title">
-              {editingId ? "Edit Landing Page" : "Create Landing Page"}
-            </h2>
-            <p>
-              {editingId
-                ? "Update your landing page details"
-                : "Create a new landing page"}
-            </p>
+        <div
+          className="lp-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="lp-modal-title"
+        >
+          <div className="lp-modal-header">
+            <div>
+              <h2 id="lp-modal-title">
+                {editingId ? "Edit Landing Page" : "Create Landing Page"}
+              </h2>
+              <p>
+                {editingId
+                  ? "Update your landing page details"
+                  : "Create a new landing page"}
+              </p>
+            </div>
+            <button
+              className="lp-modal-close"
+              onClick={onClose}
+              aria-label="Close dialog"
+            >
+              <X size={16} />
+            </button>
           </div>
-          <button
-            className="lp-modal-close"
-            onClick={onClose}
-            aria-label="Close dialog"
-          >
-            <X size={16} />
-          </button>
-        </div>
 
-        <div className="lp-modal-tabs">
-          <button
-            className={`lp-modal-tab ${activeTab === "general" ? "active" : ""}`}
-            onClick={() => setActiveTab("general")}
-          >
-            <FileText size={14} />
-            General
-          </button>
-          <button
-            className={`lp-modal-tab ${activeTab === "seo" ? "active" : ""}`}
-            onClick={() => setActiveTab("seo")}
-          >
-            <Globe size={14} />
-            SEO
-          </button>
-        </div>
+          <div className="lp-modal-tabs">
+            <button
+              className={`lp-modal-tab ${activeTab === "general" ? "active" : ""}`}
+              onClick={() => setActiveTab("general")}
+            >
+              <FileText size={14} />
+              General
+            </button>
+            <button
+              className={`lp-modal-tab ${activeTab === "seo" ? "active" : ""}`}
+              onClick={() => setActiveTab("seo")}
+            >
+              <Globe size={14} />
+              SEO
+            </button>
+          </div>
 
-        <div className="lp-modal-body">
-          {activeTab === "general" && (
-            <>
-              <div className="lp-form-group">
-                <label className="lp-form-label">
-                  Page Name <span className="required">*</span>
-                </label>
-                <input
-                  type="text"
-                  className="lp-form-input"
-                  value={form.pageName}
-                  onChange={(e) =>
-                    setForm({ ...form, pageName: e.target.value })
-                  }
-                  placeholder="e.g. Summer Sale"
-                />
-              </div>
-
-              <div className="lp-form-group">
-                <label className="lp-form-label">
-                  Slug <span className="required">*</span>
-                </label>
-                <div className="lp-input-prefix">
-                  <span>/</span>
+          <div className="lp-modal-body">
+            {activeTab === "general" && (
+              <>
+                <div className="lp-form-group">
+                  <label className="lp-form-label">
+                    Page Name <span className="required">*</span>
+                  </label>
                   <input
                     type="text"
                     className="lp-form-input"
-                    value={form.slug}
-                    onChange={(e) => setForm({ ...form, slug: e.target.value })}
-                    placeholder="summer-sale"
+                    value={form.pageName}
+                    onChange={(e) =>
+                      setForm({ ...form, pageName: e.target.value })
+                    }
+                    placeholder="e.g. Summer Sale"
                   />
                 </div>
-                <p className="lp-form-hint">
-                  The URL-friendly identifier for this page.
-                </p>
-              </div>
 
-              <div className="lp-form-group">
-                <label className="lp-form-label">Status</label>
-                <select
-                  className="lp-form-select"
-                  value={form.status}
-                  onChange={(e) => setForm({ ...form, status: e.target.value })}
-                >
-                  <option value="ACTIVE">Active</option>
-                  <option value="INACTIVE">Inactive</option>
-                  <option value="DRAFT">Draft</option>
-                </select>
-              </div>
+                <div className="lp-form-group">
+                  <label className="lp-form-label">Assigned Products</label>
+                  <select
+                    className="lp-form-select"
+                    value={productToAdd}
+                    disabled={productsLoading}
+                    onChange={(event) => {
+                      const id = event.target.value;
+                      if (!id || form.productIds.includes(id)) return;
+                      setForm((current) => ({
+                        ...current,
+                        productIds: [...current.productIds, id],
+                      }));
+                      setProductToAdd("");
+                    }}
+                  >
+                    <option value="">
+                      {productsLoading
+                        ? "Loading products..."
+                        : "Add a product..."}
+                    </option>
+                    {products
+                      .filter(
+                        (product) => !form.productIds.includes(product.id),
+                      )
+                      .map((product) => (
+                        <option key={product.id} value={product.id}>
+                          {product.name}
+                        </option>
+                      ))}
+                  </select>
+                  <p className="lp-form-hint">
+                    Products are shown publicly in the order selected here.
+                  </p>
+                  <div className="lp-selected-products">
+                    {selectedProducts.length === 0 ? (
+                      <span className="lp-form-hint">
+                        No products assigned.
+                      </span>
+                    ) : (
+                      selectedProducts.map((product, index) => {
+                        if (!product) return null;
+                        const image =
+                          product.thumbnailImage?.secureUrl ??
+                          product.thumbnailImage?.url;
+                        return (
+                          <div className="lp-selected-product" key={product.id}>
+                            <span className="lp-product-order">
+                              {index + 1}
+                            </span>
+                            {image ? (
+                              <img
+                                src={image}
+                                alt=""
+                                className="lp-product-thumb"
+                              />
+                            ) : (
+                              <span className="lp-product-thumb lp-product-thumb-empty" />
+                            )}
+                            <span className="lp-product-name">
+                              {product.name}
+                            </span>
+                            <button
+                              type="button"
+                              className="lp-product-remove"
+                              aria-label={`Remove ${product.name}`}
+                              onClick={() =>
+                                setForm((current) => ({
+                                  ...current,
+                                  productIds: current.productIds.filter(
+                                    (id) => id !== product.id,
+                                  ),
+                                }))
+                              }
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
 
-              <div className="lp-form-group">
-                <label className="lp-form-label">Landing Content</label>
-                <textarea
-                  className="lp-form-textarea"
-                  rows={8}
-                  value={form.landingContent}
-                  onChange={(e) =>
-                    setForm({ ...form, landingContent: e.target.value })
-                  }
-                  placeholder="<div>Your HTML content here...</div>"
-                />
-                <p className="lp-form-hint">
-                  Initial HTML content. You can edit this in the visual editor
-                  later.
-                </p>
-              </div>
-            </>
-          )}
+                <div className="lp-form-group">
+                  <label className="lp-form-label">
+                    Slug <span className="required">*</span>
+                  </label>
+                  <div className="lp-input-prefix">
+                    <span>/</span>
+                    <input
+                      type="text"
+                      className="lp-form-input"
+                      value={form.slug}
+                      onChange={(e) =>
+                        setForm({ ...form, slug: e.target.value })
+                      }
+                      placeholder="summer-sale"
+                    />
+                  </div>
+                  <p className="lp-form-hint">
+                    The URL-friendly identifier for this page.
+                  </p>
+                </div>
 
-          {activeTab === "seo" && (
-            <>
-              <div className="lp-form-group">
-                <label className="lp-form-label">SEO Title</label>
-                <input
-                  type="text"
-                  className="lp-form-input"
-                  value={form.seo.title}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      seo: { ...form.seo, title: e.target.value },
-                    })
-                  }
-                  placeholder="Page title for search engines"
-                />
-              </div>
+                <div className="lp-form-group">
+                  <label className="lp-form-label">Status</label>
+                  <select
+                    className="lp-form-select"
+                    value={form.status}
+                    onChange={(e) =>
+                      setForm({ ...form, status: e.target.value })
+                    }
+                  >
+                    <option value="ACTIVE">Active</option>
+                    <option value="INACTIVE">Inactive</option>
+                    <option value="DRAFT">Draft</option>
+                  </select>
+                </div>
 
-              <div className="lp-form-group">
-                <label className="lp-form-label">SEO Description</label>
-                <textarea
-                  className="lp-form-textarea"
-                  rows={3}
-                  value={form.seo.description}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      seo: { ...form.seo, description: e.target.value },
-                    })
-                  }
-                  placeholder="Brief description for search engines"
-                />
-              </div>
+                <div className="lp-form-group lp-html-editor">
+                  <label className="lp-form-label">Landing Content</label>
+                  <div className="lp-html-summary">
+                    <span>
+                      {form.landingContent.trim()
+                        ? "HTML content is ready to edit"
+                        : "No HTML content added yet"}
+                    </span>
+                    <button
+                      type="button"
+                      className="lp-btn lp-btn-primary"
+                      onClick={() => {
+                        setHtmlDraft(form.landingContent);
+                        setPreviewOpen(false);
+                        setCodeEditorOpen(true);
+                      }}
+                    >
+                      <Code2 size={14} />
+                      Edit HTML
+                    </button>
+                  </div>
+                  <p className="lp-form-hint">
+                    Open the code editor to add or edit the landing page
+                    content.
+                  </p>
+                </div>
+              </>
+            )}
 
-              <div className="lp-form-group">
-                <label
-                  className="lp-form-label flex"
-                  style={{ alignItems: "center", gap: 6 }}
-                >
-                  <Tag size={13} />
-                  Keywords
-                </label>
-                <input
-                  type="text"
-                  className="lp-form-input"
-                  value={form.seo.keywords.join(", ")}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      seo: {
-                        ...form.seo,
-                        keywords: e.target.value
-                          .split(",")
-                          .map((k) => k.trim())
-                          .filter(Boolean),
-                      },
-                    })
-                  }
-                  placeholder="marketing, sale, summer"
-                />
-                <p className="lp-form-hint">
-                  Comma-separated keywords for SEO.
-                </p>
-              </div>
-            </>
-          )}
-        </div>
+            {activeTab === "seo" && (
+              <>
+                <div className="lp-form-group">
+                  <label className="lp-form-label">SEO Title</label>
+                  <input
+                    type="text"
+                    className="lp-form-input"
+                    value={form.seo.title}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        seo: { ...form.seo, title: e.target.value },
+                      })
+                    }
+                    placeholder="Page title for search engines"
+                  />
+                </div>
 
-        <div className="lp-modal-footer">
-          <button className="lp-btn lp-btn-ghost" onClick={onClose}>
-            Cancel
-          </button>
-          <button className="lp-btn lp-btn-primary" onClick={handleSave}>
-            <Save size={14} />
-            {editingId ? "Update" : "Create"}
-          </button>
+                <div className="lp-form-group">
+                  <label className="lp-form-label">SEO Description</label>
+                  <textarea
+                    className="lp-form-textarea"
+                    rows={3}
+                    value={form.seo.description}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        seo: { ...form.seo, description: e.target.value },
+                      })
+                    }
+                    placeholder="Brief description for search engines"
+                  />
+                </div>
+
+                <div className="lp-form-group">
+                  <label
+                    className="lp-form-label flex"
+                    style={{ alignItems: "center", gap: 6 }}
+                  >
+                    <Tag size={13} />
+                    Keywords
+                  </label>
+                  <input
+                    type="text"
+                    className="lp-form-input"
+                    value={form.seo.keywords.join(", ")}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        seo: {
+                          ...form.seo,
+                          keywords: e.target.value
+                            .split(",")
+                            .map((k) => k.trim())
+                            .filter(Boolean),
+                        },
+                      })
+                    }
+                    placeholder="marketing, sale, summer"
+                  />
+                  <p className="lp-form-hint">
+                    Comma-separated keywords for SEO.
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="lp-modal-footer">
+            <button className="lp-btn lp-btn-ghost" onClick={onClose}>
+              Cancel
+            </button>
+            <button className="lp-btn lp-btn-primary" onClick={handleSave}>
+              <Save size={14} />
+              {editingId ? "Update" : "Create"}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+
+      {codeEditorOpen && (
+        <div
+          className="lp-modal-overlay lp-code-modal-overlay"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setCodeEditorOpen(false);
+              setPreviewOpen(false);
+            }
+          }}
+        >
+          <div
+            className="lp-code-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="lp-code-modal-title"
+          >
+            <div className="lp-modal-header">
+              <div>
+                <h2 id="lp-code-modal-title">HTML Code Editor</h2>
+                <p>
+                  Edit the landing page markup and preview it before saving.
+                </p>
+              </div>
+              <button
+                className="lp-modal-close"
+                onClick={() => {
+                  setCodeEditorOpen(false);
+                  setPreviewOpen(false);
+                }}
+                aria-label="Close HTML editor"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div
+              className={`lp-code-modal-body ${previewOpen ? "preview" : ""}`}
+            >
+              {previewOpen ? (
+                <iframe
+                  className="lp-html-preview"
+                  title="Landing page preview"
+                  sandbox="allow-scripts"
+                  srcDoc={htmlDraft}
+                />
+              ) : (
+                <div>
+                  <MonacoEditor
+                    height="100%"
+                    language="html"
+                    theme="vs-dark"
+                    value={htmlDraft}
+                    onChange={(value) => setHtmlDraft(value || "")}
+                    options={{
+                      minimap: { enabled: false },
+                      automaticLayout: true,
+                      fontSize: 14,
+                      wordWrap: "on",
+                      scrollBeyondLastLine: false,
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="lp-modal-footer">
+              <button
+                className="lp-btn lp-btn-ghost"
+                onClick={() => setPreviewOpen(!previewOpen)}
+              >
+                {previewOpen ? <Pencil size={14} /> : <Eye size={14} />}
+                {previewOpen ? "Edit code" : "Preview"}
+              </button>
+              <button
+                className="lp-btn lp-btn-ghost"
+                onClick={() => {
+                  setCodeEditorOpen(false);
+                  setPreviewOpen(false);
+                }}
+              >
+                Close
+              </button>
+              <button
+                className="lp-btn lp-btn-primary"
+                onClick={() => {
+                  setForm((current) => ({
+                    ...current,
+                    landingContent: htmlDraft,
+                  }));
+                  setCodeEditorOpen(false);
+                  setPreviewOpen(false);
+                }}
+              >
+                <Save size={14} />
+                Save HTML
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
