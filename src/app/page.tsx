@@ -18,7 +18,7 @@ export default async function HomePage() {
     ? publicSettings.store.socialTracking.tiktok.pixelId
     : undefined;
 
-  console.log({ publicSettings, facebookPixelId, tiktokPixelId });
+  console.log({ page });
 
   // If no page found, render a default landing page
   if (!page) {

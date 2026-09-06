@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import ThemeToggle from "@/components/ui/ThemeToggle";
+import ZaneAIAssistant from "@/components/layout/ZaneAIAssistant";
 import { Menu } from "lucide-react";
 
 interface HeaderProps {
@@ -50,6 +51,7 @@ export default function Header({
 
       <div className="header-actions">
         <ThemeToggle rootSelector=".dashboard-layout" />
+        <ZaneAIAssistant />
         {expiryDate && (
           <span
             style={{

@@ -414,6 +414,387 @@
   height: 20px;
 }
 
+.zane-ai-trigger {
+  color: var(--primary);
+}
+
+.zane-ai-panel {
+  position: fixed;
+  z-index: 1000;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  width: min(430px, 100vw);
+  height: 100vh;
+  overflow: hidden;
+  border-left: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  box-shadow: -18px 0 55px rgba(15, 23, 42, 0.16);
+  animation: zane-ai-slide-in 180ms ease-out;
+}
+
+.zane-ai-panel.is-fullscreen {
+  width: 100vw;
+  border-left: 0;
+  box-shadow: none;
+}
+
+.zane-ai-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 17px 18px;
+  background: var(--primary);
+  color: #fff;
+}
+
+.zane-ai-title,
+.zane-ai-title > div {
+  display: flex;
+  align-items: center;
+}
+
+.zane-ai-title {
+  gap: 10px;
+}
+
+.zane-ai-title > div {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.zane-ai-title strong {
+  font-size: 15px;
+}
+
+.zane-ai-title span:last-child {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.zane-ai-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.zane-ai-avatar,
+.zane-ai-welcome-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+}
+
+.zane-ai-avatar {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.zane-ai-close,
+.zane-ai-composer button {
+  display: grid;
+  place-items: center;
+  border: 0;
+  cursor: pointer;
+}
+
+.zane-ai-close {
+  padding: 6px;
+  background: transparent;
+  color: #fff;
+}
+
+.zane-ai-messages {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  padding: 18px;
+  background: var(--bg-secondary);
+}
+
+.zane-ai-welcome {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 8px;
+  margin: auto 0;
+  color: var(--text-secondary);
+  text-align: center;
+  animation: zane-ai-fade-up 260ms ease-out both;
+}
+
+.zane-ai-welcome strong {
+  color: var(--text-primary);
+}
+
+.zane-ai-welcome p {
+  max-width: 260px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.zane-ai-welcome-icon {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.zane-ai-message {
+  max-width: 86%;
+  padding: 10px 13px;
+  border-radius: 14px;
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  animation: zane-ai-message-in 240ms ease-out both;
+}
+
+.zane-ai-message.user {
+  align-self: flex-end;
+  border-bottom-right-radius: 4px;
+  background: var(--primary);
+  color: #fff;
+}
+
+.zane-ai-message.assistant {
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+}
+
+.zane-ai-html-response {
+  display: grid;
+  gap: 8px;
+}
+
+.zane-ai-html-response p,
+.zane-ai-html-response div {
+  margin: 0;
+}
+
+.zane-ai-html-response ul,
+.zane-ai-html-response ol {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.zane-ai-html-response strong {
+  color: var(--text-primary);
+}
+
+.zane-ai-response-meta {
+  display: block;
+  margin-top: 8px;
+  color: var(--text-muted);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: capitalize;
+}
+
+.zane-ai-cancel {
+  margin: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.zane-ai-cancel:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.zane-ai-cancel:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.zane-ai-confirm {
+  align-self: flex-start;
+  margin-top: 10px;
+  padding: 8px 11px;
+  border: 1px solid var(--primary);
+  border-radius: var(--radius);
+  background: var(--primary-light);
+  color: var(--primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.zane-ai-confirm:hover {
+  background: var(--primary);
+  color: #fff;
+}
+
+.zane-ai-confirm:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.zane-ai-typing {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  animation:
+    zane-ai-message-in 180ms ease-out both,
+    zane-ai-pulse 1.5s ease-in-out infinite;
+}
+
+.zane-ai-typing svg {
+  animation: zane-ai-spin 1s linear infinite;
+}
+
+.zane-ai-quick-questions {
+  display: grid;
+  gap: 8px;
+  padding: 11px 14px;
+  border-top: 1px solid var(--border-color);
+}
+
+.zane-ai-quick-questions > span {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.zane-ai-quick-questions > div {
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+}
+
+.zane-ai-quick-questions button {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  animation: zane-ai-fade-up 260ms ease-out both;
+}
+
+.zane-ai-quick-questions button:nth-child(2) {
+  animation-delay: 50ms;
+}
+
+.zane-ai-quick-questions button:nth-child(3) {
+  animation-delay: 100ms;
+}
+
+.zane-ai-quick-questions button:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.zane-ai-composer {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-primary);
+}
+
+.zane-ai-composer input {
+  min-width: 0;
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  outline: 0;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+}
+
+.zane-ai-composer input:focus {
+  border-color: var(--primary);
+}
+
+.zane-ai-composer button {
+  width: 38px;
+  border-radius: var(--radius);
+  background: var(--primary);
+  color: #fff;
+}
+
+.zane-ai-composer button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+@keyframes zane-ai-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes zane-ai-slide-in {
+  from {
+    transform: translateX(18px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes zane-ai-message-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes zane-ai-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes zane-ai-pulse {
+  0%,
+  100% {
+    opacity: 0.72;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 .header-badge {
   position: absolute;
   top: 4px;
@@ -1279,6 +1660,221 @@
   border-radius: var(--radius);
   padding: 14px 16px;
   color: var(--text-primary);
+}
+
+.subscription-page {
+  padding-bottom: 40px;
+}
+
+.subscription-page-header {
+  align-items: center;
+}
+
+.subscription-kicker,
+.subscription-eyebrow {
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.subscription-current {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 28px;
+  margin-bottom: 20px;
+  border-color: var(--primary);
+  background: linear-gradient(120deg, var(--bg-primary), var(--primary-light));
+}
+
+.subscription-current-main,
+.subscription-current-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.subscription-current-main h2,
+.section-heading h2 {
+  margin: 4px 0;
+  color: var(--text-primary);
+}
+
+.subscription-current-main p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.subscription-plan-mark {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius);
+  background: var(--primary);
+  color: #fff;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.subscription-current-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.subscription-current-actions strong {
+  font-size: 22px;
+  color: var(--text-primary);
+}
+
+.subscription-current-actions span {
+  color: var(--text-secondary);
+  margin-right: 8px;
+}
+
+.subscription-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 28px 0 16px;
+  padding: 4px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  overflow-x: auto;
+}
+
+.subscription-tab {
+  flex: 1 0 160px;
+  border: 0;
+  border-radius: calc(var(--radius) - 2px);
+  padding: 12px 18px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  transition:
+    background var(--transition),
+    color var(--transition),
+    box-shadow var(--transition);
+}
+
+.subscription-tab:hover {
+  color: var(--text-primary);
+}
+
+.subscription-tab.active {
+  background: var(--bg-primary);
+  color: var(--primary);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+.subscription-tab:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.subscription-tab-panel {
+  min-height: 220px;
+}
+
+.subscription-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.subscription-detail-list,
+.subscription-usage-list {
+  display: grid;
+  gap: 16px;
+}
+
+.subscription-detail-list > div,
+.subscription-usage-row > div:first-child,
+.subscription-progress-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.subscription-detail-list span,
+.subscription-usage-row span,
+.subscription-progress-label span {
+  color: var(--text-secondary);
+}
+
+.subscription-detail-list strong,
+.subscription-usage-row strong,
+.subscription-progress-label strong {
+  color: var(--text-primary);
+}
+
+.subscription-progress {
+  display: grid;
+  gap: 9px;
+  margin-top: 22px;
+}
+
+.subscription-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.subscription-usage-row {
+  display: grid;
+  gap: 8px;
+}
+
+.subscription-plans-section {
+  margin: 32px 0 24px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 18px;
+}
+
+.section-heading > span {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.subscription-history-card {
+  margin-bottom: 24px;
+}
+
+.subscription-loading {
+  min-height: 320px;
+  display: grid;
+  place-items: center;
+}
+
+@media (max-width: 768px) {
+  .subscription-current,
+  .subscription-page-header,
+  .section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .subscription-current-actions {
+    justify-content: flex-start;
+  }
+
+  .subscription-detail-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 1024px) {
