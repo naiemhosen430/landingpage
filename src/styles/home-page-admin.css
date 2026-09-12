@@ -7,7 +7,7 @@
   align-items: flex-start;
 }
 .home-editor-kicker {
-  color: #6366f1;
+  color: var(--primary);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -260,9 +260,9 @@
 }
 .home-category-picker label.selected,
 .home-product-picker label.selected {
-  border-color: #818cf8;
-  background: #eef2ff;
-  color: #4338ca;
+  border-color: var(--primary);
+  background: var(--primary-light);
+  color: var(--primary-strong);
 }
 .home-muted {
   color: var(--text-muted);
@@ -362,7 +362,7 @@
   font-size: 12px;
 }
 .home-visibility-grid input {
-  accent-color: #6366f1;
+  accent-color: var(--primary);
 }
 .home-banner-editor-list {
   display: grid;
@@ -424,9 +424,11 @@
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid #e5e7eb;
+  background: color-mix(in srgb, var(--bg-primary) 92%, transparent);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border-color);
+  border-radius: 0 0 18px 18px;
+  box-shadow: 0 12px 28px var(--shadow-color);
   margin-bottom: 2rem;
   padding-top: 1rem;
 }
@@ -446,7 +448,7 @@
   padding: 0.5rem 1rem;
   font-size: 0.875rem;
   font-weight: 500;
-  color: #4b5563;
+  color: var(--text-secondary);
   border-radius: 0.5rem;
   border: 1px solid transparent;
   background: transparent;
@@ -456,15 +458,16 @@
 }
 
 .tab-btn:hover {
-  background-color: #f3f4f6;
-  color: #111827;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .tab-btn.active {
-  background-color: #eff6ff;
-  color: #2563eb;
-  border-color: #bfdbfe;
+  background: linear-gradient(135deg, var(--primary), var(--accent-cyan));
+  color: var(--text-inverse);
+  border-color: transparent;
   font-weight: 600;
+  box-shadow: 0 7px 16px rgba(91, 92, 226, 0.24);
 }
 
 /* Floating Save Bar */
@@ -475,8 +478,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #1e293b;
-  color: #f8fafc;
+  background: linear-gradient(
+    135deg,
+    var(--primary-strong),
+    var(--accent-cyan)
+  );
+  color: var(--text-inverse);
   padding: 0.875rem 1.5rem;
   border-radius: 0.75rem;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
