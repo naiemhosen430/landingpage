@@ -170,6 +170,20 @@
     var(--dashboard-content-bg);
 }
 
+.dashboard-content > * {
+  width: min(100%, 1280px);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.dashboard-content > .page-header,
+.dashboard-content > .settings-page,
+.dashboard-content > .subscription-page,
+.dashboard-content > .home-editor,
+.dashboard-content > .lp-page {
+  max-width: 1280px;
+}
+
 .subscription-banner {
   display: flex;
   align-items: center;
@@ -920,6 +934,7 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 24px;
+  padding: 4px 0;
 }
 
 .page-title {
@@ -1036,6 +1051,74 @@
   border-radius: var(--radius-md);
   overflow: hidden;
   box-shadow: 0 12px 30px var(--shadow-color);
+  transition:
+    border-color var(--transition),
+    box-shadow var(--transition),
+    transform var(--transition);
+}
+.card:hover {
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--border-color));
+}
+
+.card-header {
+  background: linear-gradient(
+    110deg,
+    color-mix(in srgb, var(--primary) 7%, transparent),
+    color-mix(in srgb, var(--accent-cyan) 5%, transparent)
+  );
+}
+
+.dashboard-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 6px;
+  margin-bottom: 22px;
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg-primary) 75%, transparent);
+  box-shadow: 0 8px 22px var(--shadow-color);
+}
+.dashboard-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background var(--transition),
+    color var(--transition),
+    transform var(--transition);
+}
+.dashboard-tab:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+.dashboard-tab.active {
+  background: linear-gradient(135deg, var(--primary), var(--accent-cyan));
+  color: var(--text-inverse);
+  box-shadow: 0 7px 16px rgba(91, 92, 226, 0.24);
+}
+.dashboard-tab-panel {
+  animation: dashboardPanelIn 220ms ease both;
+}
+
+@keyframes dashboardPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Landing page module styling */
