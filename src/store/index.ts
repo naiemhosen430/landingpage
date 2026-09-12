@@ -3,6 +3,7 @@ import { setupListeners } from "@reduxjs/toolkit/query";
 import { api } from "./api";
 import authReducer from "./authSlice";
 import { loadAuthState, saveAuthState } from "./authStorage";
+import cartReducer from "./cartSlice";
 
 const preloadedState = {
   // loadAuthState may return a partial object; cast to any so it can be used safely
@@ -13,6 +14,7 @@ export const store = configureStore({
   reducer: {
     [api.reducerPath]: api.reducer,
     auth: authReducer,
+    cart: cartReducer,
   },
   middleware: (getDefaultMiddleware) =>
     // api.middleware may have incompatible tuple typing in some setups; cast to any

@@ -116,6 +116,7 @@ export const api = createApi({
     "TrackingEvents",
     "TrackingEvent",
     "Storage",
+    "HomePage",
   ],
   endpoints: () => ({}),
 });

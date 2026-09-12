@@ -16,6 +16,7 @@ const menuItems = [
       { label: "Categories", href: "/dashboard/categories", icon: "tag" },
       { label: "Orders", href: "/dashboard/orders", icon: "shopping-bag" },
       { label: "Analytics", href: "/dashboard/analytics", icon: "bar-chart" },
+      { label: "Home page", href: "/dashboard/home-page", icon: "layout" },
       {
         label: "Subscription",
         href: "/dashboard/subscription",
