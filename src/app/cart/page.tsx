@@ -1,5 +1,7 @@
 import { CartStorefront } from "@/components/storefront/Storefront";
+import { fetchPublicStoreSettings } from "@/lib/publicData";
 
-export default function CartPage() {
-  return <CartStorefront />;
+export default async function CartPage() {
+  const settings = await fetchPublicStoreSettings();
+  return <CartStorefront settings={settings ?? undefined} />;
 }

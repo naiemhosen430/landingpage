@@ -43,10 +43,7 @@ const cartSlice = createSlice({
           item.product.id === product.id && item.variantId === variantId,
       );
       if (existing) {
-        existing.quantity = Math.min(
-          existing.quantity + quantity,
-          product.stock ?? 99,
-        );
+        existing.quantity += quantity;
       } else {
         state.items.push({ product, quantity, variantId });
       }
@@ -68,10 +65,7 @@ const cartSlice = createSlice({
       if (action.payload.quantity <= 0) {
         state.items = state.items.filter((entry) => entry !== item);
       } else {
-        item.quantity = Math.min(
-          action.payload.quantity,
-          item.product.stock ?? 99,
-        );
+        item.quantity = action.payload.quantity;
       }
     },
     removeFromCart: (

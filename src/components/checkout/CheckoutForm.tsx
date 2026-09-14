@@ -93,8 +93,6 @@ export default function CheckoutForm({
     initializeBrowserPixels({ facebookPixelId, tiktokPixelId });
   }, [facebookPixelId, tiktokPixelId]);
 
-  console.log(products);
-
   const availableProducts = products;
 
   const paymentOptions = paymentMethods.filter(

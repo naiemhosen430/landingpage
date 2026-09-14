@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
   Check,
@@ -17,10 +17,6 @@ import { useDispatch, useSelector } from "react-redux";
 import { formatCurrency } from "@/lib/utils";
 import { initializeBrowserPixels, trackStorefrontEvent } from "@/lib/tracking";
 import {
-  useGetPublicPaymentMethodsQuery,
-  useGetPublicProductQuery,
-  useGetPublicProductsQuery,
-  useGetPublicSettingsQuery,
   usePlaceOrderMutation,
   useTrackAnalyticsEventMutation,
 } from "@/store/publicApi";
@@ -32,9 +28,8 @@ import {
   type CartProduct,
 } from "@/store/cartSlice";
 import type { RootState } from "@/store";
-import { useGetPublicHomePageQuery } from "@/store/homePageApi";
 import type { HomePageContent } from "@/store/homePageApi";
-import { demoHomePage, demoProducts } from "@/lib/homePageDemo";
+import type { PublicSettings } from "@/store/publicApi";
 import "./storefront.css";
 
 type Product = CartProduct & {
@@ -66,8 +61,7 @@ const productsFrom = (data: unknown): Product[] => {
   return [];
 };
 
-function useStorefrontTracking() {
-  const { data: settings } = useGetPublicSettingsQuery();
+function useStorefrontTracking(settings?: PublicSettings) {
   const [send] = useTrackAnalyticsEventMutation();
   useEffect(() => {
     initializeBrowserPixels({
@@ -103,13 +97,28 @@ function useStorefrontTracking() {
 
 export function StorefrontHeader({
   announcement,
-}: { announcement?: string } = {}) {
+  settings,
+}: { announcement?: string; settings?: PublicSettings } = {}) {
   const pathname = usePathname();
   const router = useRouter();
   const dispatch = useDispatch();
   const items = useSelector((state: RootState) => state.cart.items);
   const [search, setSearch] = useState("");
   const count = items.reduce((total, item) => total + item.quantity, 0);
+  const logoUrl =
+    settings?.branding?.logoUrl ||
+    settings?.branding?.logo ||
+    settings?.store?.logoUrl ||
+    settings?.store?.logo;
+  const storeName =
+    settings?.branding?.storeName ||
+    settings?.store?.storeName ||
+    settings?.store?.name ||
+    "zane";
+  const announcementText =
+    announcement ||
+    settings?.store?.announcement ||
+    `Complimentary delivery on orders over ${formatCurrency(3000)}`;
   const submitSearch = (event: React.FormEvent) => {
     event.preventDefault();
     if (search.trim())
@@ -118,15 +127,19 @@ export function StorefrontHeader({
   return (
     <>
       <div className="storefront-announce">
-        {announcement ||
-          `Complimentary delivery on orders over ${formatCurrency(3000)}`}{" "}
-        <span>•</span> Secure cash on delivery
+        {announcementText} <span>•</span> Secure cash on delivery
       </div>
       <header className="storefront-header">
         <div className="storefront-container storefront-header-inner">
           <Link href="/" className="storefront-logo">
-            <span>zane</span>
-            <em>commerce</em>
+            {logoUrl ? (
+              <img src={logoUrl} alt={storeName} />
+            ) : (
+              <>
+                <span>{storeName}</span>
+                <em>commerce</em>
+              </>
+            )}
           </Link>
           <nav className="storefront-nav" aria-label="Main navigation">
             <Link className={pathname === "/" ? "active" : ""} href="/">
@@ -167,14 +180,38 @@ export function StorefrontHeader({
 
 export function StorefrontFooter({
   content,
-}: { content?: HomePageContent["footer"] } = {}) {
+  settings,
+}: {
+  content?: HomePageContent["footer"];
+  settings?: PublicSettings;
+} = {}) {
+  const logoUrl =
+    settings?.branding?.logoUrl ||
+    settings?.branding?.logo ||
+    settings?.store?.logoUrl ||
+    settings?.store?.logo;
+  const storeName =
+    settings?.branding?.storeName ||
+    settings?.store?.storeName ||
+    settings?.store?.name ||
+    "zane";
+  const contact = settings?.contact;
+  const address = contact?.address
+    ? Object.values(contact.address).filter(Boolean).join(", ")
+    : "";
   return (
     <footer className="storefront-footer">
       <div className="storefront-container footer-grid">
         <div>
           <Link href="/" className="storefront-logo light">
-            <span>zane</span>
-            <em>commerce</em>
+            {logoUrl ? (
+              <img src={logoUrl} alt={storeName} />
+            ) : (
+              <>
+                <span>{storeName}</span>
+                <em>commerce</em>
+              </>
+            )}
           </Link>
           <p>
             {content?.description ||
@@ -190,11 +227,19 @@ export function StorefrontFooter({
         <div>
           <strong>{content?.supportLabel || "Need help?"}</strong>
           <span>We are here Monday to Saturday.</span>
-          <span>{content?.supportEmail || "support@zanecommerce.com"}</span>
+          {contact?.phone && <span>{contact.phone}</span>}
+          <span>
+            {content?.supportEmail ||
+              contact?.email ||
+              "support@zanecommerce.com"}
+          </span>
+          {address && <span>{address}</span>}
         </div>
       </div>
       <div className="storefront-container footer-bottom">
-        <span>© {new Date().getFullYear()} Zane Commerce</span>
+        <span>
+          © {new Date().getFullYear()} {storeName}
+        </span>
         <span>Built for better everyday shopping.</span>
       </div>
     </footer>
@@ -204,15 +249,20 @@ export function StorefrontFooter({
 export function StorefrontFrame({
   children,
   homePage,
+  settings,
 }: {
   children: React.ReactNode;
   homePage?: HomePageContent;
+  settings?: PublicSettings;
 }) {
   return (
     <>
-      <StorefrontHeader announcement={homePage?.footer.announcement} />
+      <StorefrontHeader
+        announcement={homePage?.footer.announcement}
+        settings={settings}
+      />
       {children}
-      <StorefrontFooter content={homePage?.footer} />
+      <StorefrontFooter content={homePage?.footer} settings={settings} />
     </>
   );
 }
@@ -220,12 +270,15 @@ export function StorefrontFrame({
 export function ProductCard({
   product,
   index = 0,
+  settings,
 }: {
   product: Product;
   index?: number;
+  settings?: PublicSettings;
 }) {
   const dispatch = useDispatch();
-  const track = useStorefrontTracking();
+  const router = useRouter();
+  const track = useStorefrontTracking(settings);
   const [added, setAdded] = useState(false);
   const href = `/products/${product.slug || product.id}`;
   const add = () => {
@@ -245,6 +298,22 @@ export function ProductCard({
     setAdded(true);
     window.setTimeout(() => setAdded(false), 1600);
   };
+  const orderNow = () => {
+    dispatch(
+      addToCart({ product, quantity: 1, variantId: product.variants?.[0]?.id }),
+    );
+    track(
+      "add_to_cart",
+      {
+        contentIds: [product.id],
+        contentName: product.name,
+        value: product.price,
+        quantity: 1,
+      },
+      `product-card-order-${product.id}`,
+    );
+    router.push("/checkout");
+  };
   return (
     <article
       className="product-card"
@@ -252,7 +321,7 @@ export function ProductCard({
     >
       <Link href={href} className="product-image">
         <span className="product-badge">
-          {index < 2 ? "Featured" : "In stock"}
+          {index < 2 ? "Featured" : "Available"}
         </span>
         {imageOf(product) ? (
           <img src={imageOf(product)} alt={product.name} />
@@ -276,50 +345,53 @@ export function ProductCard({
           {formatCurrency(Number(product.price) || 0)}
         </strong>
       </div>
-      <button
-        className={`product-add ${added ? "is-added" : ""}`}
-        onClick={add}
-      >
-        {added ? (
-          <>
-            <Check size={15} /> Added
-          </>
-        ) : (
-          <>
-            <Plus size={15} /> Add to cart
-          </>
-        )}
-      </button>
+      <div className="product-card-actions">
+        <button
+          className={`product-add ${added ? "is-added" : ""}`}
+          onClick={add}
+        >
+          {added ? (
+            <>
+              <Check size={15} /> Added
+            </>
+          ) : (
+            <>
+              <Plus size={15} /> Add to cart
+            </>
+          )}
+        </button>
+        <button className="product-order-now" onClick={orderNow}>
+          Order now <ArrowRight size={14} />
+        </button>
+      </div>
     </article>
   );
 }
 
-export function HomeStorefront() {
-  const { data, isLoading: productsLoading } = useGetPublicProductsQuery({
-    limit: 100,
-  });
-  const { data: configuredHomePage, isLoading: homePageLoading } =
-    useGetPublicHomePageQuery();
-  const isLoading = homePageLoading || productsLoading;
-  const homePage =
-    configuredHomePage || (!isLoading ? demoHomePage : undefined);
+export function HomeStorefront({
+  initialProducts,
+  initialHomePage,
+  settings,
+}: {
+  initialProducts?: unknown;
+  initialHomePage?: HomePageContent;
+  settings?: PublicSettings;
+}) {
+  const homePage = initialHomePage;
   const slides =
-    homePage?.hero.slides
+    homePage?.hero?.slides
       .filter((slide) => slide.isActive)
       .sort((a, b) => a.sortOrder - b.sortOrder) ?? [];
   const [slideIndex, setSlideIndex] = useState(0);
-  const activeSlide = slides[slideIndex];
-  const products = productsFrom(
-    homePage?.isDemo
-      ? demoProducts
-      : data || (!productsLoading ? demoProducts : []),
-  ).filter((product) => product.isActive !== false && (product.stock ?? 1) > 0);
-  const configuredProducts = homePage?.bestsellers.productIds.length
+  const activeSlide =
+    slides[Math.min(slideIndex, Math.max(slides.length - 1, 0))];
+  const products = productsFrom(initialProducts).filter((product) => product);
+  const configuredProducts = homePage?.bestsellers?.productIds.length
     ? (homePage.bestsellers.productIds
         .map((id) => products.find((product) => product.id === id))
         .filter(Boolean) as Product[])
     : products;
-  const track = useStorefrontTracking();
+  const track = useStorefrontTracking(settings);
   useEffect(() => {
     track("page_view", { page: "home" }, "storefront-home-view");
   }, []);
@@ -331,19 +403,33 @@ export function HomeStorefront() {
     );
     return () => window.clearInterval(timer);
   }, [homePage?.hero.autoplay, homePage?.hero.intervalMs, slides.length]);
-  if (!homePage || !activeSlide) {
+  useEffect(() => {
+    setSlideIndex(0);
+  }, [slides.length]);
+
+  if (!homePage) {
     return (
-      <StorefrontFrame>
+      <StorefrontFrame settings={settings}>
         <HomePageSkeleton />
       </StorefrontFrame>
     );
   }
+
   return (
-    <StorefrontFrame homePage={homePage}>
+    <StorefrontFrame homePage={homePage} settings={settings}>
       <main className="storefront-main">
-        {homePage.visibility?.hero !== false && (
-          <section className="storefront-hero">
-            <div className="storefront-container hero-grid">
+        {homePage.visibility?.hero !== false && activeSlide && (
+          <section
+            className="storefront-hero"
+            style={{
+              backgroundImage: activeSlide.imageUrl
+                ? `url(${activeSlide.imageUrl})`
+                : undefined,
+            }}
+            aria-label="Featured collection"
+          >
+            <div className="hero-overlay" />
+            <div className="storefront-container hero-content">
               <div className="hero-copy">
                 <span className="eyebrow">{activeSlide.eyebrow}</span>
                 <h1>
@@ -359,72 +445,88 @@ export function HomeStorefront() {
                   {activeSlide.buttonLabel} <ArrowRight size={17} />
                 </Link>
               </div>
-              <div
-                className="hero-art"
-                style={{
-                  background: activeSlide.imageUrl
-                    ? `url(${activeSlide.imageUrl}) center/cover`
-                    : undefined,
-                }}
-              >
-                <div className="hero-art-label">
-                  Objects with intention
-                  <br />
-                  <strong>
-                    {String(slideIndex + 1).padStart(2, "0")} /{" "}
-                    {String(Math.max(slides.length, 1)).padStart(2, "0")}
-                  </strong>
+              <div className="hero-slider-controls">
+                <button
+                  type="button"
+                  aria-label="Previous slide"
+                  onClick={() =>
+                    setSlideIndex((current) =>
+                      current === 0 ? slides.length - 1 : current - 1,
+                    )
+                  }
+                  disabled={slides.length < 2}
+                >
+                  ←
+                </button>
+                <div className="hero-slide-count">
+                  <strong>{String(slideIndex + 1).padStart(2, "0")}</strong>
+                  <span>/ {String(slides.length).padStart(2, "0")}</span>
                 </div>
-                {!activeSlide.imageUrl && (
-                  <div className="hero-image-placeholder">
-                    <strong>Slider banner</strong>
-                    <span>1440 × 640 px</span>
-                  </div>
-                )}
-                <div className="hero-orbit" />
-                <div className="hero-product-shape">z</div>
+                <button
+                  type="button"
+                  aria-label="Next slide"
+                  onClick={() =>
+                    setSlideIndex((current) => (current + 1) % slides.length)
+                  }
+                  disabled={slides.length < 2}
+                >
+                  →
+                </button>
+              </div>
+              <div className="hero-slide-dots" aria-label="Choose slide">
+                {slides.map((slide, index) => (
+                  <button
+                    type="button"
+                    key={slide.id}
+                    className={index === slideIndex ? "active" : ""}
+                    aria-label={`Go to slide ${index + 1}`}
+                    aria-current={index === slideIndex ? "true" : undefined}
+                    onClick={() => setSlideIndex(index)}
+                  />
+                ))}
               </div>
             </div>
           </section>
         )}
-        {homePage.visibility?.categories !== false && (
-          <section className="storefront-container category-strip">
-            <div>
-              <span className="eyebrow">
-                {homePage.categorySection.eyebrow}
-              </span>
-              <h2>{homePage.categorySection.title}</h2>
-            </div>
-            <div className="category-links">
-              {homePage.categories.map((category) => (
-                <Link
-                  href={category.href || `/products?category=${category.id}`}
-                  key={category.id}
-                >
-                  <span>
-                    {category.imageUrl ? (
-                      <img
-                        className="category-image"
-                        src={category.imageUrl}
-                        alt=""
-                      />
-                    ) : (
-                      <span className="category-image category-image-placeholder">
-                        <strong>Category image</strong>
-                        <small>640 × 480 px</small>
-                      </span>
-                    )}
-                    <strong>{category.label}</strong>
-                    {category.description && (
-                      <small>{category.description}</small>
-                    )}
-                  </span>
-                  <ArrowRight size={16} />
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
+        {homePage.visibility?.categories !== false &&
+          homePage.categories.length > 0 && (
+            <section className="storefront-container category-strip">
+              <div>
+                <span className="eyebrow">
+                  {homePage.categorySection.eyebrow}
+                </span>
+                <h2>{homePage.categorySection.title}</h2>
+              </div>
+              <div className="category-links">
+                {homePage.categories.map((category) => (
+                  <Link
+                    href={category.href || `/products?category=${category.id}`}
+                    key={category.id}
+                  >
+                    <span>
+                      {category.imageUrl ? (
+                        <img
+                          className="category-image"
+                          src={category.imageUrl}
+                          alt=""
+                        />
+                      ) : (
+                        <span className="category-image category-image-placeholder">
+                          <strong>Category image</strong>
+                          <small>640 × 480 px</small>
+                        </span>
+                      )}
+                      <strong>{category.label}</strong>
+                      {category.description && (
+                        <small>{category.description}</small>
+                      )}
+                    </span>
+                    <ArrowRight size={16} />
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
         {homePage.visibility?.bestsellers !== false && (
           <section className="storefront-container product-section">
             <div className="section-heading">
@@ -436,9 +538,7 @@ export function HomeStorefront() {
                 {homePage.bestsellers.viewAllLabel} <ArrowRight size={16} />
               </Link>
             </div>
-            {isLoading ? (
-              <div className="loading-copy">Finding the good stuff...</div>
-            ) : products.length ? (
+            {products.length ? (
               <div className="product-grid">
                 {configuredProducts
                   .slice(0, homePage.bestsellers.limit || 8)
@@ -446,6 +546,7 @@ export function HomeStorefront() {
                     <ProductCard
                       product={product}
                       index={index}
+                      settings={settings}
                       key={product.id}
                     />
                   ))}
@@ -455,9 +556,10 @@ export function HomeStorefront() {
             )}
           </section>
         )}
-        {homePage.visibility?.banners !== false && (
-          <HomeBanners banners={homePage.banners} />
-        )}
+        {homePage.visibility?.banners !== false &&
+          homePage.banners.items.length > 0 && (
+            <HomeBanners banners={homePage.banners} />
+          )}
         {homePage.visibility?.categoryProducts !== false &&
           homePage.categoryProducts?.map((section) => {
             const sectionProducts = section.productIds.length
@@ -467,6 +569,7 @@ export function HomeStorefront() {
               : products.filter((product) =>
                   product.categories?.includes(section.categoryId),
                 );
+            if (!sectionProducts.length) return null;
             return (
               <section
                 className="storefront-container product-section category-product-section"
@@ -491,6 +594,7 @@ export function HomeStorefront() {
                       <ProductCard
                         product={product}
                         index={index}
+                        settings={settings}
                         key={product.id}
                       />
                     ))}
@@ -498,26 +602,27 @@ export function HomeStorefront() {
               </section>
             );
           })}
-        {homePage.visibility?.promise !== false && (
-          <section className="storefront-container promise-band">
-            <div>
-              <span className="eyebrow">{homePage.promise.eyebrow}</span>
-              <h2>
-                {homePage.promise.title}
-                <br />
-                <i>{homePage.promise.emphasis}</i>
-              </h2>
-            </div>
-            <div className="promise-items">
-              {homePage.promise.items.map((item) => (
-                <div key={item.number}>
-                  <strong>{item.number}</strong>
-                  <p>{item.text}</p>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
+        {homePage.visibility?.promise !== false &&
+          homePage.promise.items.length > 0 && (
+            <section className="storefront-container promise-band">
+              <div>
+                <span className="eyebrow">{homePage.promise.eyebrow}</span>
+                <h2>
+                  {homePage.promise.title}
+                  <br />
+                  <i>{homePage.promise.emphasis}</i>
+                </h2>
+              </div>
+              <div className="promise-items">
+                {homePage.promise.items.map((item) => (
+                  <div key={item.number}>
+                    <strong>{item.number}</strong>
+                    <p>{item.text}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
       </main>
     </StorefrontFrame>
   );
@@ -528,6 +633,7 @@ function HomeBanners({ banners }: { banners: HomePageContent["banners"] }) {
     .filter((item) => item.isActive)
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .slice(0, 2);
+  if (!items.length) return null;
   return (
     <section className="storefront-container home-banners">
       <div className="section-heading">
@@ -623,10 +729,15 @@ function HomePageSkeleton() {
   );
 }
 
-export function CatalogStorefront() {
-  const { data, isLoading } = useGetPublicProductsQuery({ limit: 100 });
-  const products = productsFrom(data).filter(
-    (product) => product.isActive !== false && (product.stock ?? 1) > 0,
+export function CatalogStorefront({
+  initialProducts,
+  settings,
+}: {
+  initialProducts?: unknown;
+  settings?: PublicSettings;
+}) {
+  const products = productsFrom(initialProducts).filter(
+    (product) => product.isActive !== false,
   );
   const [filter, setFilter] = useState("all");
   const [query, setQuery] = useState("");
@@ -639,7 +750,7 @@ export function CatalogStorefront() {
       product.name.toLowerCase().includes(query.toLowerCase()),
   );
   return (
-    <StorefrontFrame>
+    <StorefrontFrame settings={settings}>
       <main className="storefront-container catalog-page">
         <div className="catalog-heading">
           <div>
@@ -672,12 +783,15 @@ export function CatalogStorefront() {
             />
           </label>
         </div>
-        {isLoading ? (
-          <div className="loading-copy">Loading collection...</div>
-        ) : filtered.length ? (
+        {filtered.length ? (
           <div className="product-grid">
             {filtered.map((product, index) => (
-              <ProductCard product={product} index={index} key={product.id} />
+              <ProductCard
+                product={product}
+                index={index}
+                settings={settings}
+                key={product.id}
+              />
             ))}
           </div>
         ) : (
@@ -698,12 +812,20 @@ function EmptyProducts() {
   );
 }
 
-export function ProductDetailStorefront({ slug }: { slug: string }) {
-  const { data, isLoading, isError } = useGetPublicProductQuery(slug);
-  const product = (data?.product ?? data) as Product | undefined;
+export function ProductDetailStorefront({
+  slug,
+  initialProduct,
+  settings,
+}: {
+  slug: string;
+  initialProduct?: unknown;
+  settings?: PublicSettings;
+}) {
+  const product = ((initialProduct as { product?: Product } | null)?.product ??
+    initialProduct) as Product | undefined;
   const dispatch = useDispatch();
   const router = useRouter();
-  const track = useStorefrontTracking();
+  const track = useStorefrontTracking(settings);
   const [quantity, setQuantity] = useState(1);
   const [variantId, setVariantId] = useState(product?.variants?.[0]?.id);
   useEffect(() => {
@@ -720,17 +842,9 @@ export function ProductDetailStorefront({ slug }: { slug: string }) {
       );
     }
   }, [product]);
-  if (isLoading)
+  if (!product)
     return (
-      <StorefrontFrame>
-        <main className="storefront-container state-page">
-          Loading product...
-        </main>
-      </StorefrontFrame>
-    );
-  if (isError || !product)
-    return (
-      <StorefrontFrame>
+      <StorefrontFrame settings={settings}>
         <main className="storefront-container state-page">
           <h1>Product not found</h1>
           <Link href="/products" className="button button-dark">
@@ -755,8 +869,22 @@ export function ProductDetailStorefront({ slug }: { slug: string }) {
     );
     router.push("/cart");
   };
+  const orderNow = () => {
+    dispatch(addToCart({ product, quantity, variantId }));
+    track(
+      "add_to_cart",
+      {
+        contentIds: [product.id],
+        contentName: product.name,
+        value: price * quantity,
+        quantity,
+      },
+      `detail-order-${product.id}-${variantId ?? "base"}`,
+    );
+    router.push("/checkout");
+  };
   return (
-    <StorefrontFrame>
+    <StorefrontFrame settings={settings}>
       <main className="storefront-container product-detail">
         <div className="detail-image">
           {imageOf(product) ? (
@@ -772,8 +900,9 @@ export function ProductDetailStorefront({ slug }: { slug: string }) {
           <h1>{product.name}</h1>
           <strong className="detail-price">{formatCurrency(price)}</strong>
           <p className="detail-description">
-            {product.description ||
-              "A thoughtfully selected piece for everyday rituals. Made to be useful, beautiful, and easy to live with."}
+            {product.description && product.description !== "none"
+              ? product.description
+              : "A thoughtfully selected piece for everyday rituals. Made to be useful, beautiful, and easy to live with."}
           </p>
           {product.variants?.length ? (
             <div className="variant-picker">
@@ -802,20 +931,23 @@ export function ProductDetailStorefront({ slug }: { slug: string }) {
               <span>{quantity}</span>
               <button
                 aria-label="Increase quantity"
-                onClick={() =>
-                  setQuantity(Math.min(product.stock ?? 99, quantity + 1))
-                }
+                onClick={() => setQuantity(quantity + 1)}
               >
                 <Plus size={15} />
               </button>
             </div>
-            <button className="button button-dark" onClick={add}>
-              Add to cart <ArrowRight size={17} />
-            </button>
+            <div className="detail-actions">
+              <button className="button button-dark" onClick={add}>
+                Add to cart <ArrowRight size={17} />
+              </button>
+              <button className="button button-order" onClick={orderNow}>
+                Order now <ArrowRight size={17} />
+              </button>
+            </div>
           </div>
           <div className="detail-notes">
             <span>
-              <Check size={16} /> In stock and ready to ship
+              <Check size={16} /> Available to order
             </span>
             <span>
               <Check size={16} /> Cash on delivery available
@@ -827,7 +959,7 @@ export function ProductDetailStorefront({ slug }: { slug: string }) {
   );
 }
 
-export function CartStorefront() {
+export function CartStorefront({ settings }: { settings?: PublicSettings }) {
   const items = useSelector((state: RootState) => state.cart.items);
   const dispatch = useDispatch();
   const subtotal = items.reduce(
@@ -835,7 +967,7 @@ export function CartStorefront() {
     0,
   );
   return (
-    <StorefrontFrame>
+    <StorefrontFrame settings={settings}>
       <main className="storefront-container cart-page">
         <div className="page-kicker">
           <span className="eyebrow">Your selection</span>
@@ -962,12 +1094,18 @@ export function CartStorefront() {
   );
 }
 
-export function CheckoutStorefront() {
+export function CheckoutStorefront({
+  initialPaymentMethods,
+  settings,
+}: {
+  initialPaymentMethods?: any[];
+  settings?: PublicSettings;
+}) {
   const items = useSelector((state: RootState) => state.cart.items);
   const dispatch = useDispatch();
   const router = useRouter();
-  const track = useStorefrontTracking();
-  const { data: methods = [] } = useGetPublicPaymentMethodsQuery();
+  const track = useStorefrontTracking(settings);
+  const methods = initialPaymentMethods ?? [];
   const [placeOrder, { isLoading }] = usePlaceOrderMutation();
   const [form, setForm] = useState({
     name: "",
@@ -991,7 +1129,7 @@ export function CheckoutStorefront() {
   }, []);
   if (!items.length)
     return (
-      <StorefrontFrame>
+      <StorefrontFrame settings={settings}>
         <main className="storefront-container state-page">
           <h1>Your cart is empty</h1>
           <Link href="/products" className="button button-dark">
@@ -1029,7 +1167,7 @@ export function CheckoutStorefront() {
     }
   };
   return (
-    <StorefrontFrame>
+    <StorefrontFrame settings={settings}>
       <main className="storefront-container checkout-page">
         <div className="page-kicker">
           <span className="eyebrow">Almost yours</span>

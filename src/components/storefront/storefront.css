@@ -125,6 +125,16 @@
   letter-spacing: 0.08em;
   color: #b36d4c;
 }
+.storefront-logo img {
+  display: block;
+  width: auto;
+  max-width: 150px;
+  max-height: 38px;
+  object-fit: contain;
+}
+.storefront-logo.light img {
+  max-height: 42px;
+}
 .storefront-nav {
   display: flex;
   gap: 28px;
@@ -180,16 +190,33 @@
   font-size: 10px;
 }
 .storefront-hero {
-  background: #ebe6da;
+  min-height: calc(100svh - 135px);
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: stretch;
+  background: #26362e center/cover no-repeat;
 }
-.hero-grid {
-  min-height: 530px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    90deg,
+    rgba(19, 29, 24, 0.8) 0%,
+    rgba(19, 29, 24, 0.4) 45%,
+    rgba(19, 29, 24, 0.12) 100%
+  );
+}
+.hero-content {
+  min-height: inherit;
+  width: min(1180px, calc(100% - 48px));
+  display: flex;
   align-items: center;
+  position: relative;
 }
 .hero-copy {
-  padding: 70px 0;
+  padding: 82px 0 125px;
 }
 .eyebrow {
   display: block;
@@ -201,21 +228,21 @@
   margin-bottom: 16px;
 }
 .hero-copy h1 {
-  font-size: clamp(48px, 7vw, 82px);
+  font-size: clamp(48px, 7vw, 92px);
   line-height: 0.92;
   letter-spacing: -0.08em;
-  color: #26362e;
+  color: #fffaf2;
   font-weight: 700;
 }
 .hero-copy h1 i,
 .promise-band h2 i {
   font-family: Georgia, serif;
   font-weight: 400;
-  color: #b36d4c;
+  color: #f0c98d;
 }
 .hero-copy p {
   max-width: 350px;
-  color: #626961;
+  color: rgba(255, 250, 242, 0.82);
   font-size: 16px;
   margin: 26px 0 32px;
 }
@@ -236,11 +263,65 @@
   transform: translateY(-2px);
 }
 .button-dark {
-  background: #26362e;
-  color: white;
+  background: #fffaf2;
+  color: #26362e;
 }
 .button-dark:hover {
-  background: #b36d4c;
+  background: #f0c98d;
+}
+.hero-slider-controls {
+  position: absolute;
+  right: 0;
+  bottom: 43px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: #fffaf2;
+}
+.hero-slider-controls button {
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(255, 250, 242, 0.55);
+  color: inherit;
+  background: rgba(19, 29, 24, 0.24);
+  font-size: 20px;
+  cursor: pointer;
+}
+.hero-slider-controls button:hover:not(:disabled) {
+  background: #fffaf2;
+  color: #26362e;
+}
+.hero-slider-controls button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.hero-slide-count {
+  display: flex;
+  gap: 5px;
+  align-items: baseline;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+.hero-slide-count strong {
+  font-size: 18px;
+}
+.hero-slide-dots {
+  position: absolute;
+  left: 0;
+  bottom: 57px;
+  display: flex;
+  gap: 8px;
+}
+.hero-slide-dots button {
+  width: 42px;
+  height: 3px;
+  padding: 0;
+  border: 0;
+  background: rgba(255, 250, 242, 0.45);
+  cursor: pointer;
+}
+.hero-slide-dots button.active {
+  background: #fffaf2;
 }
 .hero-art {
   height: 430px;
@@ -522,6 +603,25 @@
 .product-add.is-added {
   color: #5b8a65;
 }
+.product-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 4px;
+}
+.product-order-now {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #26362e;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 0;
+}
+.product-order-now:hover {
+  color: #b36d4c;
+}
 .promise-band {
   border-top: 1px solid #d5d2c9;
   border-bottom: 1px solid #d5d2c9;
@@ -745,6 +845,18 @@
   display: flex;
   gap: 12px;
   margin-top: 28px;
+}
+.detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.button-order {
+  background: #d5a85b;
+  color: #26362e;
+}
+.button-order:hover {
+  background: #f0c98d;
 }
 .quantity-control {
   display: inline-flex;
@@ -1024,7 +1136,6 @@
   .storefront-actions {
     margin-left: auto;
   }
-  .hero-grid,
   .product-detail {
     grid-template-columns: 1fr;
     gap: 0;
@@ -1032,11 +1143,30 @@
   .hero-grid {
     min-height: 0;
   }
-  .hero-copy {
-    padding: 70px 0 45px;
+  .storefront-hero {
+    min-height: calc(100svh - 165px);
+    background-position: 62% center;
   }
-  .hero-art {
-    height: 340px;
+  .hero-overlay {
+    background: linear-gradient(
+      90deg,
+      rgba(19, 29, 24, 0.86),
+      rgba(19, 29, 24, 0.3)
+    );
+  }
+  .hero-content {
+    width: min(100% - 32px, 1180px);
+  }
+  .hero-copy {
+    padding: 60px 0 150px;
+  }
+  .hero-slider-controls {
+    right: 0;
+    bottom: 34px;
+  }
+  .hero-slide-dots {
+    left: 0;
+    bottom: 49px;
   }
   .category-strip,
   .promise-band {

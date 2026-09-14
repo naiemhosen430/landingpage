@@ -31,10 +31,28 @@ export type PublicDeliveryPrice = {
 
 export type PublicSettings = {
   store?: {
+    name?: string;
+    storeName?: string;
+    announcement?: string;
+    logo?: string;
+    logoUrl?: string;
     socialTracking?: {
       facebook?: { enabled?: boolean; pixelId?: string };
       tiktok?: { enabled?: boolean; pixelId?: string };
     };
+  };
+  branding?: {
+    logo?: string;
+    logoUrl?: string;
+    storeName?: string;
+    primaryColor?: string;
+    secondaryColor?: string;
+  };
+  contact?: {
+    email?: string;
+    phone?: string;
+    address?: Record<string, string>;
+    socialLinks?: Record<string, string>;
   };
 };
 

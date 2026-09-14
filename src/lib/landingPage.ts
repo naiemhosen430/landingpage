@@ -141,12 +141,8 @@ export async function fetchPublicSettings(): Promise<PublicSettingsData> {
       next: { revalidate: 60 },
     });
 
-    console.log(res);
-
     if (!res.ok) return {};
     const json = await res.json();
-
-    console.log("Fetched public settings:", json);
 
     return json?.data ?? {};
   } catch (error) {
