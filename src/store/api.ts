@@ -25,6 +25,8 @@ const baseQuery = fetchBaseQuery({
   },
 });
 
+let refreshPromise: Promise<string | null> | null = null;
+
 const baseQueryWithReauth = async (args: any, api: any, extraOptions: any) => {
   let result: any = await baseQuery(args, api, extraOptions);
 
@@ -36,52 +38,49 @@ const baseQueryWithReauth = async (args: any, api: any, extraOptions: any) => {
       return result;
     }
 
-    const refreshResult: any = await baseQuery(
-      {
-        url: "/auth/refresh",
-        method: "POST",
-        body: { refreshToken },
-      },
-      api,
-      extraOptions,
-    );
+    refreshPromise ??= (async () => {
+      const refreshResult: any = await baseQuery(
+        {
+          url: "/auth/refresh",
+          method: "POST",
+          body: { refreshToken },
+        },
+        api,
+        extraOptions,
+      );
+      const hasData = refreshResult && refreshResult.data !== undefined;
+      if (!hasData) return null;
 
-    const hasData = refreshResult && (refreshResult as any).data !== undefined;
-
-    if (hasData) {
       const refreshData =
-        (refreshResult as any).data?.data ??
-        (refreshResult as any).data ??
-        refreshResult;
+        refreshResult.data?.data ?? refreshResult.data ?? refreshResult;
       const tokens = refreshData.tokens ?? refreshData;
       const accessToken = tokens?.accessToken ?? tokens?.token;
+      if (!accessToken) return null;
+
       const nextRefreshToken = tokens?.refreshToken ?? refreshToken;
-      const refreshedUser = refreshData?.user ?? null;
-
-      if (!accessToken) {
-        api.dispatch({ type: "auth/logout" });
-        return result;
-      }
-
       api.dispatch({
         type: "auth/setTokens",
-        payload: {
-          token: accessToken,
-          refreshToken: nextRefreshToken,
-        },
+        payload: { token: accessToken, refreshToken: nextRefreshToken },
       });
 
-      if (refreshedUser) {
+      if (refreshData.user) {
         api.dispatch({
           type: "auth/setCredentials",
           payload: {
-            user: refreshedUser,
+            user: refreshData.user,
             token: accessToken,
             refreshToken: nextRefreshToken,
           },
         });
       }
 
+      return accessToken;
+    })().finally(() => {
+      refreshPromise = null;
+    });
+
+    const accessToken = await refreshPromise;
+    if (accessToken) {
       result = await baseQuery(args, api, extraOptions);
     } else {
       api.dispatch({ type: "auth/logout" });

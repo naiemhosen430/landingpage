@@ -5,6 +5,7 @@ export interface ZaneAIChatPayload {
   confirmed?: boolean;
   action?: {
     productId?: string;
+    resourceId?: string;
     data?: Record<string, unknown>;
   };
 }
@@ -26,12 +27,14 @@ export interface ZaneAIResponse {
       intent: string;
       action: {
         productId?: string;
+        resourceId?: string;
         data?: Record<string, unknown>;
       };
     };
     [key: string]: unknown;
   };
   reply: string;
+  quickQuestions?: string[];
 }
 
 export const zaneAiApi = api.injectEndpoints({

@@ -20,6 +20,7 @@ type AiDraft = {
   intent: string;
   action: {
     productId?: string;
+    resourceId?: string;
     data?: Record<string, unknown>;
   };
 };
@@ -31,15 +32,15 @@ type ChatMessage = {
   intent?: string;
   messageTime?: string;
   draft?: AiDraft;
+  quickQuestions?: string[];
 };
 
 type RenderedMessage = ChatMessage & { id: number };
 
-const quickQuestions = [
-  "What can you do?",
-  "How many products do I have?",
-  "Show my products",
-];
+type PendingConfirmation = {
+  message: string;
+  action: AiDraft["action"];
+};
 
 const fileToDataUri = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -56,6 +57,8 @@ export default function ZaneAIAssistant() {
   const [messages, setMessages] = useState<RenderedMessage[]>([]);
   const [activeDraft, setActiveDraft] = useState<AiDraft | null>(null);
   const [actionFormActive, setActionFormActive] = useState(false);
+  const [pendingConfirmation, setPendingConfirmation] =
+    useState<PendingConfirmation | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLElement | null>(null);
   const nextMessageId = useRef(0);
@@ -81,6 +84,9 @@ export default function ZaneAIAssistant() {
         intent: response.intent,
         messageTime: response.messageTime,
         draft: nextDraft ?? undefined,
+        quickQuestions: Array.isArray(response.quickQuestions)
+          ? response.quickQuestions
+          : [],
       },
     ]);
   };
@@ -88,6 +94,62 @@ export default function ZaneAIAssistant() {
   const ask = async (question: string) => {
     const message = question.trim();
     if (!message || sending || actionFormActive) return;
+
+    if (pendingConfirmation) {
+      const normalized = message.toLowerCase();
+      const confirmed = [
+        "yes",
+        "y",
+        "confirm",
+        "হ্যাঁ",
+        "নিশ্চিত",
+        "জি",
+      ].includes(normalized);
+      const cancelled = ["no", "n", "cancel", "না", "বাতিল"].includes(
+        normalized,
+      );
+
+      if (confirmed || cancelled) {
+        setMessages((current) => [
+          ...current,
+          { id: nextMessageId.current++, role: "user", text: message },
+        ]);
+        setDraft("");
+        if (cancelled) {
+          setPendingConfirmation(null);
+          appendAssistantMessage(
+            {
+              reply: "The action was cancelled.",
+              messageTime: new Date().toISOString(),
+              quickQuestions: [],
+            },
+            null,
+          );
+          return;
+        }
+
+        try {
+          const response = await sendMessage({
+            message: pendingConfirmation.message,
+            confirmed: true,
+            action: pendingConfirmation.action,
+          }).unwrap();
+          setPendingConfirmation(null);
+          appendAssistantMessage(response, response.result?.draft ?? null);
+        } catch (error: any) {
+          appendAssistantMessage(
+            {
+              reply:
+                error?.data?.message ?? "AI action failed. Please try again.",
+              messageTime: new Date().toISOString(),
+              quickQuestions: [],
+            },
+            null,
+          );
+        }
+        return;
+      }
+    }
 
     setMessages((current) => [
       ...current,
@@ -138,8 +200,10 @@ export default function ZaneAIAssistant() {
       ),
     );
     const productId = values.productId;
+    const resourceId = values.resourceId;
     const submittedData = { ...values };
     delete submittedData.productId;
+    delete submittedData.resourceId;
     const data: Record<string, unknown> = {
       ...(activeDraft.action.data ?? {}),
       ...submittedData,
@@ -166,6 +230,7 @@ export default function ZaneAIAssistant() {
         ...activeDraft,
         action: {
           ...(productId ? { productId: String(productId) } : {}),
+          ...(resourceId ? { resourceId: String(resourceId) } : {}),
           data,
         },
       };
@@ -173,18 +238,23 @@ export default function ZaneAIAssistant() {
 
       const response = await sendMessage({
         message: submittedDraft.message,
-        confirmed: true,
+        confirmed: false,
         action: {
           ...(submittedDraft.action.productId
             ? { productId: submittedDraft.action.productId }
             : {}),
+          ...(submittedDraft.action.resourceId
+            ? { resourceId: submittedDraft.action.resourceId }
+            : {}),
           data,
         },
       }).unwrap();
-      const nextDraft = response.result?.draft ?? null;
-      appendAssistantMessage(response, nextDraft);
-      setActiveDraft(nextDraft);
-      setActionFormActive(Boolean(response.result?.formRequired && nextDraft));
+      appendAssistantMessage(response, response.result?.draft ?? null);
+      setPendingConfirmation({
+        message: submittedDraft.message,
+        action: submittedDraft.action,
+      });
+      setActionFormActive(false);
     } catch (error: any) {
       setMessages((current) => [
         ...current,
@@ -219,6 +289,7 @@ export default function ZaneAIAssistant() {
   const cancelActionForm = () => {
     setActiveDraft(null);
     setActionFormActive(false);
+    setPendingConfirmation(null);
   };
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
@@ -308,6 +379,20 @@ export default function ZaneAIAssistant() {
                           : ""}
                       </span>
                     )}
+                    {message.quickQuestions?.length ? (
+                      <div className="zane-ai-message-quick-questions">
+                        {message.quickQuestions.map((question) => (
+                          <button
+                            key={question}
+                            type="button"
+                            onClick={() => void ask(question)}
+                            disabled={sending || Boolean(pendingConfirmation)}
+                          >
+                            {question}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
                   </>
                 ) : (
                   message.text
@@ -322,24 +407,6 @@ export default function ZaneAIAssistant() {
             <div ref={messagesEndRef} aria-hidden="true" />
           </div>
 
-          {!actionFormActive && (
-            <div className="zane-ai-quick-questions">
-              <span>Quick questions</span>
-              <div>
-                {quickQuestions.map((question) => (
-                  <button
-                    key={question}
-                    type="button"
-                    onClick={() => void ask(question)}
-                    disabled={sending}
-                  >
-                    {question}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
           {actionFormActive ? (
             <button
               type="button"
@@ -349,6 +416,24 @@ export default function ZaneAIAssistant() {
             >
               Cancel action
             </button>
+          ) : pendingConfirmation ? (
+            <div className="zane-ai-confirmation">
+              <span>Confirm this action?</span>
+              <button
+                type="button"
+                onClick={() => void ask("yes")}
+                disabled={sending}
+              >
+                Confirm
+              </button>
+              <button
+                type="button"
+                onClick={() => void ask("no")}
+                disabled={sending}
+              >
+                Cancel
+              </button>
+            </div>
           ) : (
             <form className="zane-ai-composer" onSubmit={submit}>
               <input

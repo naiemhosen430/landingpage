@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { logout } from "@/store/authSlice";
+import { api } from "@/store/api";
 import { useRouter } from "next/navigation";
 import { JSX } from "react/jsx-runtime";
 
@@ -220,6 +221,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
   const handleLogout = () => {
     dispatch(logout());
+    dispatch(api.util.resetApiState());
     router.push("/login");
   };
 

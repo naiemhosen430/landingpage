@@ -20,19 +20,23 @@ const authSlice = createSlice({
   reducers: {
     setCredentials: (
       state,
-      action: PayloadAction<{ user: any; token: string; refreshToken: string }>,
+      action: PayloadAction<{
+        user: any;
+        token: string;
+        refreshToken?: string | null;
+      }>,
     ) => {
       state.user = action.payload.user;
       state.token = action.payload.token;
-      state.refreshToken = action.payload.refreshToken;
+      state.refreshToken = action.payload.refreshToken ?? null;
       state.isAuthenticated = true;
     },
     setTokens: (
       state,
-      action: PayloadAction<{ token: string; refreshToken: string }>,
+      action: PayloadAction<{ token: string; refreshToken?: string | null }>,
     ) => {
       state.token = action.payload.token;
-      state.refreshToken = action.payload.refreshToken;
+      state.refreshToken = action.payload.refreshToken ?? state.refreshToken;
       state.isAuthenticated = Boolean(action.payload.token);
     },
     logout: (state) => {

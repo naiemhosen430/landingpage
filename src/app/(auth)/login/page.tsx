@@ -13,6 +13,8 @@ interface ParsedError {
   type: ErrorType;
 }
 
+const REMEMBERED_EMAIL_KEY = "zanestore_login_email";
+
 function parseError(err: any): ParsedError {
   // CORS / Network (no response reached server)
   if (!err.status && err.error) {
@@ -104,6 +106,9 @@ export default function LoginPage() {
     if (root) {
       root.setAttribute("data-theme", theme);
     }
+
+    const rememberedEmail = localStorage.getItem(REMEMBERED_EMAIL_KEY);
+    if (rememberedEmail) setEmail(rememberedEmail);
   }, []);
 
   // Trigger shake animation when error changes
@@ -194,6 +199,7 @@ export default function LoginPage() {
           refreshToken: refreshToken ?? null,
         }),
       );
+      localStorage.setItem(REMEMBERED_EMAIL_KEY, email.trim());
 
       // Redirect after successful login
       router.push("/dashboard");
@@ -654,7 +660,7 @@ export default function LoginPage() {
           </div>
 
           <div className="prm-auth-card">
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} autoComplete="on">
               {error && (
                 <div
                   className={`prm-auth-error ${shake ? "prm-auth-error-shake" : ""}`}
@@ -720,6 +726,7 @@ export default function LoginPage() {
                   type="email"
                   className="prm-auth-input"
                   placeholder="Email address"
+                  autoComplete="username"
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
@@ -749,6 +756,7 @@ export default function LoginPage() {
                   type="password"
                   className="prm-auth-input"
                   placeholder="Password"
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);

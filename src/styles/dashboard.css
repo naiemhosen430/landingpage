@@ -662,6 +662,55 @@
   text-transform: capitalize;
 }
 
+.zane-ai-message-quick-questions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.zane-ai-message-quick-questions button,
+.zane-ai-confirmation button {
+  padding: 7px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+
+.zane-ai-message-quick-questions button:hover,
+.zane-ai-confirmation button:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.zane-ai-message-quick-questions button:disabled,
+.zane-ai-confirmation button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.zane-ai-confirmation {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.zane-ai-confirmation button:first-of-type {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fff;
+}
+
 .zane-ai-cancel {
   margin: 12px;
   padding: 10px 14px;
@@ -720,53 +769,6 @@
 
 .zane-ai-typing svg {
   animation: zane-ai-spin 1s linear infinite;
-}
-
-.zane-ai-quick-questions {
-  display: grid;
-  gap: 8px;
-  padding: 11px 14px;
-  border-top: 1px solid var(--border-color);
-}
-
-.zane-ai-quick-questions > span {
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.zane-ai-quick-questions > div {
-  display: flex;
-  gap: 7px;
-  overflow-x: auto;
-}
-
-.zane-ai-quick-questions button {
-  flex: 0 0 auto;
-  padding: 7px 10px;
-  border: 1px solid var(--border-color);
-  border-radius: 999px;
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  cursor: pointer;
-  font: inherit;
-  font-size: 12px;
-  animation: zane-ai-fade-up 260ms ease-out both;
-}
-
-.zane-ai-quick-questions button:nth-child(2) {
-  animation-delay: 50ms;
-}
-
-.zane-ai-quick-questions button:nth-child(3) {
-  animation-delay: 100ms;
-}
-
-.zane-ai-quick-questions button:hover {
-  border-color: var(--primary);
-  color: var(--primary);
 }
 
 .zane-ai-composer {
