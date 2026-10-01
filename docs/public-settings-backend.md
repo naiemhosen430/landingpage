@@ -45,6 +45,10 @@ The endpoint must expose only settings that are safe for public browser use.
   "message": "Public settings retrieved successfully",
   "data": {
     "store": {
+      "name": "Store name from project settings",
+      "description": "Store description from project settings",
+      "currency": "BDT",
+      "language": "en",
       "socialTracking": {
         "facebook": {
           "enabled": true,
@@ -69,6 +73,11 @@ interface PublicSettingsResponse {
   message: string;
   data: {
     store?: {
+      name?: string;
+      storeName?: string;
+      description?: string;
+      currency?: string;
+      language?: string;
       socialTracking?: {
         facebook?: {
           enabled?: boolean;
@@ -92,6 +101,10 @@ interface PublicSettingsResponse {
 | `store.socialTracking.facebook.pixelId` | `string`  | Public Facebook Pixel ID.                 |
 | `store.socialTracking.tiktok.enabled`   | `boolean` | Enables TikTok Pixel in the storefront.   |
 | `store.socialTracking.tiktok.pixelId`   | `string`  | Public TikTok Pixel ID.                   |
+| `store.name`                            | `string`  | Project/store name.                       |
+| `store.description`                     | `string`  | Optional project description.             |
+| `store.currency`                        | `string`  | Project currency used for prices/events.  |
+| `store.language`                        | `string`  | Storefront language tag.                  |
 
 If a provider is disabled or its pixel ID is empty, the frontend does not initialize that provider or send browser pixel events for it.
 
@@ -139,11 +152,11 @@ When enabled, the frontend initializes the configured providers and maps events 
 
 | Frontend event     | Facebook event     | TikTok event       |
 | ------------------ | ------------------ | ------------------ |
-| `page_view`        | `PageView`         | `PageView`         |
+| `page_view`        | `PageView`         | `Pageview`         |
 | `product_view`     | `ViewContent`      | `ViewContent`      |
 | `add_to_cart`      | `AddToCart`        | `AddToCart`        |
 | `checkout_started` | `InitiateCheckout` | `InitiateCheckout` |
-| `purchase`         | `Purchase`         | `Purchase`         |
+| `purchase`         | `Purchase`         | `CompletePayment`  |
 
 The browser events include standard metadata such as:
 
@@ -163,6 +176,41 @@ The same enriched event is also sent to the frontend analytics endpoint:
 ```http
 POST /api/public/v1/tracking
 ```
+
+## Server-side provider events
+
+The backend reads provider access tokens only from private project settings and
+forwards public tracking events through Meta Conversions API Graph API `v26.0`
+and TikTok Events API `v2.0`. The browser must never receive either access
+token. The backend also emits a `purchase` event after an order is successfully
+created by `POST /api/public/v1/orders`.
+
+Use the same `event_id` for a browser event and its server copy. For a purchase,
+use `purchase-<order-id>` on both sides; this lets Meta and TikTok deduplicate
+the thank-you-page browser event against the order API event. Preserve the
+original Unix-seconds `event_time` and source page URL. Map storefront event
+types to provider-standard event names:
+
+| Storefront event   | Meta Pixel / Conversions API | TikTok Pixel / Events API |
+| ------------------ | ---------------------------- | ------------------------- |
+| `page_view`        | `PageView`                   | `Pageview`                |
+| `product_view`     | `ViewContent`                | `ViewContent`             |
+| `add_to_cart`      | `AddToCart`                  | `AddToCart`               |
+| `checkout_started` | `InitiateCheckout`           | `InitiateCheckout`        |
+| `purchase`         | `Purchase`                   | `CompletePayment`         |
+
+Commerce properties use `value`, `currency: "BDT"`, `content_ids`,
+`content_type: "product"`, `contents` and `num_items`. Meta `contents` items
+use `id`, `quantity` and `item_price`; TikTok items use `content_id`,
+`quantity` and `price`. User matching data is sent only from the server, with
+email and phone normalized and SHA-256 hashed before forwarding. Do not persist
+raw email, phone, IP address or user-agent in analytics event payloads.
+
+Official references:
+
+- [Meta Conversions API server event parameters](https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/server-event/)
+- [Meta Graph API changelog](https://developers.facebook.com/docs/graph-api/changelog/)
+- [TikTok Events API reference](https://business-api.tiktok.com/portal/docs/api-reference/v2.0)
 
 ## Disabled or Missing Settings
 

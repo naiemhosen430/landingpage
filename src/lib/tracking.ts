@@ -6,6 +6,24 @@ const VISITOR_KEY = `${STORAGE_PREFIX}visitor-id`;
 const SESSION_KEY = `${STORAGE_PREFIX}session-id`;
 
 type DataLayer = Array<Record<string, unknown>>;
+type FacebookPixel = ((...args: unknown[]) => void) & {
+  callMethod?: (...args: unknown[]) => void;
+  queue?: unknown[][];
+  push?: (...args: unknown[]) => void;
+  loaded?: boolean;
+  version?: string;
+};
+type TikTokPixel = {
+  [key: string]: unknown;
+  q: unknown[][];
+  methods: string[];
+  _i: Record<string, unknown[]>;
+  _t: Record<string, number>;
+  _o: Record<string, unknown>;
+  load: (pixelId: string) => void;
+  page: (...args: unknown[]) => void;
+  track: (...args: unknown[]) => void;
+};
 
 function getDataLayer(): DataLayer {
   if (typeof window === "undefined") return [];
@@ -73,10 +91,12 @@ export function initializeBrowserPixels(options: {
   ) {
     const fbq = Object.assign(
       (...args: unknown[]) => {
-        fbq.q.push(args);
+        if (fbq.callMethod) fbq.callMethod(...args);
+        else fbq.queue?.push(args);
       },
-      { q: [] as unknown[][] },
-    );
+      { queue: [] as unknown[][], loaded: true, version: "2.0" },
+    ) as FacebookPixel;
+    fbq.push = fbq;
     window.fbq = fbq;
     const script = document.createElement("script");
     script.id = "zane-facebook-pixel-sdk";
@@ -84,7 +104,6 @@ export function initializeBrowserPixels(options: {
     script.src = "https://connect.facebook.net/en_US/fbevents.js";
     document.head.appendChild(script);
     window.fbq("init", options.facebookPixelId);
-    window.fbq("track", "PageView");
     pixelState.facebookInitialized = true;
   }
 
@@ -94,27 +113,43 @@ export function initializeBrowserPixels(options: {
     !window.ttq &&
     !document.getElementById("zane-tiktok-pixel-sdk")
   ) {
-    const ttq: NonNullable<Window["ttq"]> = {
-      track: (...args: unknown[]) => {
-        ttq.q?.push(args);
-      },
-      load: (...args: unknown[]) => {
-        ttq.q?.push(["load", ...args]);
-      },
-      page: (...args: unknown[]) => {
-        ttq.q?.push(["page", ...args]);
-      },
-      q: [],
+    const ttq = [] as unknown as TikTokPixel;
+    ttq.q = [];
+    ttq.methods = [
+      "page",
+      "track",
+      "identify",
+      "instances",
+      "debug",
+      "on",
+      "off",
+      "once",
+      "ready",
+      "alias",
+      "group",
+      "enableCookie",
+      "disableCookie",
+    ];
+    ttq._i = { [options.tiktokPixelId]: [] };
+    ttq._t = { [options.tiktokPixelId]: Date.now() };
+    ttq._o = {};
+    ttq.methods.forEach((method) => {
+      ttq[method] = (...args: unknown[]) => {
+        const call = [method, ...args];
+        ttq.q.push(call);
+        Array.prototype.push.call(ttq, call);
+      };
+    });
+    ttq.load = (pixelId: string) => {
+      const script = document.createElement("script");
+      script.id = "zane-tiktok-pixel-sdk";
+      script.async = true;
+      script.src = `https://analytics.tiktok.com/i18n/pixel/events.js?sdkid=${encodeURIComponent(pixelId)}&lib=ttq`;
+      document.head.appendChild(script);
     };
+    window.TiktokAnalyticsObject = "ttq";
     window.ttq = ttq;
-    const script = document.createElement("script");
-    script.id = "zane-tiktok-pixel-sdk";
-    script.async = true;
-    script.src = `https://analytics.tiktok.com/i18n/pixel/events.js?sdkid=${encodeURIComponent(options.tiktokPixelId)}&lib=ttq`;
-    document.head.appendChild(script);
     ttq.load?.(options.tiktokPixelId);
-    ttq.page?.();
-    ttq.track?.("PageView");
     pixelState.tiktokInitialized = true;
   }
 }
@@ -127,23 +162,92 @@ function dispatchBrowserPixels(event: PublicAnalyticsEvent) {
     ),
   );
   const eventId = String(payload.event_id ?? event.eventName);
-  const pixelEventName =
-    event.eventType === "product_view"
-      ? "ViewContent"
-      : event.eventType === "add_to_cart"
-        ? "AddToCart"
-        : event.eventType === "checkout_started"
-          ? "InitiateCheckout"
-          : event.eventType === "purchase"
-            ? "Purchase"
-            : event.eventName;
+  const facebookEventNames: Record<string, string> = {
+    page_view: "PageView",
+    product_view: "ViewContent",
+    add_to_cart: "AddToCart",
+    checkout_started: "InitiateCheckout",
+    purchase: "Purchase",
+  };
+  const tiktokEventNames: Record<string, string> = {
+    page_view: "Pageview",
+    product_view: "ViewContent",
+    add_to_cart: "AddToCart",
+    checkout_started: "InitiateCheckout",
+    purchase: "CompletePayment",
+  };
+  const facebookEventName =
+    facebookEventNames[event.eventType] ?? event.eventName;
+  const tiktokEventName = tiktokEventNames[event.eventType] ?? event.eventName;
+  const tiktokPayload = {
+    ...getPixelProperties(payload),
+    ...(Array.isArray(payload.contents)
+      ? {
+          contents: payload.contents.map((item) => {
+            const content = item as Record<string, unknown>;
+            return {
+              ...(content.id || content.content_id
+                ? { content_id: content.content_id ?? content.id }
+                : {}),
+              ...(content.content_name
+                ? { content_name: content.content_name }
+                : {}),
+              ...(content.quantity != null
+                ? { quantity: Number(content.quantity) || 1 }
+                : {}),
+              ...(content.item_price != null || content.price != null
+                ? { price: Number(content.item_price ?? content.price) || 0 }
+                : {}),
+            };
+          }),
+        }
+      : {}),
+    event_id: eventId,
+  };
+  const facebookPayload = getPixelProperties(payload);
+  if (Array.isArray(payload.contents)) {
+    facebookPayload.contents = payload.contents.map((item) => {
+      const content = item as Record<string, unknown>;
+      return {
+        ...(content.id || content.content_id
+          ? { id: content.id ?? content.content_id }
+          : {}),
+        ...(content.quantity != null
+          ? { quantity: Number(content.quantity) || 1 }
+          : {}),
+        ...(content.item_price != null
+          ? { item_price: Number(content.item_price) || 0 }
+          : {}),
+      };
+    });
+  }
 
   if (typeof window.fbq === "function") {
-    window.fbq("track", pixelEventName, payload, { eventID: eventId });
+    window.fbq("track", facebookEventName, facebookPayload, {
+      eventID: eventId,
+    });
   }
   if (typeof window.ttq?.track === "function") {
-    window.ttq.track(pixelEventName, payload, { event_id: eventId });
+    window.ttq.track(tiktokEventName, tiktokPayload);
   }
+}
+
+function getPixelProperties(payload: Record<string, unknown>) {
+  const allowed = [
+    "value",
+    "currency",
+    "content_ids",
+    "content_type",
+    "contents",
+    "num_items",
+    "content_name",
+    "order_id",
+  ];
+  return Object.fromEntries(
+    allowed
+      .filter((key) => payload[key] !== undefined)
+      .map((key) => [key, payload[key]]),
+  );
 }
 
 function standardizePayload(payload: Record<string, unknown> = {}) {
@@ -154,7 +258,15 @@ function standardizePayload(payload: Record<string, unknown> = {}) {
   const contents =
     payload.contents ??
     (Array.isArray(contentIds)
-      ? contentIds.map((id) => ({ id, quantity: 1 }))
+      ? contentIds.map((id) => ({
+          id,
+          content_id: id,
+          ...(payload.contentName ? { content_name: payload.contentName } : {}),
+          quantity: Number(payload.quantity) || 1,
+          ...(payload.price != null || payload.value != null
+            ? { item_price: Number(payload.price ?? payload.value) || 0 }
+            : {}),
+        }))
       : undefined);
   const numItems =
     payload.num_items ??
@@ -181,9 +293,15 @@ export function trackStorefrontEvent(
   dedupeKey: string,
   send: (event: PublicAnalyticsEvent) => void,
 ) {
-  if (hasRecentlyFired(dedupeKey)) return false;
-  markFired(dedupeKey);
-  const eventId = `${event.eventName}-${dedupeKey}`;
+  const eventKey =
+    event.eventType === "add_to_cart"
+      ? `${dedupeKey}-${crypto.randomUUID()}`
+      : dedupeKey;
+  if (hasRecentlyFired(eventKey)) return false;
+  markFired(eventKey);
+  const eventId = String(
+    event.payload?.event_id ?? `${event.eventName}-${eventKey}`,
+  );
   const standardPayload = {
     ...standardizePayload(event.payload),
     event_id: eventId,
@@ -194,6 +312,15 @@ export function trackStorefrontEvent(
       (typeof window === "undefined" ? undefined : window.location.href),
     visitor_id: event.visitorId ?? getClientId(VISITOR_KEY),
     session_id: event.sessionId ?? getSessionId(),
+    fbp: typeof document === "undefined" ? undefined : getCookie("_fbp"),
+    fbc: typeof document === "undefined" ? undefined : getCookie("_fbc"),
+    ttclid:
+      typeof window === "undefined"
+        ? undefined
+        : (new URLSearchParams(window.location.search).get("ttclid") ??
+          undefined),
+    client_user_agent:
+      typeof navigator === "undefined" ? undefined : navigator.userAgent,
   };
   const enrichedEvent = {
     ...event,
@@ -214,6 +341,15 @@ export function trackStorefrontEvent(
   return true;
 }
 
+function getCookie(name: string) {
+  const prefix = `${name}=`;
+  return document.cookie
+    .split(";")
+    .map((cookie) => cookie.trim())
+    .find((cookie) => cookie.startsWith(prefix))
+    ?.slice(prefix.length);
+}
+
 declare global {
   interface Window {
     dataLayer?: DataLayer;
@@ -221,12 +357,8 @@ declare global {
       facebookInitialized: boolean;
       tiktokInitialized: boolean;
     };
-    fbq?: ((...args: unknown[]) => void) & { q?: unknown[][] };
-    ttq?: {
-      track?: (...args: unknown[]) => void;
-      load?: (...args: unknown[]) => void;
-      page?: (...args: unknown[]) => void;
-      q?: unknown[][];
-    };
+    fbq?: FacebookPixel;
+    ttq?: TikTokPixel;
+    TiktokAnalyticsObject?: string;
   }
 }

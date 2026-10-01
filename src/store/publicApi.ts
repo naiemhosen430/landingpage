@@ -1,4 +1,5 @@
 import { api } from "./api";
+import type { Category } from "./categoryApi";
 
 export type PublicAnalyticsEvent = {
   eventType:
@@ -27,12 +28,16 @@ export type PublicAnalyticsResponse = {
 export type PublicDeliveryPrice = {
   price: number;
   deliveryCharge: number;
+  zones?: Array<{ zone: string; price: number }>;
 };
 
 export type PublicSettings = {
   store?: {
     name?: string;
     storeName?: string;
+    description?: string;
+    currency?: string;
+    language?: string;
     announcement?: string;
     logo?: string;
     logoUrl?: string;
@@ -58,6 +63,11 @@ export type PublicSettings = {
 
 export const publicApi = api.injectEndpoints({
   endpoints: (builder) => ({
+    getPublicCategories: builder.query<Category[], void>({
+      query: () => "/public/v1/categories",
+      transformResponse: (response: any) =>
+        response?.data?.data ?? response?.data ?? response ?? [],
+    }),
     getPublicProducts: builder.query<any, Record<string, any> | void>({
       query: (params) => ({
         url: "/public/v1/products",
@@ -136,6 +146,7 @@ export const publicApi = api.injectEndpoints({
 
 export const {
   useGetPublicProductsQuery,
+  useGetPublicCategoriesQuery,
   useGetPublicProductQuery,
   useGetPublicPaymentMethodsQuery,
   useGetPublicDeliveryPriceQuery,

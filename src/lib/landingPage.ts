@@ -42,6 +42,11 @@ export type PublicLandingPageData = {
 
 export type PublicSettingsData = {
   store?: {
+    name?: string;
+    storeName?: string;
+    description?: string;
+    currency?: string;
+    language?: string;
     socialTracking?: {
       facebook?: { enabled?: boolean; pixelId?: string };
       tiktok?: { enabled?: boolean; pixelId?: string };

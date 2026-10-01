@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import LandingContent from "@/components/landing/LandingContent";
 import CheckoutForm from "@/components/checkout/CheckoutForm";
 import { fetchPublicLandingPage, fetchPublicSettings } from "@/lib/landingPage";
+import { fetchPublicCategories } from "@/lib/publicData";
 import {
   StorefrontFooter,
   StorefrontHeader,
@@ -16,9 +17,10 @@ export default async function SlugPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const [page, publicSettings] = await Promise.all([
+  const [page, publicSettings, categories] = await Promise.all([
     fetchPublicLandingPage(slug),
     fetchPublicSettings(),
+    fetchPublicCategories(),
   ]);
   if (!page) {
     notFound();
@@ -26,7 +28,10 @@ export default async function SlugPage({
 
   return (
     <>
-      <StorefrontHeader />
+      <StorefrontHeader
+        settings={publicSettings}
+        categories={categories ?? []}
+      />
       <main className="lp-root">
         <section
           className="lp-section"
@@ -42,6 +47,7 @@ export default async function SlugPage({
                 products={page.products}
                 deliveryArea={page.deliveryArea}
                 paymentMethods={page.paymentMethods}
+                currency={publicSettings.store?.currency}
                 facebookPixelId={
                   publicSettings.store?.socialTracking?.facebook?.enabled
                     ? publicSettings.store.socialTracking.facebook.pixelId
@@ -57,7 +63,10 @@ export default async function SlugPage({
           </div>
         </section>
       </main>
-      <StorefrontFooter />
+      <StorefrontFooter
+        settings={publicSettings}
+        categories={categories ?? []}
+      />
     </>
   );
 }

@@ -31,22 +31,51 @@ import {
   type HomePageSlide,
 } from "@/store/homePageApi";
 import "@/styles/home-page-admin.css";
-import { demoHomePage } from "@/lib/homePageDemo";
 
 const makeSlide = (sortOrder: number): HomePageSlide => ({
   id: `slide-${Date.now()}-${sortOrder}`,
-  eyebrow: "The considered edit",
-  title: "Good things,",
-  emphasis: "made simply.",
-  description:
-    "A quieter way to shop for pieces that make daily life feel more yours.",
-  buttonLabel: "Shop the collection",
-  buttonHref: "/products",
+  eyebrow: "",
+  title: "",
+  emphasis: "",
+  description: "",
+  buttonLabel: "",
+  buttonHref: "",
   imageUrl: "",
-  imageAlt: "Featured collection",
-  accentColor: "#b36d4c",
+  imageAlt: "",
+  accentColor: undefined,
   isActive: true,
   sortOrder,
+});
+
+const createEmptyHomePage = (): HomePageContent => ({
+  visibility: {
+    hero: true,
+    categories: true,
+    banners: true,
+    categoryProducts: true,
+    bestsellers: true,
+    promise: true,
+  },
+  hero: { autoplay: false, intervalMs: 5500, slides: [] },
+  banners: { eyebrow: "", title: "", items: [] },
+  categories: [],
+  categorySection: { eyebrow: "", title: "" },
+  bestsellers: {
+    eyebrow: "",
+    title: "",
+    description: "",
+    viewAllLabel: "",
+    productIds: [],
+    limit: 8,
+  },
+  categoryProducts: [],
+  promise: { eyebrow: "", title: "", emphasis: "", items: [] },
+  footer: {
+    description: "",
+    supportLabel: "",
+    supportEmail: "",
+    announcement: "",
+  },
 });
 
 function fileToDataUri(file: File): Promise<string> {
@@ -67,7 +96,7 @@ type TabType =
   | "footer";
 
 export default function HomePageEditor() {
-  const { data, isLoading, isError, refetch } = useGetHomePageQuery();
+  const { data, error, isLoading, isError, refetch } = useGetHomePageQuery();
   const [saveHomePage, { isLoading: saving }] = useUpdateHomePageMutation();
   const [uploadMedia, { isLoading: uploading }] = useUploadMediaMutation();
   const { data: categoryResponse } = useGetCategoriesQuery();
@@ -92,13 +121,20 @@ export default function HomePageEditor() {
     text: string;
   } | null>(null);
 
+  const isMissingHomepage =
+    isError &&
+    typeof error === "object" &&
+    error !== null &&
+    "status" in error &&
+    error.status === 404;
+
   useEffect(() => {
     if (data) {
-      setForm({ ...demoHomePage, ...data });
-    } else if (!isLoading && !isError) {
-      setForm(demoHomePage);
+      setForm({ ...createEmptyHomePage(), ...data });
+    } else if (!isLoading && (!isError || isMissingHomepage)) {
+      setForm(createEmptyHomePage());
     }
-  }, [data, isLoading, isError]);
+  }, [data, isLoading, isError, isMissingHomepage]);
 
   const selectedCategoryIds = useMemo(
     () => new Set(form?.categories?.map((category) => category.id) ?? []),
@@ -221,7 +257,7 @@ export default function HomePageEditor() {
     );
   }
 
-  if (isError) {
+  if (isError && !isMissingHomepage) {
     return (
       <div className="home-editor-state-card error">
         <AlertCircle size={32} />
@@ -246,15 +282,13 @@ export default function HomePageEditor() {
       <div className="home-editor-state-card empty">
         <Sparkles size={32} />
         <h3>No storefront content found</h3>
-        <p>
-          Start fresh by loading demo settings to initialize your storefront.
-        </p>
+        <p>Create a blank homepage and add content from your project data.</p>
         <button
           type="button"
           className="btn btn-primary"
-          onClick={() => setForm(demoHomePage)}
+          onClick={() => setForm(createEmptyHomePage())}
         >
-          Initialize storefront studio
+          Create blank homepage
         </button>
       </div>
     );

@@ -1,5 +1,6 @@
 import type { HomePageContent } from "@/store/homePageApi";
 import type { PublicSettings } from "@/store/publicApi";
+import type { Category } from "@/store/categoryApi";
 
 const apiBase = process.env.NEXT_PUBLIC_API_URL;
 const projectId = process.env.NEXT_PUBLIC_PROJECT_ID;
@@ -50,6 +51,10 @@ export function fetchPublicProduct(slug: string) {
 
 export function fetchPublicHomePage() {
   return fetchPublic<HomePageContent>("/public/v1/home-page");
+}
+
+export function fetchPublicCategories() {
+  return fetchPublic<Category[]>("/public/v1/categories");
 }
 
 export function fetchPublicPaymentMethods() {

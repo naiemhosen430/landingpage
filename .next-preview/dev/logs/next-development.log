@@ -1,0 +1,30 @@
+{"timestamp":"00:00:02.886","source":"Server","level":"LOG","message":""}
+{"timestamp":"00:00:02.895","source":"Server","level":"LOG","message":"  We detected TypeScript in your project and reconfigured your tsconfig.json file for you."}
+{"timestamp":"00:00:02.904","source":"Server","level":"LOG","message":"  The following suggested values were added to your tsconfig.json. These values can be changed to fit your project's needs:\n"}
+{"timestamp":"00:00:02.906","source":"Server","level":"LOG","message":"  \t- include was updated to add '.next-preview/types/**/*.ts'"}
+{"timestamp":"00:00:02.907","source":"Server","level":"LOG","message":"  \t- include was updated to add '.next-preview/dev/types/**/*.ts'"}
+{"timestamp":"00:00:02.907","source":"Server","level":"LOG","message":""}
+{"timestamp":"00:00:04.384","source":"Server","level":"LOG","message":""}
+{"timestamp":"00:00:04.388","source":"Server","level":"LOG","message":"✓ Generated AGENTS.md and CLAUDE.md for AI agents. Set `agentRules: false` in next.config to disable."}
+{"timestamp":"00:00:28.940","source":"Server","level":"LOG","message":"○ Compiling / ..."}
+{"timestamp":"00:00:33.700","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"00:30:10.011","source":"Server","level":"LOG","message":"✓ Compiled in 397ms"}
+{"timestamp":"00:30:25.946","source":"Server","level":"LOG","message":"✓ Compiled in 234ms"}
+{"timestamp":"00:30:32.972","source":"Server","level":"LOG","message":"✓ Compiled in 236ms"}
+{"timestamp":"00:30:44.386","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"00:33:10.563","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"00:35:25.990","source":"Server","level":"LOG","message":"✓ Compiled in 368ms"}
+{"timestamp":"00:35:38.238","source":"Server","level":"LOG","message":"✓ Compiled in 15ms"}
+{"timestamp":"00:35:47.464","source":"Server","level":"LOG","message":"✓ Compiled in 222ms"}
+{"timestamp":"00:35:51.901","source":"Server","level":"LOG","message":"✓ Compiled in 140ms"}
+{"timestamp":"00:36:02.325","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"00:38:24.891","source":"Server","level":"LOG","message":"✓ Compiled in 398ms"}
+{"timestamp":"00:38:49.430","source":"Server","level":"LOG","message":"✓ Compiled in 230ms"}
+{"timestamp":"00:40:12.167","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"00:40:14.040","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"00:40:43.742","source":"Server","level":"LOG","message":"✓ Compiled in 182ms"}
+{"timestamp":"00:40:54.473","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"00:41:31.406","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"00:42:25.632","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"01:35:00.481","source":"Server","level":"LOG","message":"✓ Compiled in 317ms"}
+{"timestamp":"01:35:06.909","source":"Server","level":"LOG","message":"✓ Compiled in 247ms"}

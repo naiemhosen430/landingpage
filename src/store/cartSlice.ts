@@ -21,14 +21,31 @@ export type CartItem = {
   variantId?: string;
 };
 
-type CartState = { items: CartItem[] };
+type CartState = { items: CartItem[]; hydrated: boolean };
 
-const initialState: CartState = { items: [] };
+export const CART_STORAGE_KEY = "storefront-cart";
+
+export function loadCartItems(): CartItem[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const value = window.localStorage.getItem(CART_STORAGE_KEY);
+    const parsed = value ? JSON.parse(value) : null;
+    return parsed && Array.isArray(parsed.items) ? parsed.items : [];
+  } catch {
+    return [];
+  }
+}
+
+const initialState: CartState = { items: [], hydrated: false };
 
 const cartSlice = createSlice({
   name: "cart",
   initialState,
   reducers: {
+    hydrateCart: (state, action: PayloadAction<CartItem[]>) => {
+      state.items = action.payload;
+      state.hydrated = true;
+    },
     addToCart: (
       state,
       action: PayloadAction<{
@@ -84,6 +101,11 @@ const cartSlice = createSlice({
   },
 });
 
-export const { addToCart, updateCartQuantity, removeFromCart, clearCart } =
-  cartSlice.actions;
+export const {
+  hydrateCart,
+  addToCart,
+  updateCartQuantity,
+  removeFromCart,
+  clearCart,
+} = cartSlice.actions;
 export default cartSlice.reducer;

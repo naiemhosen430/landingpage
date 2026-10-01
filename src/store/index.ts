@@ -4,6 +4,7 @@ import { api } from "./api";
 import authReducer from "./authSlice";
 import { loadAuthState, saveAuthState } from "./authStorage";
 import cartReducer from "./cartSlice";
+import { CART_STORAGE_KEY } from "./cartSlice";
 
 const preloadedState = {
   // loadAuthState may return a partial object; cast to any so it can be used safely
@@ -23,7 +24,15 @@ export const store = configureStore({
 });
 
 store.subscribe(() => {
-  saveAuthState(store.getState().auth);
+  const state = store.getState();
+  saveAuthState(state.auth);
+  if (typeof window !== "undefined" && state.cart.hydrated) {
+    try {
+      window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(state.cart));
+    } catch {
+      // Keep in-memory cart behavior when browser storage is unavailable.
+    }
+  }
 });
 
 setupListeners(store.dispatch);

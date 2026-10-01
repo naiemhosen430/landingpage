@@ -6,17 +6,19 @@ import { useEffect, useState } from "react";
 import {
   ArrowRight,
   Check,
+  MapPin,
   Minus,
   Plus,
   Search,
   ShoppingBag,
   Trash2,
-  X,
+  UserRound,
 } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { formatCurrency } from "@/lib/utils";
 import { initializeBrowserPixels, trackStorefrontEvent } from "@/lib/tracking";
 import {
+  useGetPublicDeliveryPriceQuery,
   usePlaceOrderMutation,
   useTrackAnalyticsEventMutation,
 } from "@/store/publicApi";
@@ -30,13 +32,18 @@ import {
 import type { RootState } from "@/store";
 import type { HomePageContent } from "@/store/homePageApi";
 import type { PublicSettings } from "@/store/publicApi";
+import type { Category } from "@/store/categoryApi";
 import "./storefront.css";
 
 type Product = CartProduct & {
   description?: string;
+  shortDescription?: string;
   images?: Array<{ url?: string; secureUrl?: string }> | string[];
   categories?: string[];
   tags?: string[];
+  isFeatured?: boolean;
+  salesCount?: number;
+  createdAt?: string;
   isActive?: boolean;
 };
 
@@ -86,8 +93,7 @@ function useStorefrontTracking(settings?: PublicSettings) {
       {
         eventType,
         eventName: eventType === "product_view" ? "view_content" : eventType,
-        payload: { ...payload, currency: "BDT" },
-        url: typeof window === "undefined" ? undefined : window.location.href,
+        payload: { ...payload, currency: settings?.store?.currency || "BDT" },
       },
       key,
       send,
@@ -98,7 +104,12 @@ function useStorefrontTracking(settings?: PublicSettings) {
 export function StorefrontHeader({
   announcement,
   settings,
-}: { announcement?: string; settings?: PublicSettings } = {}) {
+  categories = [],
+}: {
+  announcement?: string;
+  settings?: PublicSettings;
+  categories?: Category[];
+} = {}) {
   const pathname = usePathname();
   const router = useRouter();
   const dispatch = useDispatch();
@@ -114,11 +125,8 @@ export function StorefrontHeader({
     settings?.branding?.storeName ||
     settings?.store?.storeName ||
     settings?.store?.name ||
-    "zane";
-  const announcementText =
-    announcement ||
-    settings?.store?.announcement ||
-    `Complimentary delivery on orders over ${formatCurrency(3000)}`;
+    "";
+  const announcementText = announcement || settings?.store?.announcement;
   const submitSearch = (event: React.FormEvent) => {
     event.preventDefault();
     if (search.trim())
@@ -126,9 +134,6 @@ export function StorefrontHeader({
   };
   return (
     <>
-      <div className="storefront-announce">
-        {announcementText} <span>•</span> Secure cash on delivery
-      </div>
       <header className="storefront-header">
         <div className="storefront-container storefront-header-inner">
           <Link href="/" className="storefront-logo">
@@ -136,42 +141,80 @@ export function StorefrontHeader({
               <img src={logoUrl} alt={storeName} />
             ) : (
               <>
-                <span>{storeName}</span>
-                <em>commerce</em>
+                <span className="storefront-mark">
+                  <ShoppingBag size={16} />
+                </span>
+                {storeName && (
+                  <span className="storefront-brand-name">{storeName}</span>
+                )}
               </>
             )}
           </Link>
-          <nav className="storefront-nav" aria-label="Main navigation">
+          <form className="storefront-search" onSubmit={submitSearch}>
+            <Search size={17} />
+            <input
+              aria-label="Search products"
+              placeholder="Search products"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+            <button type="submit" aria-label="Submit search">
+              <ArrowRight size={15} />
+            </button>
+          </form>
+          <div className="storefront-utility-links">
+            {settings?.contact?.address && (
+              <span>
+                <MapPin size={15} />
+                {Object.values(settings.contact.address)
+                  .filter(Boolean)
+                  .join(", ")}
+              </span>
+            )}
+            <Link className="storefront-account-link" href="/login">
+              <UserRound size={15} /> Sign in
+            </Link>
+          </div>
+        </div>
+        <div className="storefront-category-bar">
+          <nav
+            className="storefront-container storefront-nav"
+            aria-label="Shop departments"
+          >
+            {announcementText && (
+              <span className="storefront-location">
+                <MapPin size={13} /> {announcementText}
+              </span>
+            )}
             <Link className={pathname === "/" ? "active" : ""} href="/">
-              Home
+              All departments
             </Link>
-            <Link
-              className={pathname.startsWith("/products") ? "active" : ""}
-              href="/products"
-            >
-              Shop
-            </Link>
-            <Link href="/products?category=new">New arrivals</Link>
-          </nav>
-          <div className="storefront-actions">
-            <form className="storefront-search" onSubmit={submitSearch}>
-              <Search size={17} />
-              <input
-                aria-label="Search products"
-                placeholder="Search products"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-              />
-            </form>
+            {categories.map((category) => (
+              <Link
+                key={category.id}
+                href={`/products?category=${encodeURIComponent(category.slug)}`}
+              >
+                {category.name}
+              </Link>
+            ))}
             <Link
               className="storefront-cart-link"
               href="/cart"
               aria-label={`Cart with ${count} items`}
             >
               <ShoppingBag size={20} />
-              <span>{count}</span>
+              <span>
+                {count} ·{" "}
+                {formatCurrency(
+                  items.reduce(
+                    (sum, item) => sum + priceOf(item) * item.quantity,
+                    0,
+                  ),
+                  settings?.store?.currency,
+                )}
+              </span>
             </Link>
-          </div>
+          </nav>
         </div>
       </header>
     </>
@@ -181,9 +224,11 @@ export function StorefrontHeader({
 export function StorefrontFooter({
   content,
   settings,
+  categories = [],
 }: {
   content?: HomePageContent["footer"];
   settings?: PublicSettings;
+  categories?: Category[];
 } = {}) {
   const logoUrl =
     settings?.branding?.logoUrl ||
@@ -194,7 +239,7 @@ export function StorefrontFooter({
     settings?.branding?.storeName ||
     settings?.store?.storeName ||
     settings?.store?.name ||
-    "zane";
+    "";
   const contact = settings?.contact;
   const address = contact?.address
     ? Object.values(contact.address).filter(Boolean).join(", ")
@@ -207,32 +252,30 @@ export function StorefrontFooter({
             {logoUrl ? (
               <img src={logoUrl} alt={storeName} />
             ) : (
-              <>
-                <span>{storeName}</span>
-                <em>commerce</em>
-              </>
+              <span>{storeName}</span>
             )}
           </Link>
-          <p>
-            {content?.description ||
-              "Thoughtful products for everyday living, delivered to your door."}
-          </p>
+          {content?.description && <p>{content.description}</p>}
         </div>
         <div>
-          <strong>Explore</strong>
+          <strong>Shop by department</strong>
           <Link href="/products">All products</Link>
-          <Link href="/products?category=new">New arrivals</Link>
+          {categories.map((category) => (
+            <Link
+              href={`/products?category=${encodeURIComponent(category.slug)}`}
+              key={category.id}
+            >
+              {category.name}
+            </Link>
+          ))}
           <Link href="/cart">Your cart</Link>
         </div>
         <div>
           <strong>{content?.supportLabel || "Need help?"}</strong>
-          <span>We are here Monday to Saturday.</span>
           {contact?.phone && <span>{contact.phone}</span>}
-          <span>
-            {content?.supportEmail ||
-              contact?.email ||
-              "support@zanecommerce.com"}
-          </span>
+          {(content?.supportEmail || contact?.email) && (
+            <span>{content?.supportEmail || contact?.email}</span>
+          )}
           {address && <span>{address}</span>}
         </div>
       </div>
@@ -240,7 +283,6 @@ export function StorefrontFooter({
         <span>
           © {new Date().getFullYear()} {storeName}
         </span>
-        <span>Built for better everyday shopping.</span>
       </div>
     </footer>
   );
@@ -250,19 +292,41 @@ export function StorefrontFrame({
   children,
   homePage,
   settings,
+  categories = [],
 }: {
   children: React.ReactNode;
   homePage?: HomePageContent;
   settings?: PublicSettings;
+  categories?: Category[];
 }) {
+  const pathname = usePathname();
+  const [send] = useTrackAnalyticsEventMutation();
+  useStorefrontTracking(settings);
+  useEffect(() => {
+    trackStorefrontEvent(
+      {
+        eventType: "page_view",
+        eventName: "page_view",
+        payload: { page: pathname },
+        url: window.location.href,
+      },
+      `storefront-page-view-${pathname}`,
+      send,
+    );
+  }, [pathname, send]);
   return (
     <>
       <StorefrontHeader
         announcement={homePage?.footer.announcement}
         settings={settings}
+        categories={categories}
       />
       {children}
-      <StorefrontFooter content={homePage?.footer} settings={settings} />
+      <StorefrontFooter
+        content={homePage?.footer}
+        settings={settings}
+        categories={categories}
+      />
     </>
   );
 }
@@ -281,10 +345,11 @@ export function ProductCard({
   const track = useStorefrontTracking(settings);
   const [added, setAdded] = useState(false);
   const href = `/products/${product.slug || product.id}`;
+  const defaultVariantId = product.variants?.[0]?.id;
+  const productPrice =
+    Number(product.variants?.[0]?.price ?? product.price) || 0;
   const add = () => {
-    dispatch(
-      addToCart({ product, quantity: 1, variantId: product.variants?.[0]?.id }),
-    );
+    dispatch(addToCart({ product, quantity: 1, variantId: defaultVariantId }));
     track(
       "add_to_cart",
       {
@@ -299,9 +364,7 @@ export function ProductCard({
     window.setTimeout(() => setAdded(false), 1600);
   };
   const orderNow = () => {
-    dispatch(
-      addToCart({ product, quantity: 1, variantId: product.variants?.[0]?.id }),
-    );
+    dispatch(addToCart({ product, quantity: 1, variantId: defaultVariantId }));
     track(
       "add_to_cart",
       {
@@ -320,15 +383,14 @@ export function ProductCard({
       style={{ animationDelay: `${index * 70}ms` }}
     >
       <Link href={href} className="product-image">
-        <span className="product-badge">
-          {index < 2 ? "Featured" : "Available"}
-        </span>
+        {product.isFeatured && (
+          <span className="product-badge">Best seller</span>
+        )}
         {imageOf(product) ? (
           <img src={imageOf(product)} alt={product.name} />
         ) : (
           <span className="image-placeholder">
-            <strong>Product image</strong>
-            <small>800 × 800 px</small>
+            <ShoppingBag size={28} aria-hidden="true" />
           </span>
         )}
       </Link>
@@ -337,12 +399,9 @@ export function ProductCard({
           <Link href={href} className="product-name">
             {product.name}
           </Link>
-          <p className="product-category">
-            {product.categories?.[0] || "Everyday essentials"}
-          </p>
         </div>
         <strong className="product-price">
-          {formatCurrency(Number(product.price) || 0)}
+          {formatCurrency(productPrice, settings?.store?.currency)}
         </strong>
       </div>
       <div className="product-card-actions">
@@ -361,7 +420,7 @@ export function ProductCard({
           )}
         </button>
         <button className="product-order-now" onClick={orderNow}>
-          Order now <ArrowRight size={14} />
+          Buy now <ArrowRight size={14} />
         </button>
       </div>
     </article>
@@ -372,10 +431,12 @@ export function HomeStorefront({
   initialProducts,
   initialHomePage,
   settings,
+  categories = [],
 }: {
   initialProducts?: unknown;
   initialHomePage?: HomePageContent;
   settings?: PublicSettings;
+  categories?: Category[];
 }) {
   const homePage = initialHomePage;
   const slides =
@@ -391,10 +452,23 @@ export function HomeStorefront({
         .map((id) => products.find((product) => product.id === id))
         .filter(Boolean) as Product[])
     : products;
-  const track = useStorefrontTracking(settings);
-  useEffect(() => {
-    track("page_view", { page: "home" }, "storefront-home-view");
-  }, []);
+  const homepageCategories = (homePage?.categories ?? []).flatMap(
+    (selection) => {
+      const category = categories.find(
+        (candidate) => candidate.id === selection.id,
+      );
+      return category ? [{ category, selection }] : [];
+    },
+  );
+  const hasHomepageSections = Boolean(
+    slides.length ||
+    homepageCategories.length ||
+    homePage?.banners.items.some((banner) => banner.isActive) ||
+    homePage?.bestsellers.title.trim() ||
+    homePage?.categoryProducts.some((section) => section.title.trim()) ||
+    homePage?.promise.items.length,
+  );
+  useStorefrontTracking(settings);
   useEffect(() => {
     if (!homePage?.hero.autoplay || slides.length < 2) return;
     const timer = window.setInterval(
@@ -407,16 +481,107 @@ export function HomeStorefront({
     setSlideIndex(0);
   }, [slides.length]);
 
-  if (!homePage) {
+  if (!homePage || !hasHomepageSections) {
     return (
-      <StorefrontFrame settings={settings}>
-        <HomePageSkeleton />
+      <StorefrontFrame settings={settings} categories={categories}>
+        <main className="storefront-main storefront-api-home">
+          <section className="storefront-container storefront-api-hero">
+            <div className="storefront-api-hero-copy">
+              <span className="eyebrow">
+                {settings?.store?.name || settings?.branding?.storeName}
+              </span>
+              <h1>{settings?.store?.name || settings?.branding?.storeName}</h1>
+              {settings?.store?.description && (
+                <p>{settings.store.description}</p>
+              )}
+              <Link href="/products" className="button button-dark">
+                Shop all products <ArrowRight size={17} />
+              </Link>
+            </div>
+            {(settings?.branding?.logoUrl || settings?.branding?.logo) && (
+              <div className="storefront-api-hero-logo">
+                <img
+                  src={settings.branding.logoUrl || settings.branding.logo}
+                  alt={settings?.store?.name || "Store logo"}
+                />
+              </div>
+            )}
+          </section>
+          <section className="storefront-container storefront-api-category-section">
+            <div className="section-heading">
+              <div>
+                <span className="eyebrow">Shop</span>
+                <h2>Browse categories</h2>
+              </div>
+              <Link href="/products" className="text-link">
+                All products <ArrowRight size={16} />
+              </Link>
+            </div>
+            {categories.length ? (
+              <div className="category-links">
+                {categories.map((category) => (
+                  <Link
+                    href={`/products?category=${encodeURIComponent(category.slug)}`}
+                    key={category.id}
+                  >
+                    <span>
+                      {(category.image?.secureUrl || category.image?.url) && (
+                        <img
+                          className="category-image"
+                          src={category.image.secureUrl || category.image.url}
+                          alt=""
+                        />
+                      )}
+                      <strong>{category.name}</strong>
+                    </span>
+                    <ArrowRight size={16} />
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="storefront-api-empty-note">
+                No categories have been published yet.
+              </p>
+            )}
+          </section>
+          <section className="storefront-container product-section storefront-api-products">
+            <div className="section-heading">
+              <div>
+                <span className="eyebrow">Catalog</span>
+                <h2>Products</h2>
+              </div>
+              {products.length > 0 && (
+                <span className="catalog-count">
+                  {products.length} products
+                </span>
+              )}
+            </div>
+            {products.length ? (
+              <div className="product-grid">
+                {products.map((product, index) => (
+                  <ProductCard
+                    product={product}
+                    index={index}
+                    settings={settings}
+                    key={product.id}
+                  />
+                ))}
+              </div>
+            ) : (
+              <EmptyProducts />
+            )}
+          </section>
+        </main>
       </StorefrontFrame>
     );
   }
 
   return (
-    <StorefrontFrame homePage={homePage} settings={settings}>
+    <StorefrontFrame
+      homePage={homePage}
+      settings={settings}
+      categories={categories}
+    >
       <main className="storefront-main">
         {homePage.visibility?.hero !== false && activeSlide && (
           <section
@@ -489,7 +654,7 @@ export function HomeStorefront({
           </section>
         )}
         {homePage.visibility?.categories !== false &&
-          homePage.categories.length > 0 && (
+          homepageCategories.length > 0 && (
             <section className="storefront-container category-strip">
               <div>
                 <span className="eyebrow">
@@ -498,27 +663,30 @@ export function HomeStorefront({
                 <h2>{homePage.categorySection.title}</h2>
               </div>
               <div className="category-links">
-                {homePage.categories.map((category) => (
+                {homepageCategories.map(({ category, selection }) => (
                   <Link
-                    href={category.href || `/products?category=${category.id}`}
+                    href={`/products?category=${encodeURIComponent(category.slug)}`}
                     key={category.id}
                   >
                     <span>
-                      {category.imageUrl ? (
+                      {category.image?.secureUrl ||
+                      category.image?.url ||
+                      selection.imageUrl ? (
                         <img
                           className="category-image"
-                          src={category.imageUrl}
+                          src={
+                            category.image?.secureUrl ||
+                            category.image?.url ||
+                            selection.imageUrl
+                          }
                           alt=""
                         />
-                      ) : (
-                        <span className="category-image category-image-placeholder">
-                          <strong>Category image</strong>
-                          <small>640 × 480 px</small>
-                        </span>
-                      )}
-                      <strong>{category.label}</strong>
-                      {category.description && (
-                        <small>{category.description}</small>
+                      ) : null}
+                      <strong>{category.name}</strong>
+                      {(selection.description || category.description) && (
+                        <small>
+                          {selection.description || category.description}
+                        </small>
                       )}
                     </span>
                     <ArrowRight size={16} />
@@ -657,13 +825,6 @@ function HomeBanners({ banners }: { banners: HomePageContent["banners"] }) {
             <span className="home-banner-overlay">
               <small>{banner.eyebrow}</small>
               <strong>{banner.title}</strong>
-              {!banner.imageUrl && (
-                <em>
-                  Banner image
-                  <br />
-                  900 × 560 px
-                </em>
-              )}
             </span>
           </Link>
         ))}
@@ -672,107 +833,85 @@ function HomeBanners({ banners }: { banners: HomePageContent["banners"] }) {
   );
 }
 
-function HomePageSkeleton() {
-  return (
-    <main
-      className="storefront-main storefront-skeleton"
-      aria-busy="true"
-      aria-label="Loading homepage"
-    >
-      <section className="storefront-hero">
-        <div className="storefront-container hero-grid">
-          <div className="hero-copy">
-            <span className="skeleton-block skeleton-eyebrow" />
-            <span className="skeleton-block skeleton-title" />
-            <span className="skeleton-block skeleton-title skeleton-title-short" />
-            <span className="skeleton-block skeleton-description" />
-            <span className="skeleton-block skeleton-button" />
-          </div>
-          <div className="hero-art skeleton-block" />
-        </div>
-      </section>
-      <section className="storefront-container category-strip">
-        <div>
-          <span className="skeleton-block skeleton-eyebrow" />
-          <span className="skeleton-block skeleton-section-title" />
-        </div>
-        <div className="category-links skeleton-category-links">
-          {[1, 2, 3].map((item) => (
-            <span className="skeleton-block" key={item} />
-          ))}
-        </div>
-      </section>
-      <section className="storefront-container product-section">
-        <div className="section-heading">
-          <span className="skeleton-block skeleton-section-title" />
-          <span className="skeleton-block skeleton-link" />
-        </div>
-        <div className="product-grid">
-          {[1, 2, 3, 4].map((item) => (
-            <div className="skeleton-product" key={item}>
-              <span className="skeleton-block" />
-              <span className="skeleton-block skeleton-product-line" />
-              <span className="skeleton-block skeleton-product-small" />
-            </div>
-          ))}
-        </div>
-      </section>
-      <section className="storefront-container promise-band skeleton-promise">
-        <span className="skeleton-block skeleton-section-title" />
-        <div className="promise-items">
-          {[1, 2, 3].map((item) => (
-            <span className="skeleton-block" key={item} />
-          ))}
-        </div>
-      </section>
-    </main>
-  );
-}
-
 export function CatalogStorefront({
   initialProducts,
   settings,
+  initialCategory = "all",
+  initialSearch = "",
+  categories = [],
 }: {
   initialProducts?: unknown;
   settings?: PublicSettings;
+  initialCategory?: string;
+  initialSearch?: string;
+  categories?: Category[];
 }) {
   const products = productsFrom(initialProducts).filter(
     (product) => product.isActive !== false,
   );
-  const [filter, setFilter] = useState("all");
-  const [query, setQuery] = useState("");
-  const filtered = products.filter(
-    (product) =>
-      (filter === "all" ||
-        product.categories?.some((category) =>
-          category.toLowerCase().includes(filter),
-        )) &&
+  const [filter, setFilter] = useState(initialCategory);
+  const [query, setQuery] = useState(initialSearch);
+  const [sortBy, setSortBy] = useState("featured");
+  const filtered = products
+    .filter(
+      (product) =>
+        filter === "all" ||
+        product.categories?.some((category) => category === filter),
+    )
+    .filter((product) =>
       product.name.toLowerCase().includes(query.toLowerCase()),
-  );
+    )
+    .sort((first, second) => {
+      if (sortBy === "price-low")
+        return Number(first.price) - Number(second.price);
+      if (sortBy === "price-high")
+        return Number(second.price) - Number(first.price);
+      if (sortBy === "newest")
+        return (
+          Date.parse(second.createdAt ?? "") - Date.parse(first.createdAt ?? "")
+        );
+      if (sortBy === "popular")
+        return (second.salesCount ?? 0) - (first.salesCount ?? 0);
+      return (
+        Number(Boolean(second.isFeatured)) - Number(Boolean(first.isFeatured))
+      );
+    });
+  const categoryLabel = categories.find(
+    (category) => category.id === filter,
+  )?.name;
   return (
-    <StorefrontFrame settings={settings}>
+    <StorefrontFrame settings={settings} categories={categories}>
       <main className="storefront-container catalog-page">
+        <div className="catalog-breadcrumb">
+          <Link href="/">Home</Link>
+          <span>/</span>
+          <span>{categoryLabel ?? "Shop"}</span>
+        </div>
         <div className="catalog-heading">
           <div>
-            <span className="eyebrow">The full collection</span>
-            <h1>Shop everything</h1>
-            <p>Objects for a more intentional everyday.</p>
+            {settings?.store?.name && (
+              <span className="eyebrow">{settings.store.name}</span>
+            )}
+            <h1>{categoryLabel ?? "Shop all products"}</h1>
+            {settings?.store?.description && (
+              <p>{settings.store.description}</p>
+            )}
           </div>
           <div className="catalog-count">{filtered.length} products</div>
         </div>
         <div className="catalog-toolbar">
           <div className="filter-pills">
-            {["all", "home", "personal", "new"].map((value) => (
-              <button
-                className={filter === value ? "active" : ""}
-                key={value}
-                onClick={() => setFilter(value)}
-              >
-                {value === "all"
-                  ? "All products"
-                  : value[0].toUpperCase() + value.slice(1)}
-              </button>
-            ))}
+            {[{ id: "all", name: "All products" }, ...categories].map(
+              ({ id, name }) => (
+                <button
+                  className={filter === id ? "active" : ""}
+                  key={id}
+                  onClick={() => setFilter(id)}
+                >
+                  {name}
+                </button>
+              ),
+            )}
           </div>
           <label className="catalog-search">
             <Search size={16} />
@@ -781,6 +920,19 @@ export function CatalogStorefront({
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
+          </label>
+          <label className="catalog-sort">
+            Sort by
+            <select
+              value={sortBy}
+              onChange={(event) => setSortBy(event.target.value)}
+            >
+              <option value="featured">Featured</option>
+              <option value="popular">Best selling</option>
+              <option value="newest">Newest arrivals</option>
+              <option value="price-low">Price: low to high</option>
+              <option value="price-high">Price: high to low</option>
+            </select>
           </label>
         </div>
         {filtered.length ? (
@@ -795,19 +947,36 @@ export function CatalogStorefront({
             ))}
           </div>
         ) : (
-          <EmptyProducts />
+          <EmptyProducts
+            title={
+              query || filter !== "all"
+                ? "No matching products"
+                : "No products are available right now"
+            }
+            description={
+              query || filter !== "all"
+                ? "Try another search term or category."
+                : "Please check back later."
+            }
+          />
         )}
       </main>
     </StorefrontFrame>
   );
 }
 
-function EmptyProducts() {
+function EmptyProducts({
+  title = "No products are available right now",
+  description = "Please check back later.",
+}: {
+  title?: string;
+  description?: string;
+}) {
   return (
     <div className="empty-products">
       <ShoppingBag size={24} />
-      <h3>Nothing here yet</h3>
-      <p>Check back soon for new additions.</p>
+      <h3>{title}</h3>
+      <p>{description}</p>
     </div>
   );
 }
@@ -816,10 +985,12 @@ export function ProductDetailStorefront({
   slug,
   initialProduct,
   settings,
+  categories = [],
 }: {
   slug: string;
   initialProduct?: unknown;
   settings?: PublicSettings;
+  categories?: Category[];
 }) {
   const product = ((initialProduct as { product?: Product } | null)?.product ??
     initialProduct) as Product | undefined;
@@ -844,7 +1015,7 @@ export function ProductDetailStorefront({
   }, [product]);
   if (!product)
     return (
-      <StorefrontFrame settings={settings}>
+      <StorefrontFrame settings={settings} categories={categories}>
         <main className="storefront-container state-page">
           <h1>Product not found</h1>
           <Link href="/products" className="button button-dark">
@@ -884,7 +1055,7 @@ export function ProductDetailStorefront({
     router.push("/checkout");
   };
   return (
-    <StorefrontFrame settings={settings}>
+    <StorefrontFrame settings={settings} categories={categories}>
       <main className="storefront-container product-detail">
         <div className="detail-image">
           {imageOf(product) ? (
@@ -894,16 +1065,27 @@ export function ProductDetailStorefront({
           )}
         </div>
         <div className="detail-copy">
-          <span className="eyebrow">
-            {product.categories?.[0] || "Everyday essentials"}
-          </span>
+          {categories.find(
+            (category) => category.id === product.categories?.[0],
+          )?.name && (
+            <span className="eyebrow">
+              {
+                categories.find(
+                  (category) => category.id === product.categories?.[0],
+                )?.name
+              }
+            </span>
+          )}
           <h1>{product.name}</h1>
-          <strong className="detail-price">{formatCurrency(price)}</strong>
-          <p className="detail-description">
-            {product.description && product.description !== "none"
-              ? product.description
-              : "A thoughtfully selected piece for everyday rituals. Made to be useful, beautiful, and easy to live with."}
-          </p>
+          <strong className="detail-price">
+            {formatCurrency(price, settings?.store?.currency)}
+          </strong>
+          {(product.description || product.shortDescription) &&
+            product.description !== "none" && (
+              <p className="detail-description">
+                {product.description || product.shortDescription}
+              </p>
+            )}
           {product.variants?.length ? (
             <div className="variant-picker">
               <span>Choose an option</span>
@@ -945,21 +1127,19 @@ export function ProductDetailStorefront({
               </button>
             </div>
           </div>
-          <div className="detail-notes">
-            <span>
-              <Check size={16} /> Available to order
-            </span>
-            <span>
-              <Check size={16} /> Cash on delivery available
-            </span>
-          </div>
         </div>
       </main>
     </StorefrontFrame>
   );
 }
 
-export function CartStorefront({ settings }: { settings?: PublicSettings }) {
+export function CartStorefront({
+  settings,
+  categories = [],
+}: {
+  settings?: PublicSettings;
+  categories?: Category[];
+}) {
   const items = useSelector((state: RootState) => state.cart.items);
   const dispatch = useDispatch();
   const subtotal = items.reduce(
@@ -967,7 +1147,7 @@ export function CartStorefront({ settings }: { settings?: PublicSettings }) {
     0,
   );
   return (
-    <StorefrontFrame settings={settings}>
+    <StorefrontFrame settings={settings} categories={categories}>
       <main className="storefront-container cart-page">
         <div className="page-kicker">
           <span className="eyebrow">Your selection</span>
@@ -1034,7 +1214,10 @@ export function CartStorefront({ settings }: { settings?: PublicSettings }) {
                     </div>
                   </div>
                   <strong>
-                    {formatCurrency(priceOf(item) * item.quantity)}
+                    {formatCurrency(
+                      priceOf(item) * item.quantity,
+                      settings?.store?.currency,
+                    )}
                   </strong>
                   <button
                     className="icon-button"
@@ -1057,7 +1240,9 @@ export function CartStorefront({ settings }: { settings?: PublicSettings }) {
               <span className="eyebrow">Order summary</span>
               <div>
                 <span>Subtotal</span>
-                <strong>{formatCurrency(subtotal)}</strong>
+                <strong>
+                  {formatCurrency(subtotal, settings?.store?.currency)}
+                </strong>
               </div>
               <div>
                 <span>Delivery</span>
@@ -1066,7 +1251,9 @@ export function CartStorefront({ settings }: { settings?: PublicSettings }) {
               <hr />
               <div className="cart-total">
                 <span>Total</span>
-                <strong>{formatCurrency(subtotal)}</strong>
+                <strong>
+                  {formatCurrency(subtotal, settings?.store?.currency)}
+                </strong>
               </div>
               <Link className="button button-dark full-width" href="/checkout">
                 Continue to checkout <ArrowRight size={17} />
@@ -1097,9 +1284,11 @@ export function CartStorefront({ settings }: { settings?: PublicSettings }) {
 export function CheckoutStorefront({
   initialPaymentMethods,
   settings,
+  categories = [],
 }: {
   initialPaymentMethods?: any[];
   settings?: PublicSettings;
+  categories?: Category[];
 }) {
   const items = useSelector((state: RootState) => state.cart.items);
   const dispatch = useDispatch();
@@ -1115,21 +1304,34 @@ export function CheckoutStorefront({
     payment: "cod",
     notes: "",
   });
+  const { data: deliveryArea } = useGetPublicDeliveryPriceQuery();
+  const { data: selectedDelivery, isFetching: isLoadingDelivery } =
+    useGetPublicDeliveryPriceQuery(form.zone, { skip: !form.zone });
   const [error, setError] = useState("");
   const subtotal = items.reduce(
     (total, item) => total + priceOf(item) * item.quantity,
     0,
   );
+  const deliveryFee = form.zone
+    ? Number(selectedDelivery?.price ?? 0)
+    : Number(deliveryArea?.deliveryCharge ?? deliveryArea?.price ?? 0);
+  const total = subtotal + deliveryFee;
+  const deliveryZones = deliveryArea?.zones ?? [];
+  useEffect(() => {
+    if (!form.zone && deliveryZones.length) {
+      setForm((current) => ({ ...current, zone: deliveryZones[0].zone }));
+    }
+  }, [deliveryZones, form.zone]);
   useEffect(() => {
     track(
       "checkout_started",
-      { value: subtotal, contentIds: items.map((item) => item.product.id) },
+      { value: total, contentIds: items.map((item) => item.product.id) },
       "storefront-checkout-started",
     );
   }, []);
   if (!items.length)
     return (
-      <StorefrontFrame settings={settings}>
+      <StorefrontFrame settings={settings} categories={categories}>
         <main className="storefront-container state-page">
           <h1>Your cart is empty</h1>
           <Link href="/products" className="button button-dark">
@@ -1142,6 +1344,14 @@ export function CheckoutStorefront({
     event.preventDefault();
     if (!form.name || !form.phone || !form.address) {
       setError("Please fill in your name, phone number, and delivery address.");
+      return;
+    }
+    if (
+      !/^(?:\+?88)?01[3-9]\d{8}$/.test(form.phone.trim().replace(/[\s-]/g, ""))
+    ) {
+      setError(
+        "Enter a valid Bangladesh mobile number, for example 01712345678.",
+      );
       return;
     }
     setError("");
@@ -1167,7 +1377,7 @@ export function CheckoutStorefront({
     }
   };
   return (
-    <StorefrontFrame settings={settings}>
+    <StorefrontFrame settings={settings} categories={categories}>
       <main className="storefront-container checkout-page">
         <div className="page-kicker">
           <span className="eyebrow">Almost yours</span>
@@ -1190,11 +1400,13 @@ export function CheckoutStorefront({
               Phone number
               <input
                 required
+                type="tel"
+                inputMode="tel"
                 value={form.phone}
                 onChange={(event) =>
                   setForm({ ...form, phone: event.target.value })
                 }
-                placeholder="01XXXXXXXXX"
+                placeholder="01712345678"
               />
             </label>
             <label className="wide">
@@ -1210,13 +1422,28 @@ export function CheckoutStorefront({
             </label>
             <label>
               Delivery area
-              <input
-                value={form.zone}
-                onChange={(event) =>
-                  setForm({ ...form, zone: event.target.value })
-                }
-                placeholder="Your area"
-              />
+              {deliveryZones.length ? (
+                <select
+                  value={form.zone}
+                  onChange={(event) =>
+                    setForm({ ...form, zone: event.target.value })
+                  }
+                >
+                  {deliveryZones.map((zone) => (
+                    <option value={zone.zone} key={zone.zone}>
+                      {zone.zone}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  value={form.zone}
+                  onChange={(event) =>
+                    setForm({ ...form, zone: event.target.value })
+                  }
+                  placeholder="Dhaka, Chattogram, Sylhet..."
+                />
+              )}
             </label>
             <label>
               Order note <span>(optional)</span>
@@ -1269,21 +1496,34 @@ export function CheckoutStorefront({
                 <span>
                   {item.product.name} <small>× {item.quantity}</small>
                 </span>
-                <strong>{formatCurrency(priceOf(item) * item.quantity)}</strong>
+                <strong>
+                  {formatCurrency(
+                    priceOf(item) * item.quantity,
+                    settings?.store?.currency,
+                  )}
+                </strong>
               </div>
             ))}
             <hr />
             <div className="checkout-line">
               <span>Subtotal</span>
-              <strong>{formatCurrency(subtotal)}</strong>
+              <strong>
+                {formatCurrency(subtotal, settings?.store?.currency)}
+              </strong>
             </div>
             <div className="checkout-line">
               <span>Delivery</span>
-              <strong>To be confirmed</strong>
+              <strong>
+                {isLoadingDelivery
+                  ? "Checking..."
+                  : formatCurrency(deliveryFee, settings?.store?.currency)}
+              </strong>
             </div>
             <div className="checkout-total">
               <span>Total</span>
-              <strong>{formatCurrency(subtotal)}</strong>
+              <strong>
+                {formatCurrency(total, settings?.store?.currency)}
+              </strong>
             </div>
             <button
               disabled={isLoading}

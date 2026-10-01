@@ -45,6 +45,7 @@ export default function LandingPage({ slug }: LandingPageProps) {
               products={data.products}
               deliveryArea={data.deliveryArea}
               paymentMethods={data.paymentMethods}
+              currency={publicSettings?.store?.currency}
               facebookPixelId={
                 publicSettings?.store?.socialTracking?.facebook?.enabled
                   ? publicSettings.store.socialTracking.facebook.pixelId

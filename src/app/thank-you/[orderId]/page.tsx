@@ -4,9 +4,11 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect } from "react";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
-import { trackStorefrontEvent } from "@/lib/tracking";
+import { initializeBrowserPixels, trackStorefrontEvent } from "@/lib/tracking";
 import {
+  useGetPublicCategoriesQuery,
   useGetPublicOrderQuery,
+  useGetPublicSettingsQuery,
   useTrackAnalyticsEventMutation,
 } from "@/store/publicApi";
 import {
@@ -14,7 +16,6 @@ import {
   StorefrontHeader,
 } from "@/components/storefront/Storefront";
 
-const money = (value: unknown) => formatCurrency(Number(value) || 0);
 const displayAddress = (address: unknown) =>
   typeof address === "string"
     ? address
@@ -32,27 +33,55 @@ export default function Page() {
     isLoading,
     isError,
   } = useGetPublicOrderQuery(orderId, { skip: !orderId });
+  const { data: settings } = useGetPublicSettingsQuery();
+  const { data: categories = [] } = useGetPublicCategoriesQuery();
   const [trackAnalyticsEvent] = useTrackAnalyticsEventMutation();
+  const money = (value: unknown) =>
+    formatCurrency(Number(value) || 0, settings?.store?.currency);
+
+  useEffect(() => {
+    initializeBrowserPixels({
+      facebookPixelId: settings?.store?.socialTracking?.facebook?.enabled
+        ? settings.store.socialTracking.facebook.pixelId
+        : undefined,
+      tiktokPixelId: settings?.store?.socialTracking?.tiktok?.enabled
+        ? settings.store.socialTracking.tiktok.pixelId
+        : undefined,
+    });
+  }, [settings]);
 
   useEffect(() => {
     if (!orderId || !order) return;
     const customer = order.customer ?? {};
     const trackingPayload = {
-      eventId: order.orderNumber || order.id || orderId,
+      event_id: `purchase-${order.id || orderId}`,
       orderId,
       value: Number(order.total) || 0,
-      currency: order.currency || "BDT",
+      currency: order.currency || settings?.store?.currency || "BDT",
       phone: customer?.phone || order.customerPhone,
       contentIds: (order.items ?? [])
         .map((item: any) => item.productId)
         .filter(Boolean),
+      contents: (order.items ?? []).map((item: any) => ({
+        id: item.productId,
+        content_name: item.name || item.productName,
+        quantity: Number(item.quantity) || 1,
+        item_price: Number(item.unitPrice ?? item.price) || 0,
+      })),
+      num_items: (order.items ?? []).reduce(
+        (total: number, item: any) => total + (Number(item.quantity) || 1),
+        0,
+      ),
       url: window.location.href,
     };
     trackStorefrontEvent(
       {
         eventType: "page_view",
         eventName: "page_view",
-        payload: trackingPayload,
+        payload: {
+          ...trackingPayload,
+          event_id: `thank-you-view-${order.id || orderId}`,
+        },
         url: window.location.href,
       },
       `thank-you-page-view-${order.id || orderId}`,
@@ -68,16 +97,16 @@ export default function Page() {
       `purchase-${order.id || orderId}`,
       trackAnalyticsEvent,
     );
-  }, [order, orderId, trackAnalyticsEvent]);
+  }, [order, orderId, settings?.store?.currency, trackAnalyticsEvent]);
 
   if (isLoading) {
     return (
       <>
-        <StorefrontHeader />
+        <StorefrontHeader categories={categories} />
         <div className="thank-you-page">
           <div className="invoice-state">Loading your order...</div>
         </div>
-        <StorefrontFooter />
+        <StorefrontFooter categories={categories} />
       </>
     );
   }
@@ -85,7 +114,7 @@ export default function Page() {
   if (isError || !order) {
     return (
       <>
-        <StorefrontHeader />
+        <StorefrontHeader categories={categories} />
         <div className="thank-you-page">
           <div className="invoice-state">
             <h1>Order not found</h1>
@@ -95,7 +124,7 @@ export default function Page() {
             </Link>
           </div>
         </div>
-        <StorefrontFooter />
+        <StorefrontFooter categories={categories} />
       </>
     );
   }
@@ -109,7 +138,7 @@ export default function Page() {
 
   return (
     <>
-      <StorefrontHeader />
+      <StorefrontHeader settings={settings} categories={categories} />
       <main className="thank-you-page">
         <div className="invoice-shell">
           <header className="invoice-header">
@@ -259,7 +288,7 @@ export default function Page() {
           </footer>
         </div>
       </main>
-      <StorefrontFooter />
+      <StorefrontFooter settings={settings} categories={categories} />
     </>
   );
 }

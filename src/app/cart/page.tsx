@@ -1,7 +1,18 @@
 import { CartStorefront } from "@/components/storefront/Storefront";
-import { fetchPublicStoreSettings } from "@/lib/publicData";
+import {
+  fetchPublicCategories,
+  fetchPublicStoreSettings,
+} from "@/lib/publicData";
 
 export default async function CartPage() {
-  const settings = await fetchPublicStoreSettings();
-  return <CartStorefront settings={settings ?? undefined} />;
+  const [settings, categories] = await Promise.all([
+    fetchPublicStoreSettings(),
+    fetchPublicCategories(),
+  ]);
+  return (
+    <CartStorefront
+      settings={settings ?? undefined}
+      categories={categories ?? []}
+    />
+  );
 }

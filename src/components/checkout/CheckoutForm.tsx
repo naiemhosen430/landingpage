@@ -44,15 +44,14 @@ interface CheckoutFormProps {
   onClear?: () => void;
   facebookPixelId?: string;
   tiktokPixelId?: string;
+  currency?: string;
 }
 
 const variantsOf = (product: PublicProduct): PublicVariant[] =>
   (Array.isArray(product.variants) ? product.variants : []) as PublicVariant[];
 
-const availableVariantsOf = (product: PublicProduct) =>
-  variantsOf(product).filter(
-    (variant) => variant.isActive !== false && (variant.stock ?? 1) > 0,
-  );
+const selectableVariantsOf = (product: PublicProduct) =>
+  variantsOf(product).filter((variant) => variant.isActive !== false);
 
 const priceOf = (selection: Selection) => {
   const variant = variantsOf(selection.product).find(
@@ -63,13 +62,15 @@ const priceOf = (selection: Selection) => {
 
 const createSelection = (product: PublicProduct): Selection => ({
   product,
-  variantId: availableVariantsOf(product)[0]?.id,
+  variantId: selectableVariantsOf(product)[0]?.id,
   quantity: 1,
   isSelected: false,
 });
 
-const isValidPhone = (phone: string) =>
-  /^[+]?[0-9\s-]{10,15}$/.test(phone.trim());
+const isValidPhone = (phone: string) => {
+  const normalized = phone.trim().replace(/[\s-]/g, "");
+  return /^(?:\+?88)?01[3-9]\d{8}$/.test(normalized);
+};
 
 export default function CheckoutForm({
   products,
@@ -80,6 +81,7 @@ export default function CheckoutForm({
   onClear,
   facebookPixelId,
   tiktokPixelId,
+  currency = "BDT",
 }: CheckoutFormProps) {
   const router = useRouter();
 
@@ -171,7 +173,7 @@ export default function CheckoutForm({
 
   const trackingContext = {
     url: typeof window === "undefined" ? undefined : window.location.href,
-    currency: "BDT",
+    currency,
   };
   const trackingPageKey =
     typeof window === "undefined" ? "landing" : window.location.pathname;
@@ -316,6 +318,8 @@ export default function CheckoutForm({
       nextErrors.customerName = "Full name is required";
     if (!formValues.customerPhone.trim())
       nextErrors.customerPhone = "Phone is required";
+    else if (!isValidPhone(formValues.customerPhone))
+      nextErrors.customerPhone = "Enter a valid Bangladesh mobile number";
     if (!formValues.deliveryAddress.trim())
       nextErrors.deliveryAddress = "Address is required";
     setFormValidationErrors(nextErrors);
@@ -379,7 +383,7 @@ export default function CheckoutForm({
               (s) => s.product.id === product.id,
             );
             const isProductSelected = selection?.isSelected ?? false;
-            const productVariants = availableVariantsOf(product);
+            const productVariants = selectableVariantsOf(product);
 
             return (
               <div
@@ -433,6 +437,7 @@ export default function CheckoutForm({
                         selection
                           ? priceOf(selection)
                           : Number(product.price) || 0,
+                        currency,
                       )}
                     </span>
                   </span>
@@ -467,7 +472,7 @@ export default function CheckoutForm({
                           value={variant.id ?? ""}
                         >
                           {variant.name || `Option ${index + 1}`} —{" "}
-                          {formatCurrency(Number(variant.price) || 0)}
+                          {formatCurrency(Number(variant.price) || 0, currency)}
                         </option>
                       ))}
                     </select>
@@ -655,7 +660,7 @@ export default function CheckoutForm({
                           <strong>{zone.zone}</strong>
                         </span>
                         <strong className="checkout-form-modern-light__delivery-zone-price">
-                          {formatCurrency(zone.price)}
+                          {formatCurrency(zone.price, currency)}
                         </strong>
                       </label>
                     ))}
@@ -733,7 +738,7 @@ export default function CheckoutForm({
                       {item.product.name} <small>x{item.quantity}</small>
                     </span>
                     <strong className="checkout-form-modern-light__summary-line-item-value">
-                      {formatCurrency(priceOf(item) * item.quantity)}
+                      {formatCurrency(priceOf(item) * item.quantity, currency)}
                     </strong>
                   </div>
                 ))
@@ -744,7 +749,7 @@ export default function CheckoutForm({
                 Delivery
               </span>
               <strong className="checkout-form-modern-light__summary-line-item-value">
-                {formatCurrency(computedDeliveryCost)}
+                {formatCurrency(computedDeliveryCost, currency)}
               </strong>
             </div>
 
@@ -754,7 +759,7 @@ export default function CheckoutForm({
                   COD charge
                 </span>
                 <strong className="checkout-form-modern-light__summary-line-item-value">
-                  {formatCurrency(codCharge)}
+                  {formatCurrency(codCharge, currency)}
                 </strong>
               </div>
             )}
@@ -762,7 +767,7 @@ export default function CheckoutForm({
             <div className="checkout-form-modern-light__summary-total-row">
               <span>Total</span>
               <strong className="checkout-form-modern-light__summary-total-amount">
-                {formatCurrency(orderTotalAmount)}
+                {formatCurrency(orderTotalAmount, currency)}
               </strong>
             </div>
 

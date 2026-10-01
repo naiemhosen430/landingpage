@@ -197,7 +197,40 @@ The public response must:
 
 These endpoints are already called by the storefront and must support the homepage, catalog, product detail, cart, and checkout flows.
 
-## 2.1 Product list
+## 2.1 Active categories
+
+```http
+GET /public/v1/categories
+```
+
+Use the same `x-project-id` and `x-project-key` headers as other public
+endpoints. The response contains only active categories belonging to that
+project, ordered by `sortOrder`. Each category includes its API ID, name, slug,
+description, image, and optional parent ID. The storefront uses the slug in
+links and resolves it to the API ID before requesting category-filtered
+products. Navigation and category filters must not use a locally defined list.
+
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Categories retrieved successfully",
+  "data": [
+    {
+      "id": "category-id",
+      "name": "Category name",
+      "slug": "category-slug",
+      "description": "Optional description",
+      "image": { "url": "https://cdn.example.com/category.jpg" },
+      "parentId": null,
+      "sortOrder": 0,
+      "isActive": true
+    }
+  ]
+}
+```
+
+## 2.2 Product list
 
 ```http
 GET /public/v1/products
@@ -228,7 +261,7 @@ Return active, in-stock products for the public storefront. Product list items s
     "secureUrl": "https://cdn.example.com/products/product.jpg"
   },
   "images": [],
-  "categories": ["home"],
+  "categories": ["category-id"],
   "tags": [],
   "variants": [
     {
@@ -242,9 +275,9 @@ Return active, in-stock products for the public storefront. Product list items s
 }
 ```
 
-The frontend shows a stable `800 x 800 px` product image placeholder when no image is available.
+When an image is unavailable the storefront uses a neutral icon, not a sample product image or mock product record.
 
-## 2.2 Product detail
+## 2.3 Product detail
 
 ```http
 GET /public/v1/products/:slug
