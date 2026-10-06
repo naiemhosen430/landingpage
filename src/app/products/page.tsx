@@ -31,7 +31,7 @@ export default async function ProductsPage({
     <CatalogStorefront
       initialProducts={products}
       settings={settings ?? undefined}
-      initialCategory={selectedCategory?.id ?? "all"}
+      initialCategory={selectedCategory?.name ?? "all"}
       initialSearch={query.search ?? ""}
       categories={categories ?? []}
     />

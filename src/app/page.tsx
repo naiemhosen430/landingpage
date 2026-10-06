@@ -1,7 +1,7 @@
-import { HomeStorefront } from "@/components/storefront/Storefront";
+import Storefront from "@/components/storefront/Storefront";
 import {
-  fetchPublicHomePage,
   fetchPublicCategories,
+  fetchPublicHomePage,
   fetchPublicProducts,
   fetchPublicStoreSettings,
 } from "@/lib/publicData";
@@ -15,8 +15,8 @@ export default async function HomePage() {
   ]);
 
   return (
-    <HomeStorefront
-      initialProducts={products}
+    <Storefront
+      initialProducts={products ?? []}
       initialHomePage={homePage ?? undefined}
       settings={settings ?? undefined}
       categories={categories ?? []}

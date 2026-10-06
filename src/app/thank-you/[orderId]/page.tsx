@@ -101,21 +101,39 @@ export default function Page() {
 
   if (isLoading) {
     return (
-      <>
-        <StorefrontHeader categories={categories} />
-        <div className="thank-you-page">
+      <div
+        className="storefront-shell"
+        style={
+          settings?.branding?.primaryColor
+            ? ({
+                "--store-teal": settings.branding.primaryColor,
+              } as React.CSSProperties)
+            : undefined
+        }
+      >
+        <StorefrontHeader settings={settings} categories={categories} />
+        <main className="storefront-main thank-you-page">
           <div className="invoice-state">Loading your order...</div>
-        </div>
-        <StorefrontFooter categories={categories} />
-      </>
+        </main>
+        <StorefrontFooter settings={settings} categories={categories} />
+      </div>
     );
   }
 
   if (isError || !order) {
     return (
-      <>
-        <StorefrontHeader categories={categories} />
-        <div className="thank-you-page">
+      <div
+        className="storefront-shell"
+        style={
+          settings?.branding?.primaryColor
+            ? ({
+                "--store-teal": settings.branding.primaryColor,
+              } as React.CSSProperties)
+            : undefined
+        }
+      >
+        <StorefrontHeader settings={settings} categories={categories} />
+        <main className="storefront-main thank-you-page">
           <div className="invoice-state">
             <h1>Order not found</h1>
             <p>We could not load this order right now.</p>
@@ -123,9 +141,9 @@ export default function Page() {
               Continue shopping
             </Link>
           </div>
-        </div>
-        <StorefrontFooter categories={categories} />
-      </>
+        </main>
+        <StorefrontFooter settings={settings} categories={categories} />
+      </div>
     );
   }
 
@@ -137,7 +155,16 @@ export default function Page() {
   const codCharge = order.codCharge ?? 0;
 
   return (
-    <>
+    <div
+      className="storefront-shell"
+      style={
+        settings?.branding?.primaryColor
+          ? ({
+              "--store-teal": settings.branding.primaryColor,
+            } as React.CSSProperties)
+          : undefined
+      }
+    >
       <StorefrontHeader settings={settings} categories={categories} />
       <main className="thank-you-page">
         <div className="invoice-shell">
@@ -289,6 +316,6 @@ export default function Page() {
         </div>
       </main>
       <StorefrontFooter settings={settings} categories={categories} />
-    </>
+    </div>
   );
 }
