@@ -1,19 +1,20 @@
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import ProductForm from "@/components/products/ProductForm";
 
 export default function NewProductPage() {
   return (
-    <div>
-      <div className="page-header">
+    <div className="product-editor-page">
+      <Link href="/dashboard/products" className="product-editor-back-link">
+        <ArrowLeft size={16} aria-hidden="true" />
+        Back to products
+      </Link>
+      <div className="product-editor-page-heading">
         <div>
-          <h1 className="page-title">Add Product</h1>
-          <p className="page-subtitle">Create a new product for your store</p>
+          <h1 className="page-title">Create a product</h1>
         </div>
       </div>
-      <div className="card">
-        <div className="card-body">
-          <ProductForm />
-        </div>
-      </div>
+      <ProductForm />
     </div>
   );
 }

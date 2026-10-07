@@ -16,6 +16,8 @@ import type {
   PublicPaymentMethod,
 } from "@/lib/landingPage";
 import type { PublicSettings } from "@/store/publicApi";
+import { useTrackAnalyticsEventMutation } from "@/store/publicApi";
+import { trackStorefrontEvent } from "@/lib/tracking";
 import type { Category as ApiCategory } from "@/store/categoryApi";
 import {
   clearCart,
@@ -35,6 +37,17 @@ interface SharedStorefrontProps {
   settings?: PublicSettings;
   categories?: ApiCategory[];
   currency?: string;
+}
+
+function getEnabledPixelIds(settings?: PublicSettings) {
+  return {
+    facebookPixelId: settings?.store?.socialTracking?.facebook?.enabled
+      ? settings.store.socialTracking.facebook.pixelId
+      : undefined,
+    tiktokPixelId: settings?.store?.socialTracking?.tiktok?.enabled
+      ? settings.store.socialTracking.tiktok.pixelId
+      : undefined,
+  };
 }
 
 export interface StorefrontProps extends SharedStorefrontProps {
@@ -63,7 +76,11 @@ function StorefrontFooter({
     <footer className="store-footer">
       <div className="store-footer-main">
         <div className="store-footer-brand">
-          <Link href="/" className="store-footer-logo" aria-label={`${storeName} home`}>
+          <Link
+            href="/"
+            className="store-footer-logo"
+            aria-label={`${storeName} home`}
+          >
             {logo ? <img src={logo} alt={storeName} /> : storeName}
           </Link>
           <p>
@@ -112,12 +129,18 @@ function StorefrontFooter({
           {email && <a href={`mailto:${email}`}>{email}</a>}
           <div className="store-footer-support">
             <span aria-hidden="true">✓</span>
-            <p>Secure checkout<br />Your information is protected</p>
+            <p>
+              Secure checkout
+              <br />
+              Your information is protected
+            </p>
           </div>
         </div>
       </div>
       <div className="store-footer-bottom">
-        <span>© {new Date().getFullYear()} {storeName}. All rights reserved.</span>
+        <span>
+          © {new Date().getFullYear()} {storeName}. All rights reserved.
+        </span>
         <span>Powered by Zane</span>
       </div>
     </footer>
@@ -285,16 +308,6 @@ export default function Storefront({
   categories = [],
 }: StorefrontProps) {
   const router = useRouter();
-  const storefrontCategories =
-    categories.length > 0
-      ? categories
-      : (initialHomePage?.categories ?? []).map((category) => ({
-          id: category.id,
-          name: category.label,
-          slug: category.id,
-          sortOrder: 0,
-          isActive: true,
-        }));
   const {
     products,
     searchTerm,
@@ -307,7 +320,17 @@ export default function Storefront({
     handleCheckout,
   } = useStorefront({
     initialProducts,
-    categories: storefrontCategories,
+    ...getEnabledPixelIds(settings),
+    categories:
+      categories.length > 0
+        ? categories
+        : (initialHomePage?.categories ?? []).map((category) => ({
+            id: category.id,
+            name: category.label,
+            slug: category.id,
+            sortOrder: 0,
+            isActive: true,
+          })),
   });
 
   const slides = initialHomePage?.hero?.slides ?? [];
@@ -326,6 +349,9 @@ export default function Storefront({
     }, interval);
     return () => window.clearInterval(timer);
   }, [heroSlides.length, initialHomePage?.hero?.autoplay, initialHomePage?.hero?.intervalMs]);
+
+  console.log({ activeSlide });
+
   const bestsellerIds = initialHomePage?.bestsellers?.productIds ?? [];
   const bestsellers = bestsellerIds.length
     ? productsForSection(products, {
@@ -481,7 +507,7 @@ export default function Storefront({
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         onCheckout={handleCheckout}
-        currency={currency}
+        currency={settings?.store?.currency}
       />
     </div>
   );
@@ -502,6 +528,7 @@ export function CatalogStorefront({
 }: CatalogStorefrontProps) {
   const storefront = useStorefront({
     initialProducts: initialProducts ?? [],
+    ...getEnabledPixelIds(settings),
     categories,
     initialCategory,
     initialSearch,
@@ -685,6 +712,8 @@ export function CheckoutStorefront({
             paymentMethods={initialPaymentMethods}
             deliveryArea={initialDeliveryArea}
             currency={settings?.store?.currency}
+            facebookPixelId={getEnabledPixelIds(settings).facebookPixelId}
+            tiktokPixelId={getEnabledPixelIds(settings).tiktokPixelId}
             onClear={() => dispatch(clearCart())}
           />
         ) : (
@@ -704,18 +733,23 @@ export function CheckoutStorefront({
 interface ProductDetailStorefrontProps extends SharedStorefrontProps {
   slug: string;
   initialProduct?: Product | null;
+  relatedProducts?: Product[];
 }
 
 export function ProductDetailStorefront({
   slug,
   initialProduct,
+  relatedProducts = [],
   settings,
   categories = [],
 }: ProductDetailStorefrontProps) {
+  const router = useRouter();
   const storefront = useStorefront({
     initialProducts: initialProduct ? [initialProduct] : [],
     categories,
+    ...getEnabledPixelIds(settings),
   });
+  const [trackAnalyticsEvent] = useTrackAnalyticsEventMutation();
   const product = initialProduct;
   const activeVariants = (product?.variants ?? []).filter(
     (variant) => variant.isActive !== false,
@@ -733,14 +767,58 @@ export function ProductDetailStorefront({
   const isOutOfStock =
     (selectedVariant?.stock ?? product?.stock) !== undefined &&
     (selectedVariant?.stock ?? product?.stock ?? 0) <= 0;
-  const image =
-    product?.images && Array.isArray(product.images)
-      ? typeof product.images[0] === "string"
-        ? product.images[0]
-        : product.images[0]?.secureUrl || product.images[0]?.url
-      : typeof product?.images === "string"
-        ? product.images
-        : product?.thumbnailImage?.secureUrl || product?.thumbnailImage?.url;
+  const galleryImages = product
+    ? [
+        ...(Array.isArray(product.images)
+          ? product.images.map((item) =>
+              typeof item === "string" ? item : item.secureUrl || item.url,
+            )
+          : typeof product.images === "string"
+            ? [product.images]
+            : []),
+        product.thumbnailImage?.secureUrl || product.thumbnailImage?.url,
+      ].filter((url, index, all): url is string =>
+        Boolean(url) && all.indexOf(url) === index,
+      )
+    : [];
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  useEffect(() => {
+    setActiveImageIndex(0);
+  }, [product?.id]);
+  useEffect(() => {
+    if (!product) return;
+    const productId = product.id || product._id || slug;
+    const imagePrice = Number(product.price) || 0;
+    const url = window.location.href;
+    trackStorefrontEvent(
+      {
+        eventType: "product_view",
+        eventName: "view_content",
+        url,
+        payload: {
+          contentIds: [productId],
+          contentName: product.name,
+          contentType: "product",
+          contents: [
+            {
+              id: productId,
+              content_name: product.name,
+              quantity: 1,
+              item_price: imagePrice,
+            },
+          ],
+          value: imagePrice,
+          currency: "BDT",
+          event_source_url: url,
+        },
+      },
+      `product-detail-view-${productId}`,
+      (event) => {
+        void trackAnalyticsEvent(event);
+      },
+    );
+  }, [product, slug, trackAnalyticsEvent]);
+  const image = galleryImages[activeImageIndex] || "/placeholder-product.png";
 
   return (
     <div className="storefront-shell">
@@ -749,20 +827,102 @@ export function ProductDetailStorefront({
         {product ? (
           <>
             <div className="store-product-detail-image">
-              <img src={image || "/placeholder-product.png"} alt={product.name} />
+              <div className="store-product-gallery-main">
+                <img src={image} alt={product.name} />
+                {galleryImages.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      className="store-product-gallery-arrow store-product-gallery-previous"
+                      aria-label="Show previous product image"
+                      onClick={() =>
+                        setActiveImageIndex(
+                          (current) =>
+                            (current - 1 + galleryImages.length) %
+                            galleryImages.length,
+                        )
+                      }
+                    >
+                      <span aria-hidden="true">‹</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="store-product-gallery-arrow store-product-gallery-next"
+                      aria-label="Show next product image"
+                      onClick={() =>
+                        setActiveImageIndex(
+                          (current) => (current + 1) % galleryImages.length,
+                        )
+                      }
+                    >
+                      <span aria-hidden="true">›</span>
+                    </button>
+                    <span className="store-product-gallery-count" aria-live="polite">
+                      {activeImageIndex + 1} / {galleryImages.length}
+                    </span>
+                  </>
+                )}
+              </div>
+              {galleryImages.length > 1 && (
+                <div
+                  className="store-product-gallery-thumbnails"
+                  aria-label="Product images"
+                >
+                  {galleryImages.map((galleryImage, index) => (
+                    <button
+                      type="button"
+                      key={galleryImage}
+                      className={
+                        index === activeImageIndex ? "is-active" : undefined
+                      }
+                      aria-label={`Show product image ${index + 1}`}
+                      aria-pressed={index === activeImageIndex}
+                      onClick={() => setActiveImageIndex(index)}
+                    >
+                      <img src={galleryImage} alt="" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="store-product-detail-copy">
               <p className="store-product-detail-category">
                 {product.categories?.[0] || "Collection"}
               </p>
               <h1>{product.name}</h1>
+              {product.shortDescription && (
+                <p className="store-product-detail-short">
+                  {product.shortDescription}
+                </p>
+              )}
               <p className="store-product-detail-price">
                 {formatCurrency(
                   selectedVariant?.price ?? product.price,
                   settings?.store?.currency,
                 )}
               </p>
-              {product.description && <p>{product.description}</p>}
+              <div className="store-product-availability">
+                <span className={isOutOfStock ? "is-out-of-stock" : "is-in-stock"}>
+                  <span aria-hidden="true" />
+                  {isOutOfStock ? "Currently unavailable" : "In stock"}
+                </span>
+                {product.stock !== undefined && product.stock > 0 && (
+                  <span>{product.stock} available</span>
+                )}
+              </div>
+              {product.description && (
+                <div className="store-product-detail-description">
+                  <h2>Product details</h2>
+                  <p>{product.description}</p>
+                </div>
+              )}
+              {product.tags && product.tags.length > 0 && (
+                <div className="store-product-tags" aria-label="Product tags">
+                  {product.tags.map((tag) => (
+                    <span key={tag}>{tag}</span>
+                  ))}
+                </div>
+              )}
               {activeVariants.length > 0 && (
                 <label className="store-product-variant">
                   <span>Choose an option</span>
@@ -775,12 +935,12 @@ export function ProductDetailStorefront({
                     {activeVariants.map((variant, index) => {
                       const key = getVariantKey(variant, index);
                       return (
-                      <option key={key} value={key}>
-                        {variant.name || "Option"}
-                        {typeof variant.price === "number"
-                          ? ` — ${formatCurrency(variant.price, settings?.store?.currency)}`
-                          : ""}
-                      </option>
+                        <option key={key} value={key}>
+                          {variant.name || "Option"}
+                          {typeof variant.price === "number"
+                            ? ` — ${formatCurrency(variant.price, settings?.store?.currency)}`
+                            : ""}
+                        </option>
                       );
                     })}
                   </select>
@@ -789,21 +949,29 @@ export function ProductDetailStorefront({
               {isOutOfStock && (
                 <p className="store-stock-status">Out of stock</p>
               )}
-              <button
-                type="button"
-                className="store-primary-link"
-                disabled={isOutOfStock}
-                onClick={() =>
-                  storefront.handleAddToCart(
-                    product,
-                    selectedVariant?.id,
-                  )
-                }
-              >
-                {isOutOfStock
-                  ? "Out of stock"
-                  : "Add to cart"}
-              </button>
+              <div className="store-product-detail-actions">
+                <button
+                  type="button"
+                  className="store-primary-link"
+                  disabled={isOutOfStock}
+                  onClick={() =>
+                    storefront.handleAddToCart(product, selectedVariant?.id)
+                  }
+                >
+                  Add to cart
+                </button>
+                <button
+                  type="button"
+                  className="store-order-now"
+                  disabled={isOutOfStock}
+                  onClick={() => {
+                    storefront.handleAddToCart(product, selectedVariant?.id);
+                    router.push("/checkout");
+                  }}
+                >
+                  Order now
+                </button>
+              </div>
             </div>
           </>
         ) : (
@@ -816,6 +984,27 @@ export function ProductDetailStorefront({
         )}
         <span className="sr-only">{slug}</span>
       </main>
+      {product && relatedProducts.length > 0 && (
+        <section className="store-related-products">
+          <div className="store-related-products-heading">
+            <div>
+              <p>Picked for you</p>
+              <h2>Related products</h2>
+            </div>
+            <Link href="/products">View all products</Link>
+          </div>
+          <div className="store-product-grid">
+            {relatedProducts.map((relatedProduct) => (
+              <ProductCard
+                key={relatedProduct.id || relatedProduct._id}
+                product={relatedProduct}
+                currency={settings?.store?.currency}
+                onAddToCart={storefront.handleAddToCart}
+              />
+            ))}
+          </div>
+        </section>
+      )}
       <StorefrontFooter settings={settings} categories={categories} />
       <CartDrawer
         isOpen={storefront.isCartOpen}

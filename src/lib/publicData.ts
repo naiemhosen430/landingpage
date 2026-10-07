@@ -30,12 +30,12 @@ async function fetchPublic<T>(
       next: { revalidate: 60 },
     });
 
-    if (!response.ok) return null;
+    if (!response.ok) return response.json();
     const json = await response.json();
     return (json?.data?.data ?? json?.data ?? json) as T;
   } catch (error) {
     console.error(`Failed to fetch public data from ${path}:`, error);
-    return null;
+    throw error;
   }
 }
 
@@ -160,7 +160,8 @@ function normalizePublicProduct(value: unknown): Product | null {
       (!Array.isArray(categories) ||
         !categories.every((category) => typeof category === "string"))) ||
     (tags !== undefined &&
-      (!Array.isArray(tags) || !tags.every((tag) => typeof tag === "string"))) ||
+      (!Array.isArray(tags) ||
+        !tags.every((tag) => typeof tag === "string"))) ||
     (images !== undefined &&
       typeof images !== "string" &&
       (!Array.isArray(images) ||
@@ -215,7 +216,9 @@ function normalizePublicProduct(value: unknown): Product | null {
     ...(typeof value.isFeatured === "boolean"
       ? { isFeatured: value.isFeatured }
       : {}),
-    ...(typeof value.isActive === "boolean" ? { isActive: value.isActive } : {}),
+    ...(typeof value.isActive === "boolean"
+      ? { isActive: value.isActive }
+      : {}),
     ...(Array.isArray(categories)
       ? {
           categories: categories.filter(

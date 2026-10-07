@@ -1,5 +1,6 @@
 "use client";
 
+import { notifyToast } from "@/lib/toast";
 import { useState } from "react";
 import {
   useGetDeliveryAreasQuery,
@@ -52,7 +53,7 @@ export default function DeliveryAreasPage() {
       setFormVisible(false);
       refetch();
     } catch (err) {
-      alert("Failed to save delivery area");
+      notifyToast("Failed to save delivery area", "error");
     }
   };
 
@@ -62,7 +63,7 @@ export default function DeliveryAreasPage() {
       await deleteDeliveryArea(id).unwrap();
       refetch();
     } catch (err) {
-      alert("Failed to delete delivery area");
+      notifyToast("Failed to delete delivery area", "error");
     }
   };
 

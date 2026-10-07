@@ -1,5 +1,6 @@
 "use client";
 
+import { notifyToast } from "@/lib/toast";
 import { useState } from "react";
 import Link from "next/link";
 import {
@@ -8,7 +9,11 @@ import {
   useUpdateOrderStatusMutation,
   type OrderStatus,
 } from "@/store/orderApi";
-import { useBookOrderWithDefaultCourierMutation } from "@/store/courierApi";
+import {
+  useBookOrderWithDefaultCourierMutation,
+  useLazyGetRedXDeliveryAreasQuery,
+  type RedXDeliveryArea,
+} from "@/store/courierApi";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 const statusMap: Record<string, string> = {
@@ -27,6 +32,10 @@ export default function OrdersPage() {
   const [status, setStatus] = useState<OrderStatus | "">("");
   const [search, setSearch] = useState("");
   const [bookingOrderId, setBookingOrderId] = useState<string | null>(null);
+  const [bookingOrder, setBookingOrder] = useState<any | null>(null);
+  const [deliveryAreas, setDeliveryAreas] = useState<RedXDeliveryArea[]>([]);
+  const [deliveryAreaSearch, setDeliveryAreaSearch] = useState("");
+  const [selectedDeliveryAreaId, setSelectedDeliveryAreaId] = useState("");
   const [editingOrder, setEditingOrder] = useState<any | null>(null);
   const [editForm, setEditForm] = useState({
     name: "",
@@ -45,6 +54,8 @@ export default function OrdersPage() {
   });
   const [bookOrder, { isLoading: booking }] =
     useBookOrderWithDefaultCourierMutation();
+  const [getRedXDeliveryAreas, { isLoading: loadingDeliveryAreas }] =
+    useLazyGetRedXDeliveryAreasQuery();
   const [updateOrder] = useUpdateOrderMutation();
   const [updateOrderStatus] = useUpdateOrderStatusMutation();
 
@@ -58,21 +69,52 @@ export default function OrdersPage() {
   const orders = data?.data || [];
   const meta = data?.meta;
 
-  const handleBookOrder = async (orderId: string) => {
-    if (!window.confirm("Book or rebook this order with the default courier?"))
-      return;
-    setBookingOrderId(orderId);
+  const handleBookOrder = async (order: any) => {
+    setBookingOrderId(order.id);
     try {
-      await bookOrder(orderId).unwrap();
+      const areas = await getRedXDeliveryAreas(order.id).unwrap();
+      setBookingOrder(order);
+      setDeliveryAreas(areas);
+      setSelectedDeliveryAreaId(
+        areas.length === 1 ? String(areas[0].id) : "",
+      );
+      setDeliveryAreaSearch("");
     } catch (error: any) {
-      window.alert(
+      notifyToast(
         error?.data?.message ??
-          "Could not book this order with the default courier.",
+          "Could not load RedX delivery areas for this order.",
+        "error",
       );
     } finally {
       setBookingOrderId(null);
     }
   };
+
+  const handleConfirmCourierBooking = async () => {
+    if (!bookingOrder || !selectedDeliveryAreaId) return;
+    setBookingOrderId(bookingOrder.id);
+    try {
+      await bookOrder({
+        orderId: bookingOrder.id,
+        deliveryAreaId: Number(selectedDeliveryAreaId),
+      }).unwrap();
+      notifyToast("Order booked with RedX successfully.", "success");
+      setBookingOrder(null);
+    } catch (error: any) {
+      notifyToast(
+        error?.data?.message ?? "Could not book this order with RedX.",
+        "error",
+      );
+    } finally {
+      setBookingOrderId(null);
+    }
+  };
+
+  const filteredDeliveryAreas = deliveryAreas.filter((area) =>
+    `${area.name} ${area.post_code} ${area.division_name}`
+      .toLowerCase()
+      .includes(deliveryAreaSearch.toLowerCase()),
+  );
 
   const openEditOrder = (order: any) => {
     setEditingOrder(order);
@@ -124,7 +166,7 @@ export default function OrdersPage() {
         }).unwrap();
       setEditingOrder(null);
     } catch (error: any) {
-      window.alert(error?.data?.message ?? "Could not update this order.");
+      notifyToast(error?.data?.message ?? "Could not update this order.", "error");
     }
   };
 
@@ -213,6 +255,7 @@ export default function OrdersPage() {
                     <th>Total</th>
                     <th>Payment</th>
                     <th>Status</th>
+                    <th>Courier</th>
                     <th>Date</th>
                     <th style={{ textAlign: "right" }}>Actions</th>
                   </tr>
@@ -220,7 +263,7 @@ export default function OrdersPage() {
                 <tbody>
                   {orders.length === 0 && (
                     <tr>
-                      <td colSpan={8}>
+                      <td colSpan={9}>
                         <div className="empty-state">
                           <div className="empty-state-title">
                             No orders found
@@ -254,6 +297,15 @@ export default function OrdersPage() {
                         {formatCurrency(order.total)}
                       </td>
                       <td>
+                        <div style={{ fontWeight: 500 }}>
+                          {order.paymentMethodName ||
+                            order.paymentMethod
+                              ?.replace(/[_-]/g, " ")
+                              .replace(/\b\w/g, (letter: string) =>
+                                letter.toUpperCase(),
+                              ) ||
+                            "Not selected"}
+                        </div>
                         <span
                           className={`badge ${order.paymentStatus === "paid" ? "badge-success" : order.paymentStatus === "failed" ? "badge-danger" : "badge-warning"}`}
                         >
@@ -266,6 +318,41 @@ export default function OrdersPage() {
                         >
                           {order.status}
                         </span>
+                      </td>
+                      <td>
+                        {order.courier ? (
+                          <>
+                            <div>{order.courier.name}</div>
+                            {order.courier.trackingNumber && (
+                              <div
+                                style={{
+                                  fontSize: 12,
+                                  color: "var(--text-muted)",
+                                }}
+                              >
+                                {order.courier.trackingNumber}
+                              </div>
+                            )}
+                            <span
+                              className={`badge ${order.courier.status === "BOOKED" ? "badge-success" : order.courier.status === "FAILED" ? "badge-danger" : "badge-warning"}`}
+                            >
+                              {order.courier.status ?? "ASSIGNED"}
+                            </span>
+                            {order.courier.bookingError && (
+                              <div
+                                style={{
+                                  fontSize: 12,
+                                  color: "var(--danger)",
+                                  maxWidth: 220,
+                                }}
+                              >
+                                {order.courier.bookingError}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          "-"
+                        )}
                       </td>
                       <td
                         style={{ fontSize: 13, color: "var(--text-secondary)" }}
@@ -294,16 +381,30 @@ export default function OrdersPage() {
                           </button>
                           <button
                             className="btn btn-primary btn-sm"
-                            onClick={() => handleBookOrder(order.id)}
-                            disabled={booking || bookingOrderId === order.id}
+                            onClick={() => handleBookOrder(order)}
+                            disabled={
+                              booking ||
+                              loadingDeliveryAreas ||
+                              bookingOrderId === order.id ||
+                              (order.courier?.providerCode &&
+                                order.courier.providerCode !== "REDX")
+                            }
                             title={
-                              order.courier
-                                ? "Rebook with default courier"
-                                : "Book with default courier"
+                              order.courier?.providerCode &&
+                              order.courier.providerCode !== "REDX"
+                                ? `${order.courier.name} booking integration is pending`
+                                : order.courier
+                                ? `Rebook with ${order.courier.name}`
+                                : "Book with assigned courier"
                             }
                           >
-                            {bookingOrderId === order.id
-                              ? "Booking..."
+                            {order.courier?.providerCode &&
+                            order.courier.providerCode !== "REDX"
+                              ? "Booking pending"
+                              : bookingOrderId === order.id
+                              ? loadingDeliveryAreas
+                                ? "Loading areas..."
+                                : "Booking..."
                               : order.courier
                                 ? "Rebook courier"
                                 : "Book courier"}
@@ -370,6 +471,98 @@ export default function OrdersPage() {
           </div>
         )}
       </div>
+
+      {bookingOrder && (
+        <div
+          className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="redx-booking-title"
+          onClick={(event) =>
+            event.target === event.currentTarget && setBookingOrder(null)
+          }
+        >
+          <div className="modal" style={{ maxWidth: 560, width: "100%" }}>
+            <div className="modal-header">
+              <h2 className="modal-title" id="redx-booking-title">
+                Book order #{bookingOrder.orderNumber} with RedX
+              </h2>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setBookingOrder(null)}
+              >
+                Close
+              </button>
+            </div>
+            <div className="modal-body">
+              <p className="page-subtitle">
+                Select the RedX delivery area that matches the customer&apos;s
+                address. Parcel weight is calculated from the product weights.
+              </p>
+              <div className="form-group">
+                <label className="form-label" htmlFor="redx-area-search">
+                  Search delivery areas
+                </label>
+                <input
+                  id="redx-area-search"
+                  className="form-input"
+                  value={deliveryAreaSearch}
+                  onChange={(event) =>
+                    setDeliveryAreaSearch(event.target.value)
+                  }
+                  placeholder="Search by area, postal code, or division"
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="redx-area">
+                  RedX delivery area *
+                </label>
+                <select
+                  id="redx-area"
+                  className="form-select"
+                  value={selectedDeliveryAreaId}
+                  onChange={(event) =>
+                    setSelectedDeliveryAreaId(event.target.value)
+                  }
+                  required
+                >
+                  <option value="" disabled>
+                    Select the correct area
+                  </option>
+                  {filteredDeliveryAreas.map((area) => (
+                    <option key={area.id} value={area.id}>
+                      {area.name} ({area.post_code}) — {area.division_name}
+                    </option>
+                  ))}
+                </select>
+                {!filteredDeliveryAreas.length && (
+                  <small className="form-hint">
+                    No delivery areas match this search.
+                  </small>
+                )}
+              </div>
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={!selectedDeliveryAreaId || booking}
+                  onClick={handleConfirmCourierBooking}
+                >
+                  {booking ? "Booking..." : "Book with RedX"}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setBookingOrder(null)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {editingOrder && (
         <div

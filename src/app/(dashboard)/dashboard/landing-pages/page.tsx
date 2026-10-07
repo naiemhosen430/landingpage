@@ -1,5 +1,6 @@
 "use client";
 
+import { notifyToast } from "@/lib/toast";
 import { useState } from "react";
 import {
   useGetLandingPagesQuery,
@@ -50,7 +51,7 @@ export default function LandingPagesPage() {
         error?.data?.message ??
         error?.data?.errors?.[0]?.message ??
         "Failed to save landing page";
-      alert(message);
+      notifyToast(message, "error");
     }
   };
 
@@ -70,7 +71,7 @@ export default function LandingPagesPage() {
       await deleteLandingPage(deleteId).unwrap();
       setDeleteId(null);
     } catch {
-      alert("Failed to delete landing page");
+      notifyToast("Failed to delete landing page", "error");
     }
   };
 
@@ -121,7 +122,7 @@ export default function LandingPagesPage() {
 
         .lp-page {
           padding: 24px;
-          max-width: 1200px;
+          max-width: 1400px;
           margin: 0 auto;
           background: var(--lp-bg);
           min-height: 100vh;

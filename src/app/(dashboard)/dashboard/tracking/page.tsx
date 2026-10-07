@@ -1,5 +1,6 @@
 "use client";
 
+import { notifyToast } from "@/lib/toast";
 import { useState } from "react";
 import {
   useGetTrackingEventsQuery,
@@ -20,7 +21,7 @@ export default function TrackingPage() {
       await deleteEvent(id).unwrap();
       refetch();
     } catch (err) {
-      alert("Failed to delete event");
+      notifyToast("Failed to delete event", "error");
     }
   };
 

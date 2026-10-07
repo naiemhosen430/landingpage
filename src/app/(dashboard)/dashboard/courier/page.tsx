@@ -1,5 +1,6 @@
 "use client";
 
+import { notifyToast } from "@/lib/toast";
 import { useState } from "react";
 import {
   type Courier,
@@ -10,6 +11,63 @@ import {
   useSetDefaultCourierMutation,
   useUpdateCourierMutation,
 } from "@/store/courierApi";
+
+const COURIER_PROVIDERS = [
+  {
+    code: "STEADFAST",
+    name: "Steadfast",
+    website: "https://steadfast.com.bd",
+    fields: [
+      { key: "api_key", label: "API key / token", required: true },
+      { key: "secret_key", label: "API secret", required: false },
+    ],
+  },
+  {
+    code: "PATHAO",
+    name: "Pathao",
+    website: "https://pathao.com",
+    fields: [
+      { key: "client_id", label: "Client ID", required: true },
+      { key: "client_secret", label: "Client secret", required: true },
+      { key: "username", label: "Merchant username", required: false },
+      { key: "password", label: "Merchant password", required: false },
+      { key: "store_id", label: "Store ID", required: false },
+    ],
+  },
+  {
+    code: "REDX",
+    name: "RedX",
+    website: "https://redx.com.bd",
+    fields: [
+      { key: "api_token", label: "API access token", required: true },
+      { key: "pickup_store_id", label: "Pickup store ID", required: false },
+      { key: "weight_unit", label: "Product weight unit", required: true },
+      { key: "environment", label: "RedX environment", required: true },
+    ],
+  },
+  {
+    code: "CARRYBEE",
+    name: "CarryBee",
+    website: "https://carrybee.com",
+    fields: [
+      { key: "api_key", label: "API key / token", required: true },
+      { key: "api_secret", label: "API secret", required: false },
+    ],
+  },
+] as const;
+
+function courierConfiguredField(
+  courierId: string | null,
+  couriers: Courier[],
+  field: string,
+) {
+  return Boolean(
+    courierId &&
+      couriers
+        .find((courier) => courier.id === courierId)
+        ?.configuredFields?.includes(field),
+  );
+}
 
 const emptyForm: CourierInput = {
   name: "",
@@ -29,12 +87,11 @@ export default function CourierPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<CourierInput>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [configText, setConfigText] = useState("");
+  const [credentials, setCredentials] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState("");
   const { data, isLoading } = useGetCouriersQuery({
     page: 1,
     limit: 50,
-    search: search || undefined,
   });
   const [createCourier, { isLoading: creating }] = useCreateCourierMutation();
   const [updateCourier, { isLoading: updating }] = useUpdateCourierMutation();
@@ -42,7 +99,24 @@ export default function CourierPage() {
   const [deleteCourier] = useDeleteCourierMutation();
 
   const couriers = data?.data ?? [];
+  const visibleCouriers = couriers.filter((courier) =>
+    `${courier.name} ${courier.code} ${courier.description ?? ""}`
+      .toLowerCase()
+      .includes(search.toLowerCase()),
+  );
   const saving = creating || updating;
+  const availableProviders = COURIER_PROVIDERS.filter(
+    (provider) =>
+      !couriers.some((courier) => courier.code === provider.code) ||
+      (editingId &&
+        couriers.some(
+          (courier) =>
+            courier.id === editingId && courier.code === provider.code,
+        )),
+  );
+  const selectedProvider = COURIER_PROVIDERS.find(
+    (provider) => provider.code === form.code,
+  );
 
   const updateField = <K extends keyof CourierInput>(
     field: K,
@@ -55,7 +129,7 @@ export default function CourierPage() {
     setFormOpen(false);
     setEditingId(null);
     setForm(emptyForm);
-    setConfigText("");
+    setCredentials({});
     setFormError("");
   };
 
@@ -70,33 +144,72 @@ export default function CourierPage() {
       email: courier.email ?? "",
       website: courier.website ?? "",
       trackingUrlTemplate: courier.trackingUrlTemplate ?? "",
-      config: courier.config ?? {},
+      config: {},
       isActive: courier.isActive,
       isDefault: courier.isDefault,
     });
-    setConfigText(JSON.stringify(courier.config ?? {}, null, 2));
+    setCredentials({
+      ...(courier.code === "REDX" && {
+        weight_unit: courier.weightUnit ?? "kg",
+        environment: courier.environment ?? "sandbox",
+      }),
+    });
     setFormError("");
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setFormError("");
-    let config: Record<string, string> = {};
-    try {
-      const parsed = configText.trim() ? JSON.parse(configText) : {};
-      if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") {
-        throw new Error("Config must be a JSON object");
-      }
-      config = Object.fromEntries(
-        Object.entries(parsed).map(([key, value]) => [key, String(value)]),
-      );
-    } catch {
-      setFormError("Config must be a valid JSON object with string values.");
+    if (!selectedProvider) {
+      setFormError("Choose a supported courier.");
+      return;
+    }
+    const existingCourier = couriers.find(
+      (courier) => courier.id === editingId,
+    );
+    const existingProvider = COURIER_PROVIDERS.find(
+      (provider) => provider.code === existingCourier?.code,
+    );
+    const unchangedCredentialFields = new Set(
+      existingProvider?.code === selectedProvider.code
+        ? existingProvider.fields
+            .filter((field) =>
+              courierConfiguredField(editingId, couriers, field.key),
+            )
+            .map((field) => field.key)
+        : [],
+    );
+    if (
+      selectedProvider.fields.some(
+        (field) =>
+          field.required &&
+          !credentials[field.key]?.trim() &&
+          !unchangedCredentialFields.has(field.key),
+      )
+    ) {
+      setFormError("Enter all required courier credentials.");
       return;
     }
 
     try {
-      const payload = { ...form, config, code: form.code.toUpperCase() };
+      const config = Object.fromEntries(
+        Object.entries(credentials).filter(([, value]) => value.trim()),
+      );
+      const payload: CourierInput = {
+        ...form,
+        config,
+        name: selectedProvider.name,
+        code: selectedProvider.code,
+        website: selectedProvider.website,
+      };
+      if (existingCourier && existingCourier.code !== selectedProvider.code) {
+        payload.config = config;
+      }
+      if (!payload.phone?.trim()) delete payload.phone;
+      if (!payload.email?.trim()) delete payload.email;
+      if (!payload.description?.trim()) delete payload.description;
+      if (!payload.trackingUrlTemplate?.trim())
+        delete payload.trackingUrlTemplate;
       if (editingId) {
         await updateCourier({ id: editingId, data: payload }).unwrap();
       } else {
@@ -114,7 +227,7 @@ export default function CourierPage() {
       await deleteCourier(courier.id).unwrap();
       if (editingId === courier.id) resetForm();
     } catch (error: any) {
-      window.alert(error?.data?.message ?? "Could not delete courier.");
+      notifyToast(error?.data?.message ?? "Could not delete courier.", "error");
     }
   };
 
@@ -124,18 +237,37 @@ export default function CourierPage() {
         <div>
           <h1 className="page-title">Couriers</h1>
           <p className="page-subtitle">
-            Manage delivery providers for this project
+            RedX booking is ready; other couriers will be enabled when their
+            official API specifications are verified.
           </p>
         </div>
         <button
           className="btn btn-primary"
           onClick={() => {
-            setForm({ ...emptyForm });
-            setConfigText("");
+            const firstAvailable = availableProviders[0];
+            setForm({
+              ...emptyForm,
+              ...(firstAvailable && {
+                name: firstAvailable.name,
+                code: firstAvailable.code,
+                website: firstAvailable.website,
+              }),
+            });
+            setCredentials(
+              firstAvailable?.code === "REDX"
+                ? { weight_unit: "kg", environment: "sandbox" }
+                : {},
+            );
             setFormError("");
             setEditingId(null);
             setFormOpen(true);
           }}
+          disabled={!availableProviders.length}
+          title={
+            availableProviders.length
+              ? undefined
+              : "All supported couriers are already configured"
+          }
         >
           Add courier
         </button>
@@ -177,7 +309,7 @@ export default function CourierPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {couriers.length === 0 && (
+                  {visibleCouriers.length === 0 && (
                     <tr>
                       <td colSpan={5}>
                         <div className="empty-state">
@@ -188,7 +320,7 @@ export default function CourierPage() {
                       </td>
                     </tr>
                   )}
-                  {couriers.map((courier) => (
+                  {visibleCouriers.map((courier) => (
                     <tr key={courier.id}>
                       <td>
                         <strong>{courier.name}</strong>
@@ -287,26 +419,61 @@ export default function CourierPage() {
               </button>
             </div>
             <div className="modal-body" style={{ display: "grid", gap: 12 }}>
+              <label className="form-group">
+                <span className="form-label">Courier provider *</span>
+                <select
+                  className="form-input"
+                  value={form.code}
+                  required
+                  onChange={(event) => {
+                    const provider = COURIER_PROVIDERS.find(
+                      (item) => item.code === event.target.value,
+                    );
+                    if (!provider) return;
+                    setForm((previous) => ({
+                      ...previous,
+                      name: provider.name,
+                      code: provider.code,
+                      website: provider.website,
+                    }));
+                    setCredentials(
+                      provider.code === "REDX"
+                        ? { weight_unit: "kg", environment: "sandbox" }
+                        : {},
+                    );
+                  }}
+                >
+                  <option value="" disabled>
+                    Select a courier
+                  </option>
+                  {COURIER_PROVIDERS.map((provider) => {
+                    const configuredByAnother = couriers.some(
+                      (courier) =>
+                        courier.code === provider.code &&
+                        courier.id !== editingId,
+                    );
+                    return (
+                      <option
+                        key={provider.code}
+                        value={provider.code}
+                        disabled={configuredByAnother}
+                      >
+                        {provider.name}
+                        {configuredByAnother ? " (already added)" : ""}
+                      </option>
+                    );
+                  })}
+                </select>
+              </label>
               {(
-                [
-                  "name",
-                  "code",
-                  "phone",
-                  "email",
-                  "website",
-                  "trackingUrlTemplate",
-                ] as const
+                ["phone", "email"] as const
               ).map((field) => (
                 <label key={field} className="form-group">
                   <span className="form-label">
-                    {field === "trackingUrlTemplate"
-                      ? "Tracking URL template"
-                      : field[0].toUpperCase() + field.slice(1)}
-                    {["name", "code"].includes(field) ? " *" : ""}
+                    {field[0].toUpperCase() + field.slice(1)}
                   </span>
                   <input
                     className="form-input"
-                    required={["name", "code"].includes(field)}
                     value={form[field] ?? ""}
                     onChange={(event) => updateField(field, event.target.value)}
                   />
@@ -323,16 +490,97 @@ export default function CourierPage() {
                   }
                 />
               </label>
-              <label className="form-group">
-                <span className="form-label">Config JSON</span>
-                <textarea
-                  className="form-textarea"
-                  rows={4}
-                  value={configText}
-                  onChange={(event) => setConfigText(event.target.value)}
-                  placeholder='{"apiKey":"server-side-secret"}'
-                />
-              </label>
+              {selectedProvider?.fields.map((field) => {
+                const alreadyConfigured =
+                  selectedProvider.code ===
+                    couriers.find((courier) => courier.id === editingId)
+                      ?.code &&
+                  courierConfiguredField(editingId, couriers, field.key);
+                return (
+                  <label key={field.key} className="form-group">
+                    <span className="form-label">
+                      {field.label}
+                      {field.required ? " *" : " (optional)"}
+                    </span>
+                    {field.key === "weight_unit" ? (
+                      <select
+                        className="form-input"
+                        required
+                        value={credentials[field.key] ?? "kg"}
+                        onChange={(event) =>
+                          setCredentials((previous) => ({
+                            ...previous,
+                            [field.key]: event.target.value,
+                          }))
+                        }
+                      >
+                        <option value="kg">Kilograms (kg)</option>
+                        <option value="g">Grams (g)</option>
+                      </select>
+                    ) : field.key === "environment" ? (
+                      <select
+                        className="form-input"
+                        required
+                        value={credentials[field.key] ?? "sandbox"}
+                        onChange={(event) =>
+                          setCredentials((previous) => ({
+                            ...previous,
+                            [field.key]: event.target.value,
+                          }))
+                        }
+                      >
+                        <option value="sandbox">Sandbox (test shipments)</option>
+                        <option value="production">
+                          Production (live shipments)
+                        </option>
+                      </select>
+                    ) : (
+                      <input
+                        className="form-input"
+                        type={
+                          ["password", "secret", "token", "key"].some((part) =>
+                            field.key.includes(part),
+                          )
+                            ? "password"
+                            : "text"
+                        }
+                        autoComplete="new-password"
+                        required={
+                          field.required && (!editingId || !alreadyConfigured)
+                        }
+                        value={credentials[field.key] ?? ""}
+                        placeholder={
+                          alreadyConfigured
+                            ? "Saved securely; leave blank to keep current value"
+                            : field.required
+                              ? `Enter ${field.label.toLowerCase()}`
+                              : "Optional"
+                        }
+                        onChange={(event) =>
+                          setCredentials((previous) => ({
+                            ...previous,
+                            [field.key]: event.target.value,
+                          }))
+                        }
+                      />
+                    )}
+                  </label>
+                );
+              })}
+              {selectedProvider?.code === "REDX" && (
+                <p className="page-subtitle">
+                  New configurations start in sandbox mode. Choose production
+                  only when you are ready to create live shipments. Product
+                  weights are sent using the unit selected above.
+                </p>
+              )}
+              {selectedProvider && selectedProvider.code !== "REDX" && (
+                <p className="page-subtitle">
+                  Enter the credentials issued in your courier merchant
+                  account. Shipment booking for this provider will be enabled
+                  when its official API integration is available.
+                </p>
+              )}
               <label>
                 <input
                   type="checkbox"

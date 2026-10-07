@@ -1,5 +1,6 @@
 "use client";
 
+import { notifyToast } from "@/lib/toast";
 import { useState } from "react";
 import {
   Category,
@@ -79,7 +80,7 @@ export default function CategoriesPage() {
       ) ||
       file.size > 5 * 1024 * 1024
     ) {
-      alert("Use a JPG, PNG, or WEBP image up to 5 MB.");
+      notifyToast("Use a JPG, PNG, or WEBP image up to 5 MB.", "error");
       event.target.value = "";
       return;
     }
@@ -100,7 +101,7 @@ export default function CategoriesPage() {
         }
       }
     } catch (error: any) {
-      alert(error?.data?.message ?? "Image upload failed");
+      notifyToast(error?.data?.message ?? "Image upload failed", "error");
     } finally {
       event.target.value = "";
     }
@@ -118,7 +119,7 @@ export default function CategoriesPage() {
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!form.name.trim() || !form.slug.trim()) {
-      alert("Name and slug are required");
+      notifyToast("Name and slug are required", "error");
       return;
     }
     try {
@@ -138,7 +139,7 @@ export default function CategoriesPage() {
       }
       resetForm();
     } catch {
-      alert("Failed to save category");
+      notifyToast("Failed to save category", "error");
     }
   };
 
@@ -173,7 +174,7 @@ export default function CategoriesPage() {
       if (editingId === deleteTarget.id) resetForm();
       setDeleteTarget(null);
     } catch {
-      alert("Failed to delete category");
+      notifyToast("Failed to delete category", "error");
     }
   };
 
@@ -315,17 +316,6 @@ export default function CategoriesPage() {
                           </option>
                         ))}
                     </select>
-                  </div>
-                  <div>
-                    <label className="form-label">Sort order</label>
-                    <input
-                      className="form-input"
-                      type="number"
-                      value={form.sortOrder}
-                      onChange={(e) =>
-                        updateField("sortOrder", Number(e.target.value))
-                      }
-                    />
                   </div>
                 </div>
                 <label

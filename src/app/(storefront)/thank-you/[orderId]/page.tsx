@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect } from "react";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
-import { initializeBrowserPixels, trackStorefrontEvent } from "@/lib/tracking";
+import { trackStorefrontEvent } from "@/lib/tracking";
 import {
   useGetPublicCategoriesQuery,
   useGetPublicOrderQuery,
@@ -40,24 +40,14 @@ export default function Page() {
     formatCurrency(Number(value) || 0, settings?.store?.currency);
 
   useEffect(() => {
-    initializeBrowserPixels({
-      facebookPixelId: settings?.store?.socialTracking?.facebook?.enabled
-        ? settings.store.socialTracking.facebook.pixelId
-        : undefined,
-      tiktokPixelId: settings?.store?.socialTracking?.tiktok?.enabled
-        ? settings.store.socialTracking.tiktok.pixelId
-        : undefined,
-    });
-  }, [settings]);
-
-  useEffect(() => {
     if (!orderId || !order) return;
     const customer = order.customer ?? {};
     const trackingPayload = {
       event_id: `purchase-${order.id || orderId}`,
-      orderId,
+      orderId: order.orderNumber || orderId,
+      order_id: order.orderNumber || orderId,
       value: Number(order.total) || 0,
-      currency: order.currency || settings?.store?.currency || "BDT",
+      currency: "BDT",
       phone: customer?.phone || order.customerPhone,
       contentIds: (order.items ?? [])
         .map((item: any) => item.productId)
@@ -76,19 +66,6 @@ export default function Page() {
     };
     trackStorefrontEvent(
       {
-        eventType: "page_view",
-        eventName: "page_view",
-        payload: {
-          ...trackingPayload,
-          event_id: `thank-you-view-${order.id || orderId}`,
-        },
-        url: window.location.href,
-      },
-      `thank-you-page-view-${order.id || orderId}`,
-      trackAnalyticsEvent,
-    );
-    trackStorefrontEvent(
-      {
         eventType: "purchase",
         eventName: "purchase",
         payload: trackingPayload,
@@ -97,7 +74,7 @@ export default function Page() {
       `purchase-${order.id || orderId}`,
       trackAnalyticsEvent,
     );
-  }, [order, orderId, settings?.store?.currency, trackAnalyticsEvent]);
+  }, [order, orderId, trackAnalyticsEvent]);
 
   if (isLoading) {
     return (
@@ -194,7 +171,15 @@ export default function Page() {
             </div>
             <div>
               <span>Payment</span>
-              <strong>{order.paymentMethod || "-"}</strong>
+              <strong>
+                {order.paymentMethodName ||
+                  order.paymentMethod
+                    ?.replace(/[_-]/g, " ")
+                    .replace(/\b\w/g, (letter: string) =>
+                      letter.toUpperCase(),
+                    ) ||
+                  "-"}
+              </strong>
             </div>
             <div>
               <span>Delivery area</span>

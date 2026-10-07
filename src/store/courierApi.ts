@@ -11,6 +11,9 @@ export type Courier = {
   website?: string;
   trackingUrlTemplate?: string;
   config?: Record<string, string>;
+  configuredFields?: string[];
+  weightUnit?: "kg" | "g";
+  environment?: "production" | "sandbox";
   isActive: boolean;
   isDefault: boolean;
   createdAt?: string;
@@ -21,6 +24,14 @@ export type CourierInput = Omit<
   Courier,
   "id" | "projectId" | "createdAt" | "updatedAt"
 >;
+
+export type RedXDeliveryArea = {
+  id: number;
+  name: string;
+  post_code: number;
+  division_name: string;
+  zone_id: number;
+};
 
 type CourierListResponse = {
   data: Courier[];
@@ -115,14 +126,22 @@ export const courierApi = api.injectEndpoints({
       query: (id) => ({ url: `/admin/couriers/${id}`, method: "DELETE" }),
       invalidatesTags: ["Courier"],
     }),
-    bookOrderWithDefaultCourier: builder.mutation<any, string>({
-      query: (orderId) => ({
+    getRedXDeliveryAreas: builder.query<RedXDeliveryArea[], string>({
+      query: (orderId) => `/admin/orders/${orderId}/courier/areas`,
+      transformResponse: (response: any) => response?.data ?? response,
+    }),
+    bookOrderWithDefaultCourier: builder.mutation<
+      unknown,
+      { orderId: string; deliveryAreaId: number }
+    >({
+      query: ({ orderId, deliveryAreaId }) => ({
         url: `/admin/orders/${orderId}/courier/book`,
         method: "POST",
-        body: {},
+        body: { deliveryAreaId },
       }),
+      transformResponse: (response: any) => response?.data ?? response,
       invalidatesTags: (result, error, orderId) => [
-        { type: "Order", id: orderId },
+        { type: "Order", id: orderId.orderId },
         "Orders",
       ],
     }),
@@ -140,5 +159,7 @@ export const {
   useUpdateCourierMutation,
   useSetDefaultCourierMutation,
   useDeleteCourierMutation,
+  useGetRedXDeliveryAreasQuery,
+  useLazyGetRedXDeliveryAreasQuery,
   useBookOrderWithDefaultCourierMutation,
 } = courierApi;

@@ -1,5 +1,6 @@
 "use client";
 
+import { notifyToast } from "@/lib/toast";
 import { useEffect, useRef, useState } from "react";
 import { useAppSelector } from "@/store/hooks";
 import {
@@ -122,7 +123,7 @@ export default function MediaPage() {
       setAssets([]);
       await refetch();
     } catch (error: any) {
-      window.alert(error?.data?.message ?? "Delete failed.");
+      notifyToast(error?.data?.message ?? "Delete failed.", "error");
     }
   };
 

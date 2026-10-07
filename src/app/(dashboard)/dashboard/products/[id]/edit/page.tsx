@@ -1,18 +1,21 @@
 "use client";
 
 import { useParams } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { useGetProductQuery } from "@/store/productApi";
 import ProductForm from "@/components/products/ProductForm";
 
 export default function EditProductPage() {
   const params = useParams<{ id: string }>();
   const productId = params.id;
-  const { data, isLoading } = useGetProductQuery(productId);
+  const { data, isLoading, isError } = useGetProductQuery(productId);
 
   if (isLoading) {
     return (
-      <div style={{ padding: 40, display: "flex", justifyContent: "center" }}>
+      <div className="product-editor-loading">
         <div className="spinner" />
+        <span>Loading product details…</span>
       </div>
     );
   }
@@ -21,25 +24,35 @@ export default function EditProductPage() {
 
   if (!product) {
     return (
-      <div className="empty-state">
-        <div className="empty-state-title">Product not found</div>
+      <div className="product-editor-not-found">
+        <div className="empty-state-title">
+          {isError ? "Could not load product" : "Product not found"}
+        </div>
+        <p className="page-subtitle">
+          {isError
+            ? "Check your connection and try again."
+            : "This product may have been removed or the link may be incorrect."}
+        </p>
+        <Link href="/dashboard/products" className="btn btn-secondary">
+          <ArrowLeft size={16} aria-hidden="true" />
+          Back to products
+        </Link>
       </div>
     );
   }
 
   return (
-    <div>
-      <div className="page-header">
+    <div className="product-editor-page">
+      <Link href="/dashboard/products" className="product-editor-back-link">
+        <ArrowLeft size={16} aria-hidden="true" />
+        Back to products
+      </Link>
+      <div className="product-editor-page-heading">
         <div>
-          <h1 className="page-title">Edit Product</h1>
-          <p className="page-subtitle">Update your store product</p>
+          <h1 className="page-title">Edit product</h1>
         </div>
       </div>
-      <div className="card">
-        <div className="card-body">
-          <ProductForm initialData={product} productId={productId} />
-        </div>
-      </div>
+      <ProductForm initialData={product} productId={productId} />
     </div>
   );
 }

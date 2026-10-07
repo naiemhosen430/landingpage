@@ -266,6 +266,22 @@ export default function OrderDetailPage() {
                 style={{ display: "flex", flexDirection: "column", gap: 10 }}
               >
                 <div
+                   style={{ display: "flex", justifyContent: "space-between" }}
+                 >
+                   <span style={{ color: "var(--text-secondary)" }}>
+                     Payment method
+                   </span>
+                   <span>
+                     {order.paymentMethodName ||
+                       order.paymentMethod
+                         ?.replace(/[_-]/g, " ")
+                         .replace(/\b\w/g, (letter: string) =>
+                           letter.toUpperCase(),
+                         ) ||
+                       "Not selected"}
+                   </span>
+                 </div>
+                 <div
                   style={{ display: "flex", justifyContent: "space-between" }}
                 >
                   <span style={{ color: "var(--text-secondary)" }}>

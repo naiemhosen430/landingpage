@@ -2,9 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useLoginMutation } from "@/store/authApi";
+import { useGetMeQuery, useLoginMutation } from "@/store/authApi";
 import { setCredentials } from "@/store/authSlice";
-import { useAppDispatch } from "@/store/hooks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import {
+  REMEMBERED_EMAIL_KEY,
+  REMEMBERED_PASSWORD_KEY,
+} from "@/store/authStorage";
 
 type ErrorType = "auth" | "network" | "cors" | "server" | "validation";
 
@@ -13,10 +17,8 @@ interface ParsedError {
   type: ErrorType;
 }
 
-const REMEMBERED_EMAIL_KEY = "zanestore_login_email";
-
 function parseError(err: any): ParsedError {
-  // CORS / Network (no response reached server)
+  // CORS / Network
   if (!err.status && err.error) {
     if (
       err.error.includes("fetch") ||
@@ -28,12 +30,19 @@ function parseError(err: any): ParsedError {
         message: "Cannot connect to server. CORS or server may be down.",
       };
     }
-    return { type: "network", message: "Network error. Please try again." };
+
+    return {
+      type: "network",
+      message: "Network error. Please try again.",
+    };
   }
 
   // RTK Query error with data from server
   if (err.data?.message) {
-    return { type: "auth", message: err.data.message };
+    return {
+      type: "auth",
+      message: err.data.message,
+    };
   }
 
   if (err.data?.errors && Array.isArray(err.data.errors)) {
@@ -50,23 +59,38 @@ function parseError(err: any): ParsedError {
       message: err.data?.message || "Invalid credentials",
     };
   }
+
   if (err.status === 404) {
-    return { type: "server", message: "Login service not found." };
-  }
-  if (err.status >= 500) {
-    return { type: "server", message: "Server error. Please try later." };
+    return {
+      type: "server",
+      message: "Login service not found.",
+    };
   }
 
-  return { type: "server", message: "Something went wrong. Please try again." };
+  if (err.status >= 500) {
+    return {
+      type: "server",
+      message: "Server error. Please try later.",
+    };
+  }
+
+  return {
+    type: "server",
+    message: "Something went wrong. Please try again.",
+  };
 }
 
 const errorIcons: Record<ErrorType, string> = {
   auth: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z",
+
   network:
     "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z",
+
   cors: "M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636",
+
   server:
     "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z",
+
   validation: "M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
 };
 
@@ -81,45 +105,224 @@ const errorTitles: Record<ErrorType, string> = {
 export default function LoginPage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
+
+  const authToken = useAppSelector((state) => state.auth.token);
+
+  const { data: sessionUser } = useGetMeQuery(undefined, {
+    skip: !authToken,
+  });
+
   const [login, { isLoading }] = useLoginMutation();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<ParsedError | null>(null);
   const [shake, setShake] = useState(false);
+  const [autoLoginLoading, setAutoLoginLoading] = useState(false);
 
+  /*
+   * Redirect if already authenticated
+   */
+  useEffect(() => {
+    if (authToken && sessionUser) {
+      router.replace("/dashboard");
+    }
+  }, [authToken, router, sessionUser]);
+
+  /*
+   * Load theme + remembered credentials
+   */
   useEffect(() => {
     const root = document.querySelector(".prm-auth-page");
+
     let theme = "light";
 
     try {
       const stored = localStorage.getItem("dashboard-theme");
+
       if (stored === "light" || stored === "dark") {
         theme = stored;
       } else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
         theme = "dark";
       }
     } catch (e) {
-      // ignore
+      // Ignore storage/theme errors
     }
 
     if (root) {
       root.setAttribute("data-theme", theme);
     }
 
-    const rememberedEmail = localStorage.getItem(REMEMBERED_EMAIL_KEY);
-    if (rememberedEmail) setEmail(rememberedEmail);
+    try {
+      const rememberedEmail = localStorage.getItem(REMEMBERED_EMAIL_KEY);
+
+      const rememberedPassword = localStorage.getItem(REMEMBERED_PASSWORD_KEY);
+
+      if (rememberedEmail) {
+        setEmail(rememberedEmail);
+      }
+
+      if (rememberedPassword) {
+        setPassword(rememberedPassword);
+      }
+    } catch (storageError) {
+      console.error(
+        "Failed to load remembered login credentials",
+        storageError,
+      );
+    }
   }, []);
 
-  // Trigger shake animation when error changes
+  /*
+   * AUTO LOGIN
+   *
+   * If credentials are already saved and there is no
+   * authentication token, automatically login.
+   */
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadRememberedCredentials = async () => {
+      if (authToken) {
+        return;
+      }
+
+      try {
+        const rememberedEmail = localStorage.getItem(REMEMBERED_EMAIL_KEY);
+
+        const rememberedPassword = localStorage.getItem(
+          REMEMBERED_PASSWORD_KEY,
+        );
+
+        if (!rememberedEmail || !rememberedPassword) {
+          return;
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        setEmail(rememberedEmail);
+        setPassword(rememberedPassword);
+        setAutoLoginLoading(true);
+
+        const response = await login({
+          email: rememberedEmail,
+          password: rememberedPassword,
+        });
+
+        if (cancelled) {
+          return;
+        }
+
+        /*
+         * Login failed
+         */
+        if ("error" in response) {
+          console.error("AUTO LOGIN ERROR:", response.error);
+
+          /*
+           * Remove only saved password.
+           * Email will remain remembered.
+           */
+          localStorage.removeItem(REMEMBERED_PASSWORD_KEY);
+
+          setAutoLoginLoading(false);
+
+          return;
+        }
+
+        const result = response.data;
+
+        /*
+         * Invalid API response
+         */
+        if (!result?.success || !result?.data) {
+          localStorage.removeItem(REMEMBERED_PASSWORD_KEY);
+
+          setAutoLoginLoading(false);
+
+          return;
+        }
+
+        const user = result.data.user;
+
+        const accessToken = result.data.tokens?.accessToken;
+
+        const refreshToken = result.data.tokens?.refreshToken;
+
+        /*
+         * Make sure authentication data exists
+         */
+        if (
+          !user ||
+          typeof accessToken !== "string" ||
+          !accessToken ||
+          typeof refreshToken !== "string" ||
+          !refreshToken
+        ) {
+          console.error("Invalid auto-login response:", result);
+
+          localStorage.removeItem(REMEMBERED_PASSWORD_KEY);
+
+          setAutoLoginLoading(false);
+
+          return;
+        }
+
+        /*
+         * Save authentication credentials to Redux
+         */
+        dispatch(
+          setCredentials({
+            user,
+            token: accessToken,
+            refreshToken,
+          }),
+        );
+
+        setAutoLoginLoading(false);
+
+        /*
+         * Go directly to dashboard
+         */
+        router.replace("/dashboard");
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        console.error("AUTO LOGIN EXCEPTION:", error);
+
+        setAutoLoginLoading(false);
+      }
+    };
+
+    loadRememberedCredentials();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authToken, dispatch, login, router]);
+
+  /*
+   * Trigger shake animation when error changes
+   */
   useEffect(() => {
     if (error) {
       setShake(true);
-      const t = setTimeout(() => setShake(false), 500);
+
+      const t = setTimeout(() => {
+        setShake(false);
+      }, 500);
+
       return () => clearTimeout(t);
     }
   }, [error]);
 
+  /*
+   * Manual login
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -131,6 +334,7 @@ export default function LoginPage() {
         type: "validation",
         message: "Please fill in all fields",
       });
+
       return;
     }
 
@@ -140,11 +344,14 @@ export default function LoginPage() {
         password,
       });
 
-      // RTK Query error response
+      /*
+       * RTK Query error response
+       */
       if ("error" in response) {
         console.error("LOGIN ERROR:", response.error);
 
         setError(parseError(response.error));
+
         return;
       }
 
@@ -172,36 +379,59 @@ export default function LoginPage() {
           type: "server",
           message: result?.message || "Login failed",
         });
+
         return;
       }
 
       const user = result.data.user;
+
       const accessToken = result.data.tokens?.accessToken;
+
       const refreshToken = result.data.tokens?.refreshToken;
 
-      // Make sure required authentication data exists
-      if (!user || !accessToken) {
+      /*
+       * Make sure required authentication data exists
+       */
+      if (
+        !user ||
+        typeof accessToken !== "string" ||
+        !accessToken ||
+        typeof refreshToken !== "string" ||
+        !refreshToken
+      ) {
         console.error("Invalid login response:", result);
 
         setError({
           type: "server",
-          message: "Login response is missing authentication data.",
+          message: !refreshToken
+            ? "Your server did not provide a session refresh token. Please contact support."
+            : "Login response is missing authentication data.",
         });
 
         return;
       }
 
-      // Save credentials to Redux
+      /*
+       * Save credentials to Redux
+       */
       dispatch(
         setCredentials({
           user,
           token: accessToken,
-          refreshToken: refreshToken ?? null,
+          refreshToken,
         }),
       );
+
+      /*
+       * Remember login credentials
+       */
       localStorage.setItem(REMEMBERED_EMAIL_KEY, email.trim());
 
-      // Redirect after successful login
+      localStorage.setItem(REMEMBERED_PASSWORD_KEY, password);
+
+      /*
+       * Redirect after successful login
+       */
       router.push("/dashboard");
     } catch (err: unknown) {
       console.error("LOGIN EXCEPTION:", err);
@@ -216,39 +446,95 @@ export default function LoginPage() {
     <>
       <style>{`
         @keyframes prm-fadeInUp {
-          from { opacity: 0; transform: translateY(24px); }
-          to { opacity: 1; transform: translateY(0); }
+          from {
+            opacity: 0;
+            transform: translateY(24px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
+
         @keyframes prm-fadeInDown {
-          from { opacity: 0; transform: translateY(-20px); }
-          to { opacity: 1; transform: translateY(0); }
+          from {
+            opacity: 0;
+            transform: translateY(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
+
         @keyframes prm-shake {
-          0%, 100% { transform: translateX(0); }
-          20% { transform: translateX(-6px); }
-          40% { transform: translateX(6px); }
-          60% { transform: translateX(-3px); }
-          80% { transform: translateX(3px); }
+          0%, 100% {
+            transform: translateX(0);
+          }
+          20% {
+            transform: translateX(-6px);
+          }
+          40% {
+            transform: translateX(6px);
+          }
+          60% {
+            transform: translateX(-3px);
+          }
+          80% {
+            transform: translateX(3px);
+          }
         }
+
         @keyframes prm-spin {
-          to { transform: rotate(360deg); }
+          to {
+            transform: rotate(360deg);
+          }
         }
+
         @keyframes prm-meshDrift {
-          0%, 100% { transform: translate(0, 0) scale(1); }
-          33% { transform: translate(40px, -30px) scale(1.08); }
-          66% { transform: translate(-20px, 20px) scale(0.95); }
+          0%, 100% {
+            transform: translate(0, 0) scale(1);
+          }
+
+          33% {
+            transform: translate(40px, -30px) scale(1.08);
+          }
+
+          66% {
+            transform: translate(-20px, 20px) scale(0.95);
+          }
         }
+
         @keyframes prm-orbFloat {
-          0%, 100% { transform: translate(0, 0); }
-          50% { transform: translate(-20px, 30px); }
+          0%, 100% {
+            transform: translate(0, 0);
+          }
+
+          50% {
+            transform: translate(-20px, 30px);
+          }
         }
+
         @keyframes prm-shimmer {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(100%); }
+          0% {
+            transform: translateX(-100%);
+          }
+
+          100% {
+            transform: translateX(100%);
+          }
         }
+
         @keyframes prm-slideDown {
-          from { opacity: 0; transform: translateY(-8px) scale(0.98); }
-          to { opacity: 1; transform: translateY(0) scale(1); }
+          from {
+            opacity: 0;
+            transform: translateY(-8px) scale(0.98);
+          }
+
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
         }
 
         .prm-auth-page {
@@ -271,7 +557,13 @@ export default function LoginPage() {
           justify-content: center;
           background: var(--auth-page-bg);
           color: var(--auth-text);
-          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          font-family:
+            'Inter',
+            -apple-system,
+            BlinkMacSystemFont,
+            'Segoe UI',
+            Roboto,
+            sans-serif;
           position: relative;
           overflow: hidden;
           padding: 24px;
@@ -297,9 +589,21 @@ export default function LoginPage() {
           position: fixed;
           inset: 0;
           background:
-            radial-gradient(ellipse at 15% 20%, rgba(99, 102, 241, 0.12) 0%, transparent 55%),
-            radial-gradient(ellipse at 85% 80%, rgba(192, 132, 252, 0.08) 0%, transparent 55%),
-            radial-gradient(ellipse at 50% 50%, rgba(99, 102, 241, 0.04) 0%, transparent 70%);
+            radial-gradient(
+              ellipse at 15% 20%,
+              rgba(99, 102, 241, 0.12) 0%,
+              transparent 55%
+            ),
+            radial-gradient(
+              ellipse at 85% 80%,
+              rgba(192, 132, 252, 0.08) 0%,
+              transparent 55%
+            ),
+            radial-gradient(
+              ellipse at 50% 50%,
+              rgba(99, 102, 241, 0.04) 0%,
+              transparent 70%
+            );
           animation: prm-meshDrift 18s ease-in-out infinite;
           pointer-events: none;
           z-index: 0;
@@ -310,7 +614,12 @@ export default function LoginPage() {
           width: 500px;
           height: 500px;
           border-radius: 50%;
-          background: linear-gradient(135deg, rgba(99, 102, 241, 0.06), rgba(192, 132, 252, 0.04));
+          background:
+            linear-gradient(
+              135deg,
+              rgba(99, 102, 241, 0.06),
+              rgba(192, 132, 252, 0.04)
+            );
           filter: blur(90px);
           top: -150px;
           right: -150px;
@@ -337,7 +646,12 @@ export default function LoginPage() {
           font-weight: 800;
           margin: 0 0 0.375rem 0;
           letter-spacing: -0.03em;
-          background: linear-gradient(135deg, #f8fafc 0%, #c4b5fd 100%);
+          background:
+            linear-gradient(
+              135deg,
+              #f8fafc 0%,
+              #c4b5fd 100%
+            );
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
@@ -372,15 +686,24 @@ export default function LoginPage() {
           inset: 0;
           border-radius: 20px;
           padding: 1px;
-          background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(192, 132, 252, 0.08), transparent 65%);
-          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-          mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          background:
+            linear-gradient(
+              135deg,
+              rgba(99, 102, 241, 0.25),
+              rgba(192, 132, 252, 0.08),
+              transparent 65%
+            );
+          -webkit-mask:
+            linear-gradient(#fff 0 0) content-box,
+            linear-gradient(#fff 0 0);
+          mask:
+            linear-gradient(#fff 0 0) content-box,
+            linear-gradient(#fff 0 0);
           -webkit-mask-composite: xor;
           mask-composite: exclude;
           pointer-events: none;
         }
 
-        /* ===== ERROR BANNER ===== */
         .prm-auth-error {
           background: var(--auth-error-bg);
           border: 1px solid var(--auth-error-border);
@@ -402,12 +725,19 @@ export default function LoginPage() {
           top: 0;
           bottom: 0;
           width: 3px;
-          background: linear-gradient(180deg, #f43f5e, #e11d48);
+          background:
+            linear-gradient(
+              180deg,
+              #f43f5e,
+              #e11d48
+            );
           border-radius: 14px 0 0 14px;
         }
 
         .prm-auth-error-shake {
-          animation: prm-slideDown 0.35s ease-out, prm-shake 0.5s ease-in-out;
+          animation:
+            prm-slideDown 0.35s ease-out,
+            prm-shake 0.5s ease-in-out;
         }
 
         .prm-auth-error-icon-wrap {
@@ -467,7 +797,6 @@ export default function LoginPage() {
           color: #f43f5e;
         }
 
-        /* ===== FIELD ERROR STATE ===== */
         .prm-auth-field {
           position: relative;
           margin-bottom: 1rem;
@@ -477,17 +806,22 @@ export default function LoginPage() {
           margin-bottom: 1.5rem;
         }
 
-        .prm-auth-field.prm-field-error .prm-auth-input {
+        .prm-auth-field.prm-field-error
+          .prm-auth-input {
           border-color: rgba(244, 63, 94, 0.4);
           background: rgba(244, 63, 94, 0.03);
         }
 
-        .prm-auth-field.prm-field-error .prm-auth-input:focus {
+        .prm-auth-field.prm-field-error
+          .prm-auth-input:focus {
           border-color: rgba(244, 63, 94, 0.6);
-          box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.08), 0 0 20px rgba(244, 63, 94, 0.06);
+          box-shadow:
+            0 0 0 3px rgba(244, 63, 94, 0.08),
+            0 0 20px rgba(244, 63, 94, 0.06);
         }
 
-        .prm-auth-field.prm-field-error .prm-auth-field-icon {
+        .prm-auth-field.prm-field-error
+          .prm-auth-field-icon {
           color: #f43f5e;
         }
 
@@ -515,17 +849,13 @@ export default function LoginPage() {
           z-index: 2;
         }
 
-        .prm-auth-footer {
-          text-align: center;
-          margin-top: 1.75rem;
-          font-size: 0.8125rem;
-          color: var(--auth-muted);
-          animation: prm-fadeInUp 0.6s ease-out 0.16s both;
-        }
-
         .prm-auth-input {
           width: 100%;
-          padding: 0.875rem 1rem 0.875rem 3rem;
+          padding:
+            0.875rem
+            1rem
+            0.875rem
+            3rem;
           background: var(--auth-input-bg);
           border: 1px solid var(--auth-input-border);
           border-radius: 12px;
@@ -550,17 +880,25 @@ export default function LoginPage() {
         .prm-auth-input:focus {
           border-color: rgba(99, 102, 241, 0.5);
           background: rgba(99, 102, 241, 0.03);
-          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1), 0 0 24px rgba(99, 102, 241, 0.08);
+          box-shadow:
+            0 0 0 3px rgba(99, 102, 241, 0.1),
+            0 0 24px rgba(99, 102, 241, 0.08);
         }
 
-        .prm-auth-field:focus-within .prm-auth-field-icon {
+        .prm-auth-field:focus-within
+          .prm-auth-field-icon {
           color: #818cf8;
         }
 
         .prm-auth-submit {
           width: 100%;
           padding: 0.875rem 1.5rem;
-          background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+          background:
+            linear-gradient(
+              135deg,
+              #6366f1 0%,
+              #a855f7 100%
+            );
           border: none;
           border-radius: 12px;
           color: #ffffff;
@@ -575,7 +913,8 @@ export default function LoginPage() {
           align-items: center;
           justify-content: center;
           gap: 0.5rem;
-          box-shadow: 0 4px 18px rgba(99, 102, 241, 0.35);
+          box-shadow:
+            0 4px 18px rgba(99, 102, 241, 0.35);
           font-family: inherit;
         }
 
@@ -583,13 +922,20 @@ export default function LoginPage() {
           content: '';
           position: absolute;
           inset: 0;
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+          background:
+            linear-gradient(
+              90deg,
+              transparent,
+              rgba(255, 255, 255, 0.18),
+              transparent
+            );
           transform: translateX(-100%);
         }
 
         .prm-auth-submit:hover {
           transform: translateY(-2px);
-          box-shadow: 0 8px 28px rgba(99, 102, 241, 0.45);
+          box-shadow:
+            0 8px 28px rgba(99, 102, 241, 0.45);
         }
 
         .prm-auth-submit:hover::after {
@@ -598,7 +944,8 @@ export default function LoginPage() {
 
         .prm-auth-submit:active {
           transform: translateY(0);
-          box-shadow: 0 2px 10px rgba(99, 102, 241, 0.3);
+          box-shadow:
+            0 2px 10px rgba(99, 102, 241, 0.3);
         }
 
         .prm-auth-submit:disabled {
@@ -631,21 +978,41 @@ export default function LoginPage() {
         .prm-auth-footer-line {
           width: 48px;
           height: 1px;
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+          background:
+            linear-gradient(
+              90deg,
+              transparent,
+              rgba(255, 255, 255, 0.08),
+              transparent
+            );
           margin: 0 auto 0.875rem;
         }
 
         @media (max-width: 480px) {
-          .prm-auth-page { padding: 16px; }
-          .prm-auth-card { padding: 1.75rem; border-radius: 16px; }
-          .prm-auth-logo h1 { font-size: 1.75rem; }
+          .prm-auth-page {
+            padding: 16px;
+          }
+
+          .prm-auth-card {
+            padding: 1.75rem;
+            border-radius: 16px;
+          }
+
+          .prm-auth-logo h1 {
+            font-size: 1.75rem;
+          }
         }
 
         @media (prefers-reduced-motion: reduce) {
-          .prm-auth-logo, .prm-auth-card, .prm-auth-footer, .prm-auth-error {
+          .prm-auth-logo,
+          .prm-auth-card,
+          .prm-auth-footer,
+          .prm-auth-error {
             animation: none;
           }
-          .prm-auth-page::before, .prm-auth-orb {
+
+          .prm-auth-page::before,
+          .prm-auth-orb {
             animation: none;
           }
         }
@@ -653,17 +1020,25 @@ export default function LoginPage() {
 
       <div className="prm-auth-page">
         <div className="prm-auth-orb" />
+
         <div className="prm-auth-wrap">
           <div className="prm-auth-logo">
             <h1>{process.env.NEXT_PUBLIC_STORE_NAME || "Store"}</h1>
-            <p>Sign in to your dashboard</p>
+
+            <p>
+              {autoLoginLoading
+                ? "Signing you in..."
+                : "Sign in to your dashboard"}
+            </p>
           </div>
 
           <div className="prm-auth-card">
             <form onSubmit={handleSubmit} autoComplete="on">
               {error && (
                 <div
-                  className={`prm-auth-error ${shake ? "prm-auth-error-shake" : ""}`}
+                  className={`prm-auth-error ${
+                    shake ? "prm-auth-error-shake" : ""
+                  }`}
                 >
                   <div className="prm-auth-error-icon-wrap">
                     <svg
@@ -678,12 +1053,15 @@ export default function LoginPage() {
                       <path d={errorIcons[error.type]} />
                     </svg>
                   </div>
+
                   <div className="prm-auth-error-body">
                     <p className="prm-auth-error-title">
                       {errorTitles[error.type]}
                     </p>
+
                     <p className="prm-auth-error-msg">{error.message}</p>
                   </div>
+
                   <button
                     type="button"
                     className="prm-auth-error-close"
@@ -701,6 +1079,7 @@ export default function LoginPage() {
                       strokeLinejoin="round"
                     >
                       <line x1="18" y1="6" x2="6" y2="18" />
+
                       <line x1="6" y1="6" x2="18" y2="18" />
                     </svg>
                   </button>
@@ -708,7 +1087,9 @@ export default function LoginPage() {
               )}
 
               <div
-                className={`prm-auth-field ${hasFieldError ? "prm-field-error" : ""}`}
+                className={`prm-auth-field ${
+                  hasFieldError ? "prm-field-error" : ""
+                }`}
               >
                 <svg
                   className="prm-auth-field-icon"
@@ -720,8 +1101,10 @@ export default function LoginPage() {
                   strokeLinejoin="round"
                 >
                   <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+
                   <polyline points="22,6 12,13 2,6" />
                 </svg>
+
                 <input
                   type="email"
                   className="prm-auth-input"
@@ -730,15 +1113,22 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
-                    if (error?.type === "validation" || error?.type === "auth")
+
+                    if (
+                      error?.type === "validation" ||
+                      error?.type === "auth"
+                    ) {
                       setError(null);
+                    }
                   }}
                   required
                 />
               </div>
 
               <div
-                className={`prm-auth-field ${hasFieldError ? "prm-field-error" : ""}`}
+                className={`prm-auth-field ${
+                  hasFieldError ? "prm-field-error" : ""
+                }`}
               >
                 <svg
                   className="prm-auth-field-icon"
@@ -750,8 +1140,10 @@ export default function LoginPage() {
                   strokeLinejoin="round"
                 >
                   <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+
                   <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                 </svg>
+
                 <input
                   type="password"
                   className="prm-auth-input"
@@ -760,12 +1152,18 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
-                    if (error?.type === "validation" || error?.type === "auth")
+
+                    if (
+                      error?.type === "validation" ||
+                      error?.type === "auth"
+                    ) {
                       setError(null);
+                    }
                   }}
                   required
                 />
-                {hasFieldError && (
+
+                {hasFieldError && error && (
                   <div className="prm-auth-field-error-text">
                     <svg
                       width="12"
@@ -778,9 +1176,12 @@ export default function LoginPage() {
                       strokeLinejoin="round"
                     >
                       <circle cx="12" cy="12" r="10" />
+
                       <line x1="12" y1="8" x2="12" y2="12" />
+
                       <line x1="12" y1="16" x2="12.01" y2="16" />
                     </svg>
+
                     {error.message}
                   </div>
                 )}
@@ -789,15 +1190,20 @@ export default function LoginPage() {
               <button
                 type="submit"
                 className="prm-auth-submit"
-                disabled={isLoading}
+                disabled={isLoading || autoLoginLoading}
               >
-                {isLoading ? (
+                {isLoading || autoLoginLoading ? (
                   <>
                     <span
                       className="prm-auth-spinner"
-                      style={{ width: 18, height: 18, borderWidth: 2 }}
+                      style={{
+                        width: 18,
+                        height: 18,
+                        borderWidth: 2,
+                      }}
                     />
-                    Signing in...
+
+                    {autoLoginLoading ? "Signing in..." : "Signing in..."}
                   </>
                 ) : (
                   "Sign In"

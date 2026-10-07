@@ -3,14 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  Grid2X2,
-  Headset,
-  Menu,
-  Search,
-  ShoppingBag,
-  X,
-} from "lucide-react";
+import { Grid2X2, Headset, Menu, Search, ShoppingBag, X } from "lucide-react";
 import type { PublicSettings } from "@/store/publicApi";
 import type { Category } from "@/store/categoryApi";
 import { useAppSelector } from "@/store/hooks";
@@ -45,6 +38,7 @@ export const Header: React.FC<HeaderProps> = ({
     settings?.branding?.logo ||
     settings?.store?.logoUrl ||
     settings?.store?.logo;
+
   const email = settings?.contact?.email;
   const phone = settings?.contact?.phone;
   const announcement = settings?.store?.announcement;
@@ -95,13 +89,21 @@ export const Header: React.FC<HeaderProps> = ({
           {announcement && (
             <span className="store-utility-announcement">{announcement}</span>
           )}
-          {phone ? <a href={`tel:${phone}`}>Phone: {phone}</a> : <span>Free delivery on selected orders</span>}
+          {phone ? (
+            <a href={`tel:${phone}`}>Phone: {phone}</a>
+          ) : (
+            <span>Free delivery on selected orders</span>
+          )}
         </div>
       </div>
 
       <div className="store-main-header">
         <div className="store-header-inner store-main-header-inner">
-          <Link href="/" className="store-brand" aria-label={`${storeName} home`}>
+          <Link
+            href="/"
+            className="store-brand"
+            aria-label={`${storeName} home`}
+          >
             {logo ? (
               <img src={logo} alt={storeName} />
             ) : (

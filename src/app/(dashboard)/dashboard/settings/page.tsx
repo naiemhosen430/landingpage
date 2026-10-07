@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
 import { Input, Select, TextArea } from "@/components/ui/FormControls";
+import { notifyToast } from "@/lib/toast";
+import { useUploadMediaMutation } from "@/store/mediaApi";
 import {
+  BrandingImage,
   SettingsData,
   useGetSettingsQuery,
   useUpdateBrandingMutation,
@@ -12,7 +15,7 @@ import {
 
 const emptySettings: SettingsData = {
   store: {
-    currency: "USD",
+    currency: "BDT",
     timezone: "UTC",
     language: "en",
     taxRate: 0,
@@ -41,10 +44,6 @@ type DraftSocial = {
   accessToken: string;
 };
 
-function errorMessage(error: any, fallback: string) {
-  return error?.data?.message ?? error?.data?.errors?.[0] ?? fallback;
-}
-
 export default function SettingsPage() {
   const { data: response, isLoading } = useGetSettingsQuery(undefined);
   const [updateStore, { isLoading: savingStore }] =
@@ -53,6 +52,8 @@ export default function SettingsPage() {
     useUpdateBrandingMutation();
   const [updateContact, { isLoading: savingContact }] =
     useUpdateContactMutation();
+  const [uploadMedia, { isLoading: uploadingMedia }] =
+    useUploadMediaMutation();
   const settings = response?.data ?? emptySettings;
 
   const [store, setStore] = useState(settings.store);
@@ -75,8 +76,6 @@ export default function SettingsPage() {
       accessToken: settings.store.socialTracking?.tiktok?.accessToken ?? "",
     },
   });
-  const [notice, setNotice] = useState("");
-
   useEffect(() => {
     setStore(settings.store);
     setBranding(settings.branding);
@@ -99,46 +98,32 @@ export default function SettingsPage() {
     });
   }, [response]);
 
-  const save = async (
-    operation: () => Promise<unknown>,
-    success: string,
-    failure: string,
-  ) => {
-    try {
-      await operation();
-      setNotice(success);
-      window.setTimeout(() => setNotice(""), 3000);
-    } catch (error) {
-      alert(errorMessage(error, failure));
-    }
-  };
+  const save = (operation: () => Promise<unknown>) =>
+    operation().catch(() => undefined);
 
   const saveStore = () =>
-    save(
-      () =>
-        updateStore({
-          ...store,
-          socialTracking: {
-            facebook: {
-              enabled: social.facebook.enabled,
-              pixelId: social.facebook.pixelId,
-              testEventCode: social.facebook.testEventCode,
-              ...(social.facebook.accessToken
-                ? { accessToken: social.facebook.accessToken }
-                : {}),
-            },
-            tiktok: {
-              enabled: social.tiktok.enabled,
-              pixelId: social.tiktok.pixelId,
-              testEventCode: social.tiktok.testEventCode,
-              ...(social.tiktok.accessToken
-                ? { accessToken: social.tiktok.accessToken }
-                : {}),
-            },
+    save(() =>
+      updateStore({
+        ...store,
+        socialTracking: {
+          facebook: {
+            enabled: social.facebook.enabled,
+            pixelId: social.facebook.pixelId,
+            testEventCode: social.facebook.testEventCode,
+            ...(social.facebook.accessToken
+              ? { accessToken: social.facebook.accessToken }
+              : {}),
           },
-        }).unwrap(),
-      "Store settings saved",
-      "Failed to save store settings",
+          tiktok: {
+            enabled: social.tiktok.enabled,
+            pixelId: social.tiktok.pixelId,
+            testEventCode: social.tiktok.testEventCode,
+            ...(social.tiktok.accessToken
+              ? { accessToken: social.tiktok.accessToken }
+              : {}),
+          },
+        },
+      }).unwrap(),
     );
 
   const saveBranding = () => {
@@ -146,22 +131,66 @@ export default function SettingsPage() {
       !/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(branding.primaryColor) ||
       !/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(branding.secondaryColor)
     ) {
-      alert("Brand colors must be valid 3 or 6 digit hex colors.");
+      notifyToast("Brand colors must be valid 3 or 6 digit hex colors.", "error");
       return;
     }
-    return save(
-      () => updateBranding(branding).unwrap(),
-      "Branding settings saved",
-      "Failed to save branding settings",
-    );
+    return save(() => updateBranding(branding).unwrap());
   };
 
   const saveContact = () =>
-    save(
-      () => updateContact(contact).unwrap(),
-      "Contact settings saved",
-      "Failed to save contact settings",
-    );
+    save(() => updateContact(contact).unwrap());
+
+  const uploadBrandingImage = async (
+    event: ChangeEvent<HTMLInputElement>,
+    field: "logo" | "favicon",
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+      notifyToast("Choose a PNG, JPG, or WEBP image.", "error");
+      event.target.value = "";
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      notifyToast("Branding images must be 5 MB or smaller.", "error");
+      event.target.value = "";
+      return;
+    }
+
+    try {
+      const dataUri = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () =>
+          typeof reader.result === "string"
+            ? resolve(reader.result)
+            : reject(new Error("Could not read the selected image."));
+        reader.onerror = () =>
+          reject(reader.error ?? new Error("Could not read the selected image."));
+        reader.readAsDataURL(file);
+      });
+      const result = await uploadMedia({
+        folder: "branding",
+        images: [dataUri],
+      }).unwrap();
+      const asset = Array.isArray(result) ? result[0] : result;
+      if (!asset?.publicId || !(asset.secureUrl || asset.url)) {
+        throw new Error("The uploaded image did not return a usable URL.");
+      }
+      const image: BrandingImage = {
+        publicId: asset.publicId,
+        url: asset.url || asset.secureUrl,
+        secureUrl: asset.secureUrl || asset.url,
+        width: asset.width,
+        height: asset.height,
+        format: asset.format,
+      };
+      setBranding((current) => ({ ...current, [field]: image }));
+    } catch (error) {
+      if (error instanceof Error) notifyToast(error.message, "error");
+    } finally {
+      event.target.value = "";
+    }
+  };
   const updateAddress = (field: string, value: string) =>
     setContact((current) => ({
       ...current,
@@ -190,7 +219,6 @@ export default function SettingsPage() {
             Manage store behavior, branding, and customer contact details.
           </p>
         </div>
-        {notice && <div className="settings-save-status">{notice}</div>}
       </div>
 
       <div className="settings-layout">
@@ -213,10 +241,7 @@ export default function SettingsPage() {
                   setStore({ ...store, currency: event.target.value })
                 }
               >
-                <option>USD</option>
                 <option>BDT</option>
-                <option>EUR</option>
-                <option>GBP</option>
               </Select>
               <Input
                 label="Language"
@@ -413,6 +438,53 @@ export default function SettingsPage() {
                 }
                 placeholder="Inter"
               />
+            </div>
+            <div className="settings-brand-assets">
+              {(["logo", "favicon"] as const).map((field) => {
+                const image = branding[field];
+                const imageUrl = image?.secureUrl || image?.url;
+                const label = field === "logo" ? "Store logo" : "Website favicon";
+                return (
+                  <div className="settings-brand-asset" key={field}>
+                    <div>
+                      <h3>{label}</h3>
+                      <p>
+                        {field === "logo"
+                          ? "Shown in your storefront header and footer."
+                          : "Shown in browser tabs and bookmarks."}
+                      </p>
+                    </div>
+                    {imageUrl && (
+                      <img src={imageUrl} alt={`${label} preview`} />
+                    )}
+                    <label className="btn btn-secondary">
+                      {uploadingMedia ? "Uploading..." : `Upload ${field}`}
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        disabled={uploadingMedia}
+                        onChange={(event) =>
+                          uploadBrandingImage(event, field)
+                        }
+                      />
+                    </label>
+                    {image && (
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() =>
+                          setBranding((current) => ({
+                            ...current,
+                            [field]: null,
+                          }))
+                        }
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
             <TextArea
               label="Custom CSS"

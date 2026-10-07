@@ -18,6 +18,7 @@ interface PackagePurchaseModalProps {
   open: boolean;
   plan: any;
   paymentMethods: PaymentMethod[];
+  user?: Record<string, any> | null;
   projectId?: string;
   submitting?: boolean;
   mode?: "purchase" | "renew";
@@ -29,6 +30,7 @@ export default function PackagePurchaseModal({
   open,
   plan,
   paymentMethods,
+  user,
   projectId,
   submitting = false,
   mode = "purchase",
@@ -37,18 +39,30 @@ export default function PackagePurchaseModal({
 }: PackagePurchaseModalProps) {
   const [paymentMethod, setPaymentMethod] = useState("bank_transfer");
   const [transactionId, setTransactionId] = useState("");
-  const [senderName, setSenderName] = useState("");
-  const [senderPhone, setSenderPhone] = useState("");
-  const [senderEmail, setSenderEmail] = useState("");
-  const [senderAddress, setSenderAddress] = useState("");
   const [note, setNote] = useState("");
 
   if (!open || !plan) return null;
 
+  const profile = user?.data ?? user;
+  const senderName =
+    typeof profile?.name === "string"
+      ? profile.name
+      : typeof profile?.fullName === "string"
+        ? profile.fullName
+        : "";
+  const senderEmail =
+    typeof profile?.email === "string" ? profile.email : "";
+  const senderPhone =
+    typeof profile?.phone === "string"
+      ? profile.phone
+      : typeof profile?.phoneNumber === "string"
+        ? profile.phoneNumber
+        : "";
+  const senderAddress =
+    typeof profile?.address === "string" ? profile.address : "";
   const selectedMethod = paymentMethods.find(
     (method) => method.code === paymentMethod,
   );
-  const isWallet = ["bkash", "nagad", "rocket"].includes(paymentMethod);
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -170,45 +184,21 @@ export default function PackagePurchaseModal({
           </section>
           <section className="package-modal-section">
             <div className="package-modal-section-title">
-              03 / Sender information
+              03 / Your account information
             </div>
-            <div className="package-modal-grid">
-              <label>
-                Sender name
-                <input
-                  value={senderName}
-                  onChange={(event) => setSenderName(event.target.value)}
-                  required
-                />
-              </label>
-              <label>
-                Sender phone
-                <input
-                  value={senderPhone}
-                  onChange={(event) => setSenderPhone(event.target.value)}
-                  required
-                />
-              </label>
-              <label>
-                Sender email
-                <input
-                  type="email"
-                  value={senderEmail}
-                  onChange={(event) => setSenderEmail(event.target.value)}
-                  required
-                />
-              </label>
+            <div className="payment-method-details">
+              {senderName && <span>Name: {senderName}</span>}
+              {senderEmail && <span>Email: {senderEmail}</span>}
+              {senderPhone && <span>Phone: {senderPhone}</span>}
+              {senderAddress && <span>Address: {senderAddress}</span>}
+              {!senderName && !senderEmail && !senderPhone && !senderAddress && (
+                <span>
+                  Account details are unavailable. Update your profile if needed.
+                </span>
+              )}
             </div>
             <label>
-              Sender address
-              <input
-                value={senderAddress}
-                onChange={(event) => setSenderAddress(event.target.value)}
-                required
-              />
-            </label>
-            <label>
-              Note
+              Note (optional)
               <textarea
                 value={note}
                 onChange={(event) => setNote(event.target.value)}
@@ -216,11 +206,6 @@ export default function PackagePurchaseModal({
               />
             </label>
           </section>
-          <small className="package-modal-warning">
-            {isWallet
-              ? "Use the receiving wallet details above, then enter the transaction ID."
-              : "Never enter card CVV, PIN, passwords, or other payment authentication secrets."}
-          </small>
         </div>
         <div className="modal-actions">
           <button type="button" className="btn btn-ghost" onClick={onClose}>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   PaymentMethod,
   PaymentMethodInput,
@@ -19,6 +19,66 @@ const emptyForm: PaymentMethodInput = {
   isActive: true,
   sortOrder: 0,
 };
+
+const PAYMENT_PRESETS = [
+  { code: "cod", name: "Cash on Delivery", detailFields: [] },
+  {
+    code: "bkash",
+    name: "bKash",
+    detailFields: [
+      { key: "accountNumber", label: "bKash account number" },
+      { key: "accountName", label: "Account holder name" },
+      { key: "accountType", label: "Account type (Personal/Merchant)" },
+    ],
+  },
+  {
+    code: "nagad",
+    name: "Nagad",
+    detailFields: [
+      { key: "accountNumber", label: "Nagad account number" },
+      { key: "accountName", label: "Account holder name" },
+      { key: "accountType", label: "Account type (Personal/Merchant)" },
+    ],
+  },
+  {
+    code: "rocket",
+    name: "Rocket",
+    detailFields: [
+      { key: "accountNumber", label: "Rocket account number" },
+      { key: "accountName", label: "Account holder name" },
+      { key: "accountType", label: "Account type (Personal/Agent)" },
+    ],
+  },
+  {
+    code: "bank_transfer",
+    name: "Bank Transfer",
+    detailFields: [
+      { key: "bankName", label: "Bank name" },
+      { key: "accountName", label: "Account holder name" },
+      { key: "accountNumber", label: "Account number" },
+      { key: "branch", label: "Branch" },
+      { key: "routingNumber", label: "Routing number" },
+    ],
+  },
+  { code: "custom", name: "Other payment method", detailFields: [] },
+] as const;
+
+type PaymentDetailField = { key: string; label: string; value: string };
+
+function labelFromDetailKey(key: string) {
+  return key
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/[_-]/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function detailRowsFromMap(details?: Record<string, string>) {
+  return Object.entries(details ?? {}).map(([key, value]) => ({
+    key,
+    label: labelFromDetailKey(key),
+    value,
+  }));
+}
 
 function getErrorMessage(error: any) {
   return error?.data?.message || "The payment method request failed.";
@@ -39,7 +99,7 @@ export default function PaymentMethodsPage() {
   const [form, setForm] = useState<PaymentMethodInput>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
-  const [detailsText, setDetailsText] = useState("{}");
+  const [detailFields, setDetailFields] = useState<PaymentDetailField[]>([]);
   const [error, setError] = useState("");
 
   const isSaving = isCreating || isUpdating;
@@ -57,7 +117,22 @@ export default function PaymentMethodsPage() {
         isActive: method.isActive,
         sortOrder: method.sortOrder ?? 0,
       });
-      setDetailsText(JSON.stringify(method.details ?? {}, null, 2));
+      const preset = PAYMENT_PRESETS.find((item) => item.code === method.code);
+      const existingRows = detailRowsFromMap(method.details);
+      if (preset && preset.detailFields.length) {
+        const presetKeys = new Set<string>(
+          preset.detailFields.map((field) => field.key),
+        );
+        setDetailFields([
+          ...preset.detailFields.map((field) => ({
+            ...field,
+            value: method.details?.[field.key] ?? "",
+          })),
+          ...existingRows.filter((row) => !presetKeys.has(row.key)),
+        ]);
+      } else {
+        setDetailFields(existingRows);
+      }
     }
   }, [editingId, methods]);
 
@@ -65,7 +140,7 @@ export default function PaymentMethodsPage() {
     setFormOpen(false);
     setEditingId(null);
     setForm({ ...emptyForm, details: {} });
-    setDetailsText("{}");
+    setDetailFields([]);
     setError("");
   };
 
@@ -73,7 +148,7 @@ export default function PaymentMethodsPage() {
     setFormOpen(true);
     setEditingId(null);
     setForm({ ...emptyForm, details: {} });
-    setDetailsText("{}");
+    setDetailFields([]);
     setError("");
   };
 
@@ -81,17 +156,27 @@ export default function PaymentMethodsPage() {
     event.preventDefault();
     setError("");
 
-    let details: Record<string, string> = {};
-    try {
-      const parsed = JSON.parse(detailsText || "{}");
-      if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") {
-        throw new Error("Details must be a JSON object.");
-      }
-      details = parsed;
-    } catch {
-      setError("Details must be valid JSON in key/value object format.");
+    const presetKeys = new Set<string>(
+      selectedPreset?.detailFields.map((field) => field.key) ?? [],
+    );
+    const detailsEntries = detailFields
+      .map(({ key, label, value }) => ({
+        key: presetKeys.has(key)
+          ? key
+          : label.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_"),
+        value: value.trim(),
+      }))
+      .filter((field) => field.key && field.value);
+    if (
+      new Set(detailsEntries.map((field) => field.key)).size !==
+      detailsEntries.length
+    ) {
+      setError("Each payment detail must have a different label.");
       return;
     }
+    const details: Record<string, string> = Object.fromEntries(
+      detailsEntries.map(({ key, value }) => [key, value] as const),
+    );
 
     const payload = { ...form, code: form.code.trim().toLowerCase(), details };
     try {
@@ -128,6 +213,25 @@ export default function PaymentMethodsPage() {
     value: PaymentMethodInput[K],
   ) => setForm((current) => ({ ...current, [field]: value }));
 
+  const selectedPreset = useMemo(
+    () => PAYMENT_PRESETS.find((preset) => preset.code === form.code),
+    [form.code],
+  );
+
+  const selectPreset = (code: string) => {
+    const preset = PAYMENT_PRESETS.find((item) => item.code === code);
+    if (!preset) return;
+    setForm((current) => ({
+      ...current,
+      code: preset.code === "custom" ? "" : preset.code,
+      name: preset.code === "custom" ? "" : preset.name,
+      details: {},
+    }));
+    setDetailFields(
+      preset.detailFields.map((field) => ({ ...field, value: "" })),
+    );
+  };
+
   return (
     <div>
       <div className="page-header">
@@ -157,6 +261,37 @@ export default function PaymentMethodsPage() {
               </h3>
             </div>
             <form className="card-body" onSubmit={handleSubmit}>
+              <div className="form-group">
+                <label className="form-label" htmlFor="payment-type">
+                  Payment method type *
+                </label>
+                <select
+                  id="payment-type"
+                  className="form-select"
+                  value={selectedPreset?.code ?? "custom"}
+                  onChange={(event) => selectPreset(event.target.value)}
+                  required
+                >
+                  {PAYMENT_PRESETS.map((preset) => {
+                    const duplicate = methods.some(
+                      (method) =>
+                        method.code === preset.code &&
+                        method.id !== editingId &&
+                        preset.code !== "custom",
+                    );
+                    return (
+                      <option
+                        key={preset.code}
+                        value={preset.code}
+                        disabled={duplicate}
+                      >
+                        {preset.name}
+                        {duplicate ? " (already added)" : ""}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
               <div
                 style={{
                   display: "grid",
@@ -164,25 +299,26 @@ export default function PaymentMethodsPage() {
                   gap: 16,
                 }}
               >
-                <div className="form-group">
-                  <label className="form-label" htmlFor="payment-code">
-                    Code *
-                  </label>
-                  <input
-                    id="payment-code"
-                    className="form-input"
-                    value={form.code}
-                    disabled={Boolean(editingId)}
-                    onChange={(event) =>
-                      updateField("code", event.target.value)
-                    }
-                    placeholder="bkash"
-                    required
-                  />
-                </div>
+                {(selectedPreset?.code === "custom" || !selectedPreset) && (
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="payment-code">
+                      Method code *
+                    </label>
+                    <input
+                      id="payment-code"
+                      className="form-input"
+                      value={form.code}
+                      onChange={(event) =>
+                        updateField("code", event.target.value)
+                      }
+                      placeholder="e.g. cash_on_delivery"
+                      required
+                    />
+                  </div>
+                )}
                 <div className="form-group">
                   <label className="form-label" htmlFor="payment-name">
-                    Name *
+                    Display name *
                   </label>
                   <input
                     id="payment-name"
@@ -191,7 +327,7 @@ export default function PaymentMethodsPage() {
                     onChange={(event) =>
                       updateField("name", event.target.value)
                     }
-                    placeholder="bKash"
+                    placeholder="How customers will see it"
                     required
                   />
                 </div>
@@ -223,17 +359,120 @@ export default function PaymentMethodsPage() {
                   }
                 />
               </div>
+              {selectedPreset?.code !== "cod" && (
+                <div className="form-group">
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: 12,
+                      marginBottom: 8,
+                    }}
+                  >
+                    <span className="form-label">Payment details</span>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() =>
+                        setDetailFields((current) => [
+                          ...current,
+                          { key: "", label: "", value: "" },
+                        ])
+                      }
+                    >
+                      Add detail
+                    </button>
+                  </div>
+                  <div style={{ display: "grid", gap: 10 }}>
+                    {detailFields.map((field, index) => (
+                      <div
+                        key={`${field.key}-${index}`}
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr) auto",
+                          gap: 8,
+                          alignItems: "center",
+                        }}
+                      >
+                        <input
+                          className="form-input"
+                          aria-label={`Detail ${index + 1} label`}
+                          value={field.label}
+                          onChange={(event) =>
+                            setDetailFields((current) =>
+                              current.map((item, itemIndex) =>
+                                itemIndex === index
+                                  ? {
+                                      ...item,
+                                      label: event.target.value,
+                                      key: item.key
+                                        ? item.key
+                                        : event.target.value
+                                            .trim()
+                                            .toLowerCase()
+                                            .replace(/[^a-z0-9]+/g, "_"),
+                                    }
+                                  : item,
+                              ),
+                            )
+                          }
+                          placeholder="Detail label (e.g. Account number)"
+                        />
+                        <input
+                          className="form-input"
+                          aria-label={`Detail ${index + 1} value`}
+                          value={field.value}
+                          onChange={(event) =>
+                            setDetailFields((current) =>
+                              current.map((item, itemIndex) =>
+                                itemIndex === index
+                                  ? { ...item, value: event.target.value }
+                                  : item,
+                              ),
+                            )
+                          }
+                          placeholder="Enter detail"
+                        />
+                        <button
+                          type="button"
+                          className="btn btn-danger btn-sm"
+                          aria-label={`Remove detail ${index + 1}`}
+                          onClick={() =>
+                            setDetailFields((current) =>
+                              current.filter(
+                                (_, itemIndex) => itemIndex !== index,
+                              ),
+                            )
+                          }
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                    {detailFields.length === 0 && (
+                      <span style={{ color: "var(--text-muted)", fontSize: 13 }}>
+                        No extra details needed. Add account or transfer
+                        instructions if customers need them.
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
               <div className="form-group">
-                <label className="form-label" htmlFor="payment-details">
-                  Details (JSON key/value)
+                <label className="form-label" htmlFor="payment-sort-order">
+                  Display order
                 </label>
-                <textarea
-                  id="payment-details"
-                  className="form-textarea"
-                  rows={5}
-                  value={detailsText}
-                  onChange={(event) => setDetailsText(event.target.value)}
-                  placeholder={'{"accountNumber":"01700000000"}'}
+                <input
+                  id="payment-sort-order"
+                  className="form-input"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={form.sortOrder}
+                  onChange={(event) =>
+                    updateField("sortOrder", Number(event.target.value) || 0)
+                  }
                 />
               </div>
               <div
@@ -244,21 +483,6 @@ export default function PaymentMethodsPage() {
                   alignItems: "end",
                 }}
               >
-                <div className="form-group">
-                  <label className="form-label" htmlFor="payment-sort">
-                    Sort order
-                  </label>
-                  <input
-                    id="payment-sort"
-                    className="form-input"
-                    type="number"
-                    min="0"
-                    value={form.sortOrder}
-                    onChange={(event) =>
-                      updateField("sortOrder", Number(event.target.value))
-                    }
-                  />
-                </div>
                 <label
                   style={{
                     display: "flex",

@@ -44,14 +44,28 @@ export type Order = {
   codCharge: number;
   currency?: string;
   paymentMethod?: string;
+  paymentMethodName?: string;
   paymentStatus?: string;
   shippingMethod?: string;
+  deliveryZone?: string;
+  shippingAddress?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    zipCode?: string;
+    country?: string;
+  };
   status: OrderStatus;
   notes?: string;
   courier?: {
+    courierId?: string;
+    providerCode?: string;
     name: string;
+    status?: "ASSIGNED" | "BOOKED" | "FAILED";
     trackingNumber?: string;
+    consignmentId?: string;
     estimatedDelivery?: string;
+    bookingError?: string;
   } | null;
   timeline?: Array<{
     id: string;

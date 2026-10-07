@@ -1,5 +1,14 @@
 import { api } from "./api";
 
+export type BrandingImage = {
+  publicId: string;
+  url: string;
+  secureUrl: string;
+  width?: number;
+  height?: number;
+  format?: string;
+} | null;
+
 export type SocialProviderSettings = {
   enabled: boolean;
   pixelId?: string;
@@ -27,6 +36,8 @@ export type SettingsData = {
     secondaryColor: string;
     fontFamily: string;
     customCss?: string;
+    logo?: BrandingImage;
+    favicon?: BrandingImage;
   };
   contact: {
     email: string;

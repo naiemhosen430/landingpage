@@ -15,6 +15,7 @@ export default async function ProductsPage({
     fetchPublicStoreSettings(),
     fetchPublicCategories(),
   ]);
+
   const selectedCategory = categories?.find(
     (category) =>
       category.id === query.category || category.slug === query.category,

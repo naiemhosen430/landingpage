@@ -1,4 +1,6 @@
 const AUTH_STORAGE_KEY = "zanestore_auth";
+export const REMEMBERED_EMAIL_KEY = "zanestore_login_email";
+export const REMEMBERED_PASSWORD_KEY = "remembered_password";
 
 export interface PersistedAuthState {
   user: any | null;
@@ -57,5 +59,15 @@ export function clearAuthState() {
     window.localStorage.removeItem(AUTH_STORAGE_KEY);
   } catch (error) {
     console.error("Failed to clear auth state", error);
+  }
+}
+
+export function clearRememberedLoginEmail() {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.removeItem(REMEMBERED_EMAIL_KEY);
+  } catch (error) {
+    console.error("Failed to clear remembered login email", error);
   }
 }

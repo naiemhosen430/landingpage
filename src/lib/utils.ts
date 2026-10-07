@@ -1,9 +1,8 @@
-export function formatCurrency(amount: number, currency?: string): string {
-  const c = currency || process.env.NEXT_PUBLIC_CURRENCY || "BDT";
+export function formatCurrency(amount: number, _currency?: string): string {
   const formatted = new Intl.NumberFormat("en-BD", {
-    maximumFractionDigits: 0,
+    maximumFractionDigits: 2,
   }).format(amount);
-  return c === "BDT" ? `৳${formatted}` : `${c} ${formatted}`;
+  return `৳${formatted}`;
 }
 
 export function formatDate(date: string | Date): string {

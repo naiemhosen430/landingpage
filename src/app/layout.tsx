@@ -4,17 +4,15 @@ import StoreProvider from "@/providers/StoreProvider";
 import { fetchPublicStoreSettings } from "@/lib/publicData";
 import "./style.css";
 
+export const dynamic = "force-dynamic";
+
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
 });
 
 async function getStoreSettings() {
-  try {
-    return await fetchPublicStoreSettings();
-  } catch {
-    return null;
-  }
+  return await fetchPublicStoreSettings();
 }
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -24,9 +22,13 @@ export async function generateMetadata(): Promise<Metadata> {
     settings?.store?.storeName ||
     settings?.store?.name ||
     process.env.NEXT_PUBLIC_STORE_NAME;
+
   return {
     title: storeName || "Storefront",
     description: settings?.store?.description || undefined,
+    icons: settings?.branding?.faviconUrl
+      ? { icon: settings.branding.faviconUrl }
+      : undefined,
   };
 }
 
@@ -37,6 +39,7 @@ export default async function RootLayout({
 }) {
   const settings = await getStoreSettings();
   const language = settings?.store?.language?.replace("_", "-") || "en";
+
   return (
     <html lang={language}>
       <body className={inter.variable}>

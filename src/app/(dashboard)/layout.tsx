@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useGetMeQuery } from "@/store/authApi";
 import { useGetMySubscriptionQuery } from "@/store/packageApi";
 import { formatDate } from "@/lib/utils";
+import { useAppSelector } from "@/store/hooks";
 import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";
 import "@/styles/dashboard.css";
@@ -16,18 +17,26 @@ export default function DashboardLayout({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const router = useRouter();
-  const { data: user, isLoading } = useGetMeQuery(undefined, {
+  const storedUser = useAppSelector((state) => state.auth.user);
+  const {
+    data: currentUser,
+    isLoading,
+  } = useGetMeQuery(undefined, {
     refetchOnMountOrArgChange: true,
   });
+  const user = currentUser ?? storedUser;
+  const isAuthenticated = useAppSelector(
+    (state) => state.auth.isAuthenticated,
+  );
   const { data: subscription } = useGetMySubscriptionQuery({
     packagedata: user?.package,
   });
 
   useEffect(() => {
-    if (!isLoading && !user) {
-      router.push("/login");
+    if (!isLoading && !isAuthenticated) {
+      router.replace("/login");
     }
-  }, [isLoading, user, router]);
+  }, [isAuthenticated, isLoading, router]);
 
   if (isLoading) {
     return (
@@ -37,7 +46,7 @@ export default function DashboardLayout({
     );
   }
 
-  if (!user) return null;
+  if (!isAuthenticated || !user) return null;
 
   const currentSubscription = Array.isArray(subscription)
     ? (subscription.find(

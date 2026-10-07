@@ -212,6 +212,9 @@ function dispatchBrowserPixels(event: PublicAnalyticsEvent) {
         ...(content.id || content.content_id
           ? { id: content.id ?? content.content_id }
           : {}),
+        ...(content.content_name
+          ? { content_name: content.content_name }
+          : {}),
         ...(content.quantity != null
           ? { quantity: Number(content.quantity) || 1 }
           : {}),
@@ -254,7 +257,7 @@ function standardizePayload(payload: Record<string, unknown> = {}) {
   const contentIds = payload.content_ids ?? payload.contentIds;
   const contentType = payload.content_type ?? payload.contentType ?? "product";
   const value = payload.value;
-  const currency = payload.currency ?? "BDT";
+  const currency = "BDT";
   const contents =
     payload.contents ??
     (Array.isArray(contentIds)
@@ -285,6 +288,70 @@ function standardizePayload(payload: Record<string, unknown> = {}) {
     ...(numItems !== undefined ? { num_items: numItems } : {}),
     ...(value !== undefined ? { value: Number(value) || 0 } : {}),
     currency,
+  };
+}
+
+function toDataLayerEvent(event: PublicAnalyticsEvent, payload: Record<string, unknown>) {
+  const ecommerceEventNames: Record<string, string> = {
+    page_view: "page_view",
+    product_view: "view_item",
+    add_to_cart: "add_to_cart",
+    checkout_started: "begin_checkout",
+    purchase: "purchase",
+  };
+  const contents = Array.isArray(payload.contents) ? payload.contents : [];
+  const items = contents.map((value) => {
+    const item = value as Record<string, unknown>;
+    return {
+      ...(item.id || item.content_id
+        ? { item_id: item.id ?? item.content_id }
+        : {}),
+      ...(item.content_name ? { item_name: item.content_name } : {}),
+      ...(item.item_price != null || item.price != null
+        ? { price: Number(item.item_price ?? item.price) || 0 }
+        : {}),
+      ...(item.quantity != null
+        ? { quantity: Number(item.quantity) || 1 }
+        : {}),
+    };
+  });
+  const dataLayerPayload = Object.fromEntries(
+    Object.entries(payload).filter(
+      ([key]) =>
+        ![
+          "phone",
+          "phone_number",
+          "email",
+          "name",
+          "address",
+          "client_ip_address",
+          "client_user_agent",
+          "visitor_id",
+          "session_id",
+          "fbp",
+          "fbc",
+          "ttclid",
+        ].includes(key),
+    ),
+  );
+
+  return {
+    event: ecommerceEventNames[event.eventType] ?? event.eventName,
+    event_id: payload.event_id,
+    eventType: event.eventType,
+    page_location: payload.event_source_url,
+    ...(payload.currency ? { currency: payload.currency } : {}),
+    ...(payload.value !== undefined ? { value: payload.value } : {}),
+    ...dataLayerPayload,
+    ...(items.length
+      ? {
+          ecommerce: {
+            currency: payload.currency ?? "BDT",
+            ...(payload.value !== undefined ? { value: payload.value } : {}),
+            items,
+          },
+        }
+      : {}),
   };
 }
 
@@ -331,11 +398,9 @@ export function trackStorefrontEvent(
       event.referrer ??
       (typeof document === "undefined" ? undefined : document.referrer),
   };
-  getDataLayer().push({
-    event: event.eventName,
-    eventType: event.eventType,
-    ...standardPayload,
-  });
+  const dataLayer = getDataLayer();
+  dataLayer.push({ ecommerce: null });
+  dataLayer.push(toDataLayerEvent(enrichedEvent, standardPayload));
   dispatchBrowserPixels(enrichedEvent);
   send(enrichedEvent);
   return true;

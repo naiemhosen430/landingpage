@@ -2,6 +2,13 @@
 
 import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
+import {
+  ArrowRight,
+  ArrowUpRight,
+  Clock3,
+  PackagePlus,
+  Store,
+} from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   useGetDashboardStatsQuery,
@@ -224,17 +231,19 @@ export default function DashboardPage() {
 
   if (subscriptionLoading || statsLoading) {
     return (
-      <div style={{ padding: 40, display: "flex", justifyContent: "center" }}>
+      <div className="dashboard-home-loading">
         <div className="spinner" />
+        <span>Preparing your store overview…</span>
       </div>
     );
   }
 
   if (canShowNoPackage) {
     return (
-      <div className="package-offer-screen">
+      <div className="package-offer-screen dashboard-package-offer">
         <div className="package-offer-header">
           <div>
+            <span className="dashboard-section-kicker">Your workspace</span>
             <h1 className="page-title">
               {isExpired
                 ? "Your package has expired"
@@ -298,12 +307,6 @@ export default function DashboardPage() {
                       .toUpperCase()}
                   </div>
                 </div>
-                {plan.isPopular && (
-                  <span className="badge badge-info">Popular</span>
-                )}
-                {plan.priority && (
-                  <span className="badge badge-default">Recommended</span>
-                )}
               </div>
               <div className="package-price">
                 {formatCurrency(plan.price ?? 0)}
@@ -333,6 +336,7 @@ export default function DashboardPage() {
           open={Boolean(selectedPlan)}
           plan={selectedPlan}
           paymentMethods={paymentMethods}
+          user={user}
           projectId={projectId}
           submitting={purchasing}
           mode={isExpired ? "renew" : "purchase"}
@@ -356,18 +360,54 @@ export default function DashboardPage() {
   }
 
   const s = stats?.data ?? stats;
+  const firstName =
+    (typeof user?.name === "string" && user.name.trim().split(/\s+/)[0]) ||
+    (typeof user?.fullName === "string" &&
+      user.fullName.trim().split(/\s+/)[0]) ||
+    "there";
 
   return (
-    <div>
+    <div className="dashboard-home">
+      <section className="dashboard-welcome">
+        <div className="dashboard-welcome-copy">
+          <h1>Welcome back, {firstName}</h1>
+          <p>
+            Here’s what’s happening with your business. Let’s make today a great
+            one.
+          </p>
+        </div>
+        <div className="dashboard-welcome-actions">
+          <Link href="/" className="dashboard-welcome-link">
+            <Store size={17} aria-hidden="true" />
+            View storefront
+            <ArrowUpRight size={15} aria-hidden="true" />
+          </Link>
+          <Link
+            href="/dashboard/products/new"
+            className="dashboard-create-link"
+          >
+            <PackagePlus size={17} aria-hidden="true" />
+            Add a product
+          </Link>
+        </div>
+        <div className="dashboard-welcome-orb dashboard-welcome-orb-one" />
+        <div className="dashboard-welcome-orb dashboard-welcome-orb-two" />
+      </section>
+
       {showRenewalBanner && (
-        <div className="subscription-banner">
-          <strong>Package active: {packageName}</strong>
-          <span>
-            {endDate
-              ? `Available until ${formatDate(endDate)}`
-              : "No expiry date"}
-          </span>
-          <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
+        <div className="subscription-banner dashboard-renewal-banner">
+          <div className="dashboard-renewal-icon">
+            <Clock3 size={18} aria-hidden="true" />
+          </div>
+          <div className="dashboard-renewal-copy">
+            <strong>Package active: {packageName}</strong>
+            <span>
+              {endDate
+                ? `Available until ${formatDate(endDate)}`
+                : "No expiry date"}
+            </span>
+          </div>
+          <div className="dashboard-renewal-actions">
             <button
               className="btn btn-primary btn-sm"
               onClick={() => setSelectedPlan(currentPackage)}
@@ -457,15 +497,20 @@ export default function DashboardPage() {
         />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 24 }}>
-        <div className="card">
-          <div className="card-header">
-            <h3 className="card-title">Recent Orders</h3>
-            <Link href="/dashboard/orders" className="btn btn-ghost btn-sm">
-              View All
+      <section className="dashboard-overview-grid">
+        <div className="card dashboard-home-panel dashboard-orders-panel">
+          <div className="dashboard-panel-heading">
+            <div>
+              <span className="dashboard-section-kicker">
+                Your latest sales
+              </span>
+              <h2>Recent orders</h2>
+            </div>
+            <Link href="/dashboard/orders" className="dashboard-panel-link">
+              View all <ArrowRight size={15} aria-hidden="true" />
             </Link>
           </div>
-          <div className="card-body" style={{ padding: 0 }}>
+          <div className="card-body dashboard-orders-body">
             <RecentOrdersTable
               orders={recentOrders}
               onRefund={handleRefund}
@@ -477,37 +522,19 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="card">
-          <div className="card-header">
-            <h3 className="card-title">Latest Activity</h3>
+        <div className="card dashboard-home-panel dashboard-activity-panel">
+          <div className="dashboard-panel-heading">
+            <div>
+              <span className="dashboard-section-kicker">Store updates</span>
+              <h2>Latest activity</h2>
+            </div>
           </div>
-          <div className="card-body">
+          <div className="card-body dashboard-activity-body">
             {activities?.data?.length ? (
-              <div
-                style={{ display: "flex", flexDirection: "column", gap: 16 }}
-              >
+              <div className="dashboard-activity-list">
                 {activities.data.map((activity: any) => (
-                  <div
-                    key={activity.id}
-                    style={{
-                      display: "flex",
-                      gap: 12,
-                      alignItems: "flex-start",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: "var(--radius-full)",
-                        background: "var(--primary-light)",
-                        color: "var(--primary)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flexShrink: 0,
-                      }}
-                    >
+                  <div key={activity.id} className="dashboard-activity-item">
+                    <div className="dashboard-activity-marker">
                       <svg
                         width="14"
                         height="14"
@@ -522,32 +549,14 @@ export default function DashboardPage() {
                         <polyline points="12 6 12 12 16 14" />
                       </svg>
                     </div>
-                    <div>
-                      <div
-                        style={{
-                          fontSize: 14,
-                          fontWeight: 500,
-                          color: "var(--text-primary)",
-                        }}
-                      >
+                    <div className="dashboard-activity-copy">
+                      <div className="dashboard-activity-title">
                         {activity.title}
                       </div>
-                      <div
-                        style={{
-                          fontSize: 13,
-                          color: "var(--text-secondary)",
-                          marginTop: 2,
-                        }}
-                      >
+                      <div className="dashboard-activity-description">
                         {activity.description}
                       </div>
-                      <div
-                        style={{
-                          fontSize: 12,
-                          color: "var(--text-muted)",
-                          marginTop: 4,
-                        }}
-                      >
+                      <div className="dashboard-activity-date">
                         {new Date(activity.createdAt).toLocaleDateString()}
                       </div>
                     </div>
@@ -555,13 +564,13 @@ export default function DashboardPage() {
                 ))}
               </div>
             ) : (
-              <div className="empty-state" style={{ padding: 24 }}>
+              <div className="empty-state dashboard-activity-empty">
                 <div className="empty-state-desc">No recent activity</div>
               </div>
             )}
           </div>
         </div>
-      </div>
+      </section>
 
       <div className="package-summary">
         <div className="card package-summary-card">
@@ -678,6 +687,7 @@ export default function DashboardPage() {
         open={Boolean(selectedPlan)}
         plan={selectedPlan}
         paymentMethods={paymentMethods}
+        user={user}
         projectId={projectId}
         submitting={purchasing}
         mode={

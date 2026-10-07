@@ -41,6 +41,7 @@ export type PublicSettings = {
     announcement?: string;
     logo?: string;
     logoUrl?: string;
+    faviconUrl?: string;
     socialTracking?: {
       facebook?: { enabled?: boolean; pixelId?: string };
       tiktok?: { enabled?: boolean; pixelId?: string };
@@ -49,6 +50,7 @@ export type PublicSettings = {
   branding?: {
     logo?: string;
     logoUrl?: string;
+    faviconUrl?: string;
     storeName?: string;
     primaryColor?: string;
     secondaryColor?: string;

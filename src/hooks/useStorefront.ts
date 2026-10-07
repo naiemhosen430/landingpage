@@ -3,10 +3,14 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAppDispatch } from "@/store/hooks";
 import { addToCart } from "@/store/cartSlice";
+import {
+  initializeBrowserPixels,
+  trackStorefrontEvent,
+} from "@/lib/tracking";
+import { useTrackAnalyticsEventMutation } from "@/store/publicApi";
 import type {
   Product,
   Category,
-  TrackingEventType,
 } from "@/components/storefront/types";
 
 interface UseStorefrontProps {
@@ -14,6 +18,8 @@ interface UseStorefrontProps {
   categories?: Category[] | string[];
   initialCategory?: string;
   initialSearch?: string;
+  facebookPixelId?: string;
+  tiktokPixelId?: string;
 }
 
 export const useStorefront = ({
@@ -21,8 +27,11 @@ export const useStorefront = ({
   categories: initialCategories = [],
   initialCategory = "all",
   initialSearch = "",
+  facebookPixelId,
+  tiktokPixelId,
 }: UseStorefrontProps = {}) => {
   const dispatch = useAppDispatch();
+  const [trackAnalyticsEvent] = useTrackAnalyticsEventMutation();
 
   const products = initialProducts;
   const [selectedCategory, setSelectedCategory] =
@@ -30,6 +39,10 @@ export const useStorefront = ({
   const [searchTerm, setSearchTerm] = useState<string>(initialSearch);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    initializeBrowserPixels({ facebookPixelId, tiktokPixelId });
+  }, [facebookPixelId, tiktokPixelId]);
 
   // Extract and normalize category names
   const categoryNames = useMemo(() => {
@@ -46,16 +59,6 @@ export const useStorefront = ({
       ),
     );
   }, [initialCategories, products]);
-
-  // Analytics tracking helper
-  const trackEvent = useCallback(
-    (event: TrackingEventType, payload?: Record<string, unknown>) => {
-      if (process.env.NODE_ENV !== "production") {
-        console.log(`[Analytics - ${event}]`, payload);
-      }
-    },
-    [],
-  );
 
   // Filter products by selected category and search input
   const filteredProducts = useMemo(() => {
@@ -92,24 +95,51 @@ export const useStorefront = ({
   const handleAddToCart = useCallback(
     (product: Product, variantId?: string) => {
       dispatch(
-        variantId
-          ? addToCart({ product, variantId })
-          : addToCart(product),
+        variantId ? addToCart({ product, variantId }) : addToCart(product),
       );
-      trackEvent("add_to_cart", {
-        productId: product._id || product.id,
-        price: product.price,
-      });
+      const productId = product.id || product._id || "";
+      const price =
+        product.variants?.find((variant) => variant.id === variantId)?.price ??
+        product.price;
+      const url = window.location.href;
+      trackStorefrontEvent(
+        {
+          eventType: "add_to_cart",
+          eventName: "add_to_cart",
+          url,
+          payload: {
+            contentIds: [productId],
+            contentName: product.name || product.title,
+            contentType: "product",
+            contents: [
+              {
+                id: productId,
+                content_name: product.name || product.title,
+                quantity: 1,
+                item_price: price,
+              },
+            ],
+            quantity: 1,
+            price,
+            value: price,
+            currency: "BDT",
+            event_source_url: url,
+          },
+        },
+        `storefront-add-to-cart-${productId}`,
+        (event) => {
+          void trackAnalyticsEvent(event);
+        },
+      );
       setIsCartOpen(true);
     },
-    [dispatch, trackEvent],
+    [dispatch, trackAnalyticsEvent],
   );
 
   // Handler for initiating checkout
   const handleCheckout = useCallback(() => {
-    trackEvent("checkout_started");
     window.location.href = "/checkout";
-  }, [trackEvent]);
+  }, []);
 
   return {
     products: filteredProducts,

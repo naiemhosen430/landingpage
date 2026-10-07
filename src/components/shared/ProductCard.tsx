@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Heart } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import type { Product } from "../storefront/types";
@@ -17,6 +18,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onAddToCart,
   currency,
 }) => {
+  const router = useRouter();
   // Extract main image URL securely
   const getImageUrl = (): string => {
     if (!product.images) {
@@ -91,16 +93,29 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             </span>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => onAddToCart(product)}
-          className="store-add-to-cart"
-          disabled={product.stock !== undefined && product.stock <= 0}
-        >
-          {product.stock !== undefined && product.stock <= 0
-            ? "Out of stock"
-            : "Add to cart"}
-        </button>
+        <div className="store-product-card-actions">
+          <button
+            type="button"
+            onClick={() => onAddToCart(product)}
+            className="store-add-to-cart"
+            disabled={product.stock !== undefined && product.stock <= 0}
+          >
+            {product.stock !== undefined && product.stock <= 0
+              ? "Out of stock"
+              : "Add to cart"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              onAddToCart(product);
+              router.push("/checkout");
+            }}
+            className="store-order-now"
+            disabled={product.stock !== undefined && product.stock <= 0}
+          >
+            Order now
+          </button>
+        </div>
       </div>
     </article>
   );

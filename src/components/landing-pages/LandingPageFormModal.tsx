@@ -1,5 +1,6 @@
 "use client";
 
+import { notifyToast } from "@/lib/toast";
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import {
@@ -109,7 +110,7 @@ export function LandingPageFormModal({
 
   const handleSave = () => {
     if (!form.pageName.trim() || !form.slug.trim()) {
-      alert("Page Name and Slug are required");
+      notifyToast("Page Name and Slug are required", "error");
       return;
     }
     onSave(form);

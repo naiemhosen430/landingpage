@@ -1,5 +1,6 @@
 "use client";
 
+import { notifyToast } from "@/lib/toast";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -7,8 +8,10 @@ import {
   useTrackAnalyticsEventMutation,
 } from "@/store/publicApi";
 import { formatCurrency } from "@/lib/utils";
-import { trackStorefrontEvent } from "@/lib/tracking";
-import { initializeBrowserPixels } from "@/lib/tracking";
+import {
+  initializeBrowserPixels,
+  trackStorefrontEvent,
+} from "@/lib/tracking";
 import type {
   PublicDeliveryArea,
   PublicLandingPageData,
@@ -72,6 +75,12 @@ const isValidPhone = (phone: string) => {
   return /^(?:\+?88)?01[3-9]\d{8}$/.test(normalized);
 };
 
+const paymentDetailLabel = (key: string) =>
+  key
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/[_-]/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+
 export default function CheckoutForm({
   products,
   deliveryCharge = 60,
@@ -89,7 +98,7 @@ export default function CheckoutForm({
   const [trackAnalyticsEvent] = useTrackAnalyticsEventMutation();
   const hasPlacedOrder = useRef(false);
   const hasTrackedInitialEvents = useRef(false);
-  const previousSelectedIds = useRef<string[]>([]);
+  const hasTrackedCheckoutStart = useRef(false);
 
   useEffect(() => {
     initializeBrowserPixels({ facebookPixelId, tiktokPixelId });
@@ -128,6 +137,9 @@ export default function CheckoutForm({
   >({});
 
   const handleToggleProductSelection = (product: PublicProduct) => {
+    const selection = selectedItems.find(
+      (item) => item.product.id === product.id,
+    );
     setSelectedItems((current) =>
       current.map((selection) =>
         selection.product.id === product.id
@@ -135,6 +147,29 @@ export default function CheckoutForm({
           : selection,
       ),
     );
+    if (selection && !selection.isSelected) {
+      const price = priceOf(selection);
+      trackCheckoutEvent(
+          "add_to_cart",
+          "add_to_cart",
+          {
+            contentIds: [product.id],
+            contentName: product.name,
+            contentType: "product",
+            contents: [
+              {
+                id: product.id,
+                content_name: product.name,
+                quantity: selection.quantity,
+                item_price: price,
+              },
+            ],
+            quantity: selection.quantity,
+            value: price * selection.quantity,
+          },
+          `landing-add-to-cart-${product.id}`,
+      );
+    }
   };
 
   const handleUpdateProductSelection = (
@@ -173,7 +208,7 @@ export default function CheckoutForm({
 
   const trackingContext = {
     url: typeof window === "undefined" ? undefined : window.location.href,
-    currency,
+    currency: "BDT",
   };
   const trackingPageKey =
     typeof window === "undefined" ? "landing" : window.location.pathname;
@@ -196,82 +231,66 @@ export default function CheckoutForm({
         url: trackingContext.url,
       },
       dedupeKey,
-      trackAnalyticsEvent,
+      (event) => {
+        void trackAnalyticsEvent(event);
+      },
     );
   };
 
   useEffect(() => {
-    if (hasTrackedInitialEvents.current || !availableProducts.length) return;
+    if (
+      hasTrackedInitialEvents.current ||
+      !availableProducts.length ||
+      trackingPageKey === "/checkout"
+    ) {
+      return;
+    }
     hasTrackedInitialEvents.current = true;
-    const firstProduct = selectedItems.find((item) => item.isSelected)?.product;
-    trackCheckoutEvent(
-      "page_view",
-      "page_view",
-      {},
-      `landing-page-view-${trackingPageKey}`,
-    );
-    trackCheckoutEvent(
-      "product_view",
-      "view_content",
-      {
-        contentIds: firstProduct ? [firstProduct.id] : [],
-        contentName: firstProduct?.name,
-        contentType: "product",
-      },
-      `landing-view-content-${trackingPageKey}`,
-    );
-    trackCheckoutEvent(
-      "add_to_cart",
-      "add_to_cart",
-      {
-        contentIds: firstProduct ? [firstProduct.id] : [],
-        contentName: firstProduct?.name,
-        quantity: 1,
-        value: firstProduct ? Number(firstProduct.price) || 0 : 0,
-      },
-      `landing-initial-add-to-cart-${trackingPageKey}`,
-    );
+    availableProducts.forEach((product) => {
+      const price = Number(product.price) || 0;
+      trackCheckoutEvent(
+        "product_view",
+        "view_content",
+        {
+          contentIds: [product.id],
+          contentName: product.name,
+          contentType: "product",
+          contents: [
+            {
+              id: product.id,
+              content_name: product.name,
+              quantity: 1,
+              item_price: price,
+            },
+          ],
+          value: price,
+        },
+        `landing-view-content-${trackingPageKey}-${product.id}`,
+      );
+    });
+  }, [availableProducts, trackingPageKey]);
+
+  const trackCheckoutStarted = () => {
+    if (hasTrackedCheckoutStart.current) return;
+    hasTrackedCheckoutStart.current = true;
+    const selected = selectedItems.filter((item) => item.isSelected);
     trackCheckoutEvent(
       "checkout_started",
       "checkout_started",
       {
         value: orderTotalAmount,
-        contentIds: firstProduct ? [firstProduct.id] : [],
+        contentIds: selected.map((item) => item.product.id),
+        contents: selected.map((item) => ({
+          id: item.product.id,
+          content_name: item.product.name,
+          quantity: item.quantity,
+          item_price: priceOf(item),
+        })),
+        num_items: selected.reduce((sum, item) => sum + item.quantity, 0),
       },
-      `landing-initial-checkout-${trackingPageKey}`,
+      `landing-checkout-started-${trackingPageKey}`,
     );
-    previousSelectedIds.current = selectedItems
-      .filter((item) => item.isSelected)
-      .map((item) => item.product.id);
-  }, [availableProducts.length, orderTotalAmount, selectedItems]);
-
-  useEffect(() => {
-    if (!hasTrackedInitialEvents.current) return;
-    const selectedIds = selectedItems
-      .filter((item) => item.isSelected)
-      .map((item) => item.product.id);
-    const addedId = selectedIds.find(
-      (id) => !previousSelectedIds.current.includes(id),
-    );
-    if (addedId) {
-      const added = selectedItems.find((item) => item.product.id === addedId);
-      if (added) {
-        trackCheckoutEvent(
-          "add_to_cart",
-          "add_to_cart",
-          {
-            contentIds: [added.product.id],
-            contentName: added.product.name,
-            quantity: added.quantity,
-            price: priceOf(added),
-            value: priceOf(added) * added.quantity,
-          },
-          `landing-add-to-cart-${added.product.id}-${added.quantity}`,
-        );
-      }
-    }
-    previousSelectedIds.current = selectedIds;
-  }, [selectedItems]);
+  };
 
   const buildIncompleteOrderData = () => ({
     customer: {
@@ -354,7 +373,7 @@ export default function CheckoutForm({
       onClear?.();
       router.push(`/thank-you/${result.data?.id || result.id || ""}`);
     } catch (error: any) {
-      alert(error?.data?.message || "Failed to place order");
+      notifyToast(error?.data?.message || "Failed to place order", "error");
     }
   };
 
@@ -374,6 +393,14 @@ export default function CheckoutForm({
     <form
       className="checkout-form-modern-light space-y-6"
       onSubmit={handlePlaceOrderSubmit}
+      onFocusCapture={(event) => {
+        if (
+          event.target instanceof HTMLElement &&
+          event.target.hasAttribute("data-checkout-start")
+        ) {
+          trackCheckoutStarted();
+        }
+      }}
     >
       {/* Section 1: Product Selection (1 column on small screens, 2 columns on large screens) */}
       <section className="checkout-form-modern-light__section-card">
@@ -531,6 +558,7 @@ export default function CheckoutForm({
                   </label>
                   <input
                     type="text"
+                    data-checkout-start
                     className="checkout-form-modern-light__form-input"
                     value={formValues.customerName}
                     onChange={(event) =>
@@ -557,6 +585,7 @@ export default function CheckoutForm({
                   </label>
                   <input
                     type="tel"
+                    data-checkout-start
                     className="checkout-form-modern-light__form-input"
                     value={formValues.customerPhone}
                     onChange={(event) =>
@@ -583,6 +612,7 @@ export default function CheckoutForm({
                   </span>
                 </label>
                 <textarea
+                  data-checkout-start
                   className="checkout-form-modern-light__form-textarea"
                   rows={3}
                   value={formValues.deliveryAddress}
@@ -707,6 +737,26 @@ export default function CheckoutForm({
                             <small className="checkout-form-modern-light__payment-method-instructions">
                               {method.instructions}
                             </small>
+                          )}
+                        {formValues.selectedPaymentMethod === method.code &&
+                          Object.entries(method.details ?? {}).length > 0 && (
+                            <span
+                              style={{
+                                display: "grid",
+                                gap: 4,
+                                marginTop: 8,
+                                fontSize: 13,
+                              }}
+                            >
+                              {Object.entries(method.details ?? {}).map(
+                                ([key, value]) => (
+                                  <span key={key}>
+                                    <strong>{paymentDetailLabel(key)}:</strong>{" "}
+                                    {value}
+                                  </span>
+                                ),
+                              )}
+                            </span>
                           )}
                       </span>
                     </label>

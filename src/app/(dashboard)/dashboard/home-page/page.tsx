@@ -4,1240 +4,1421 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
+  Check,
   ImagePlus,
+  Layout,
+  Loader2,
   Plus,
   Save,
-  Trash2,
-  AlertCircle,
-  RefreshCw,
+  Settings2,
   Sparkles,
-  Layers,
-  Layout,
-  Tag,
-  Star,
-  ShieldCheck,
-  CheckCircle2,
-  Sliders,
+  Trash2,
+  X,
 } from "lucide-react";
+
 import { Input, TextArea } from "@/components/ui/FormControls";
 import { useAppSelector } from "@/store/hooks";
-import { useGetCategoriesQuery } from "@/store/categoryApi";
+import "@/styles/home-page-admin.css";
 import { useUploadMediaMutation } from "@/store/mediaApi";
+import { useGetCategoriesQuery } from "@/store/categoryApi";
 import { useGetPublicProductsQuery } from "@/store/publicApi";
 import {
   useGetHomePageQuery,
   useUpdateHomePageMutation,
-  type HomePageContent,
-  type HomePageSlide,
 } from "@/store/homePageApi";
-import "@/styles/home-page-admin.css";
-
-const makeSlide = (sortOrder: number): HomePageSlide => ({
-  id: `slide-${Date.now()}-${sortOrder}`,
-  eyebrow: "",
-  title: "",
-  emphasis: "",
-  description: "",
-  buttonLabel: "",
-  buttonHref: "",
-  imageUrl: "",
-  imageAlt: "",
-  accentColor: undefined,
-  isActive: true,
-  sortOrder,
-});
-
-const createEmptyHomePage = (): HomePageContent => ({
-  visibility: {
-    hero: true,
-    categories: true,
-    banners: true,
-    categoryProducts: true,
-    bestsellers: true,
-    promise: true,
-  },
-  hero: { autoplay: false, intervalMs: 5500, slides: [] },
-  banners: { eyebrow: "", title: "", items: [] },
-  categories: [],
-  categorySection: { eyebrow: "", title: "" },
-  bestsellers: {
-    eyebrow: "",
-    title: "",
-    description: "",
-    viewAllLabel: "",
-    productIds: [],
-    limit: 8,
-  },
-  categoryProducts: [],
-  promise: { eyebrow: "", title: "", emphasis: "", items: [] },
-  footer: {
-    description: "",
-    supportLabel: "",
-    supportEmail: "",
-    announcement: "",
-  },
-});
-
-function fileToDataUri(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
+import type {
+  HomePageBanner,
+  HomePageEditorContent,
+  HomePageSlide,
+} from "@/store/homePageApi";
 
 type TabType =
   | "hero"
   | "visibility"
-  | "banners"
+  | "promotions"
   | "categories"
   | "products"
   | "footer";
 
+const DEFAULT_HERO = {
+  eyebrow: "New Collection",
+  title: "Discover products you'll love",
+  emphasis: "Shop smarter. Live better.",
+  description:
+    "Explore our latest products, special offers and popular collections.",
+  buttonLabel: "Shop Now",
+  buttonHref: "/products",
+};
+
+const DEFAULT_PROMOTION = {
+  eyebrow: "Special Offer",
+  title: "Great products. Better prices.",
+  buttonLabel: "Explore Now",
+  buttonHref: "/products",
+};
+
+const DEFAULT_FOOTER = {
+  promiseEyebrow: "Why Shop With Us",
+  promiseTitle: "Everything you need in one place",
+  promiseEmphasis: "Simple, trusted and convenient.",
+  supportEmail: "",
+  footerDescription:
+    "We make online shopping simple with quality products and helpful service.",
+  topAnnouncement: "Free delivery on selected orders",
+};
+
+function makeSlide(sortOrder: number): HomePageSlide {
+  return {
+    id: `slide-${Date.now()}-${sortOrder}`,
+    eyebrow: DEFAULT_HERO.eyebrow,
+    title: DEFAULT_HERO.title,
+    emphasis: DEFAULT_HERO.emphasis,
+    description: DEFAULT_HERO.description,
+    buttonLabel: DEFAULT_HERO.buttonLabel,
+    buttonHref: DEFAULT_HERO.buttonHref,
+    imageUrl: "",
+    imageAlt: "Homepage banner",
+    accentColor: "#6366f1",
+    isActive: true,
+    sortOrder,
+  };
+}
+
+function makeBanner(sortOrder: number): HomePageBanner {
+  return {
+    id: `banner-${Date.now()}-${sortOrder}`,
+    imageUrl: "",
+    imageAlt: "Promotional banner",
+    eyebrow: "",
+    title: "",
+    href: "/products",
+    isActive: true,
+    sortOrder,
+  };
+}
+
+function createEmptyHomePage(): HomePageEditorContent {
+  return {
+    visibility: {
+      hero: true,
+      banners: true,
+      categories: true,
+      bestsellers: true,
+      categoryProducts: true,
+      promise: true,
+      footer: true,
+    },
+
+    hero: {
+      autoplay: true,
+      intervalMs: 5500,
+      slides: [makeSlide(0)],
+    },
+
+    banners: {
+      eyebrow: DEFAULT_PROMOTION.eyebrow,
+      title: DEFAULT_PROMOTION.title,
+      items: [],
+    },
+
+    categories: {
+      eyebrow: "Shop by Category",
+      title: "Explore our categories",
+      categoryIds: [],
+    },
+
+    categorySection: {
+      eyebrow: "Featured Categories",
+      title: "Find what you need",
+      categoryIds: [],
+    },
+
+    bestsellers: {
+      eyebrow: "Bestsellers",
+      title: "Popular products",
+      limit: 8,
+      viewAllLabel: "View All Products",
+      productIds: [],
+    },
+
+    categoryProducts: {
+      enabled: true,
+      items: [],
+    },
+
+    promise: {
+      eyebrow: DEFAULT_FOOTER.promiseEyebrow,
+      title: DEFAULT_FOOTER.promiseTitle,
+      emphasis: DEFAULT_FOOTER.promiseEmphasis,
+      items: [],
+    },
+
+    footer: {
+      supportEmail: "",
+      description: DEFAULT_FOOTER.footerDescription,
+      topAnnouncement: DEFAULT_FOOTER.topAnnouncement,
+    },
+  };
+}
+
+function fileToDataUri(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = reject;
+
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function HomePageEditor() {
-  const { data, error, isLoading, isError, refetch } = useGetHomePageQuery();
-  const [saveHomePage, { isLoading: saving }] = useUpdateHomePageMutation();
-  const [uploadMedia, { isLoading: uploading }] = useUploadMediaMutation();
-  const { data: categoryResponse } = useGetCategoriesQuery();
-  const { data: productsResponse } = useGetPublicProductsQuery({ limit: 100 });
+  const projectId = useAppSelector((state) => state.auth?.user?.projectId);
 
   const [activeTab, setActiveTab] = useState<TabType>("hero");
-
-  const projectId = useAppSelector(
-    (state) => state.auth.user?.projectId ?? state.auth.user?.project?.id,
+  const [form, setForm] = useState<HomePageEditorContent>(
+    createEmptyHomePage(),
   );
 
-  const categories = categoryResponse?.data ?? [];
-  const products = Array.isArray(productsResponse)
-    ? productsResponse
-    : ((productsResponse as any)?.products ??
-      (productsResponse as any)?.items ??
-      []);
+  const [notice, setNotice] = useState("");
+  const [uploadingSlide, setUploadingSlide] = useState<string | null>(null);
+  const [uploadingBanner, setUploadingBanner] = useState<string | null>(null);
 
-  const [form, setForm] = useState<HomePageContent | null>(null);
-  const [notice, setNotice] = useState<{
-    type: "success" | "error";
-    text: string;
-  } | null>(null);
+  const {
+    data: homepageResponse,
+    isLoading: homepageLoading,
+    isError: homepageError,
+    refetch: refetchHomepage,
+  } = useGetHomePageQuery();
 
-  const isMissingHomepage =
-    isError &&
-    typeof error === "object" &&
-    error !== null &&
-    "status" in error &&
-    error.status === 404;
+  const { data: categoriesResponse } = useGetCategoriesQuery();
+
+  const { data: productsResponse } = useGetPublicProductsQuery();
+
+  const [updateHomePage, { isLoading: saving }] = useUpdateHomePageMutation();
+
+  const [uploadMedia] = useUploadMediaMutation();
+
+  const categories = categoriesResponse?.data ?? [];
+
+  const products = productsResponse?.data || productsResponse?.products || [];
+
+  const homepage = homepageResponse;
 
   useEffect(() => {
-    if (data) {
-      setForm({ ...createEmptyHomePage(), ...data });
-    } else if (!isLoading && (!isError || isMissingHomepage)) {
-      setForm(createEmptyHomePage());
-    }
-  }, [data, isLoading, isError, isMissingHomepage]);
+    if (!homepage) return;
 
-  const selectedCategoryIds = useMemo(
-    () => new Set(form?.categories?.map((category) => category.id) ?? []),
-    [form?.categories],
-  );
+    setForm({
+      ...createEmptyHomePage(),
+      ...homepage,
 
-  const showToast = (text: string, type: "success" | "error" = "success") => {
-    setNotice({ type, text });
-    window.setTimeout(() => setNotice(null), 4000);
+      visibility: {
+        ...createEmptyHomePage().visibility,
+        ...(homepage.visibility || {}),
+      },
+
+      hero: {
+        ...createEmptyHomePage().hero,
+        ...(homepage.hero || {}),
+        slides: homepage.hero?.slides || [makeSlide(0)],
+      },
+
+      banners: {
+        ...createEmptyHomePage().banners,
+        ...(homepage.banners || {}),
+      },
+
+      categories: {
+        ...createEmptyHomePage().categories,
+        ...(homepage.categories || {}),
+      },
+
+      categorySection: {
+        ...createEmptyHomePage().categorySection,
+        ...(homepage.categorySection || {}),
+      },
+
+      bestsellers: {
+        ...createEmptyHomePage().bestsellers,
+        ...(homepage.bestsellers || {}),
+      },
+
+      categoryProducts: {
+        ...createEmptyHomePage().categoryProducts,
+        ...(homepage.categoryProducts || {}),
+      },
+
+      promise: {
+        ...createEmptyHomePage().promise,
+        ...(homepage.promise || {}),
+      },
+
+      footer: {
+        ...createEmptyHomePage().footer,
+        ...(homepage.footer || {}),
+      },
+    });
+  }, [homepage]);
+
+  const selectedCategoryIds = useMemo(() => {
+    return (
+      form.categories?.categoryIds || form.categorySection?.categoryIds || []
+    );
+  }, [form.categories?.categoryIds, form.categorySection?.categoryIds]);
+
+  const showNotice = (message: string) => {
+    setNotice(message);
+
+    window.setTimeout(() => {
+      setNotice("");
+    }, 3000);
   };
 
-  const updateHero = (changes: Partial<HomePageContent["hero"]>) =>
-    setForm((current) =>
-      current ? { ...current, hero: { ...current.hero, ...changes } } : current,
-    );
+  const updateHero = (field: string, value: unknown) => {
+    setForm((current) => ({
+      ...current,
+      hero: {
+        ...current.hero,
+        [field]: value,
+      },
+    }));
+  };
 
-  const updateSlide = (index: number, changes: Partial<HomePageSlide>) =>
-    setForm((current) => {
-      if (!current) return current;
-      return {
-        ...current,
-        hero: {
-          ...current.hero,
-          slides: (current.hero.slides ?? []).map((slide, slideIndex) =>
-            slideIndex === index ? { ...slide, ...changes } : slide,
-          ),
-        },
-      };
-    });
-
-  const moveSlide = (index: number, direction: -1 | 1) =>
-    setForm((current) => {
-      if (!current || !current.hero.slides) return current;
-      const nextIndex = index + direction;
-      if (nextIndex < 0 || nextIndex >= current.hero.slides.length)
-        return current;
-      const slides = [...current.hero.slides];
-      [slides[index], slides[nextIndex]] = [slides[nextIndex], slides[index]];
-      return {
-        ...current,
-        hero: {
-          ...current.hero,
-          slides: slides.map((slide, sortOrder) => ({ ...slide, sortOrder })),
-        },
-      };
-    });
-
-  const toggleCategory = (category: {
-    id: string;
-    name: string;
-    slug: string;
-    description?: string;
-    image?: { url?: string; secureUrl?: string } | null;
-  }) =>
-    setForm((current) => {
-      if (!current) return current;
-      const currentCategories = current.categories ?? [];
-      const isSelected = selectedCategoryIds.has(category.id);
-
-      return {
-        ...current,
-        categories: isSelected
-          ? currentCategories.filter((item) => item.id !== category.id)
-          : [
-              ...currentCategories,
-              {
-                id: category.id,
-                label: category.name,
-                href: `/products?category=${category.slug}`,
-                description: category.description,
-                imageUrl: category.image?.secureUrl || category.image?.url,
-              },
-            ],
-      };
-    });
-
-  const uploadSlideImage = async (
+  const updateSlide = (
     index: number,
-    event: React.ChangeEvent<HTMLInputElement>,
+    field: keyof HomePageSlide,
+    value: unknown,
   ) => {
-    const file = event.target.files?.[0];
+    setForm((current) => ({
+      ...current,
+      hero: {
+        ...current.hero,
+        slides: current.hero.slides.map((slide, slideIndex) =>
+          slideIndex === index
+            ? {
+                ...slide,
+                [field]: value,
+              }
+            : slide,
+        ),
+      },
+    }));
+  };
+
+  const addSlide = () => {
+    setForm((current) => ({
+      ...current,
+      hero: {
+        ...current.hero,
+        slides: [...current.hero.slides, makeSlide(current.hero.slides.length)],
+      },
+    }));
+  };
+
+  const updateBanner = (
+    index: number,
+    field: keyof HomePageBanner,
+    value: unknown,
+  ) => {
+    setForm((current) => ({
+      ...current,
+      banners: {
+        ...current.banners,
+        items: current.banners.items.map((banner, bannerIndex) =>
+          bannerIndex === index ? { ...banner, [field]: value } : banner,
+        ),
+      },
+    }));
+  };
+
+  const addBanner = () => {
+    setForm((current) => ({
+      ...current,
+      banners: {
+        ...current.banners,
+        items: [
+          ...current.banners.items,
+          makeBanner(current.banners.items.length),
+        ],
+      },
+    }));
+  };
+
+  const deleteBanner = (index: number) => {
+    setForm((current) => ({
+      ...current,
+      banners: {
+        ...current.banners,
+        items: current.banners.items
+          .filter((_, bannerIndex) => bannerIndex !== index)
+          .map((banner, bannerIndex) => ({
+            ...banner,
+            sortOrder: bannerIndex,
+          })),
+      },
+    }));
+  };
+
+  const deleteSlide = (index: number) => {
+    setForm((current) => ({
+      ...current,
+      hero: {
+        ...current.hero,
+        slides: current.hero.slides
+          .filter((_, slideIndex) => slideIndex !== index)
+          .map((slide, slideIndex) => ({
+            ...slide,
+            sortOrder: slideIndex,
+          })),
+      },
+    }));
+  };
+
+  const moveSlide = (index: number, direction: "up" | "down") => {
+    setForm((current) => {
+      const slides = [...current.hero.slides];
+      const targetIndex = direction === "up" ? index - 1 : index + 1;
+
+      if (targetIndex < 0 || targetIndex >= slides.length) {
+        return current;
+      }
+
+      [slides[index], slides[targetIndex]] = [
+        slides[targetIndex],
+        slides[index],
+      ];
+
+      return {
+        ...current,
+        hero: {
+          ...current.hero,
+          slides: slides.map((slide, slideIndex) => ({
+            ...slide,
+            sortOrder: slideIndex,
+          })),
+        },
+      };
+    });
+  };
+
+  const toggleCategory = (categoryId: string) => {
+    setForm((current) => {
+      const currentIds = current.categories?.categoryIds || [];
+
+      const exists = currentIds.includes(categoryId);
+
+      const nextIds = exists
+        ? currentIds.filter((id) => id !== categoryId)
+        : [...currentIds, categoryId];
+
+      return {
+        ...current,
+        categories: {
+          ...current.categories,
+          categoryIds: nextIds,
+        },
+        categorySection: {
+          ...current.categorySection,
+          categoryIds: nextIds,
+        },
+      };
+    });
+  };
+
+  const toggleProduct = (productId: string) => {
+    setForm((current) => {
+      const currentIds = current.bestsellers?.productIds || [];
+
+      const exists = currentIds.includes(productId);
+
+      return {
+        ...current,
+        bestsellers: {
+          ...current.bestsellers,
+          productIds: exists
+            ? currentIds.filter((id) => id !== productId)
+            : [...currentIds, productId],
+        },
+      };
+    });
+  };
+
+  const uploadSlideImage = async (index: number, file: File) => {
     if (!file) return;
-    if (!file.type.startsWith("image/") || file.size > 5 * 1024 * 1024) {
-      showToast("Please use an image under 5 MB.", "error");
-      return;
-    }
+
     try {
-      const result = await uploadMedia({
-        projectId,
-        folder: "home-page",
-        images: [await fileToDataUri(file)],
+      setUploadingSlide(String(index));
+
+      const dataUri = await fileToDataUri(file);
+
+      const response = await uploadMedia({
+        images: [dataUri],
+        folder: "homepage",
       }).unwrap();
-      const asset = Array.isArray(result) ? result[0] : result;
-      if (asset) updateSlide(index, { imageUrl: asset.secureUrl || asset.url });
-      showToast("Banner image uploaded successfully.");
-    } catch (error: any) {
-      showToast(error?.data?.message ?? "Banner upload failed", "error");
+
+      const asset = Array.isArray(response) ? response[0] : response;
+      const imageUrl = asset?.url || dataUri;
+
+      updateSlide(index, "imageUrl", imageUrl);
+
+      showNotice("Banner image updated");
+    } catch (error) {
+      console.error(error);
+      showNotice("Could not upload image");
     } finally {
-      event.target.value = "";
+      setUploadingSlide(null);
     }
   };
 
-  const save = async (event?: React.FormEvent) => {
-    if (event) event.preventDefault();
-    if (!form) return;
+  const uploadBannerImage = async (index: number, file: File) => {
+    if (!file) return;
+
     try {
-      await saveHomePage(form).unwrap();
-      showToast("Homepage configuration published!");
-    } catch (error: any) {
-      showToast(error?.data?.message ?? "Failed to save homepage", "error");
+      setUploadingBanner(String(index));
+
+      const dataUri = await fileToDataUri(file);
+      const response = await uploadMedia({
+        images: [dataUri],
+        folder: "homepage",
+      }).unwrap();
+      const asset = Array.isArray(response) ? response[0] : response;
+
+      updateBanner(index, "imageUrl", asset?.url || dataUri);
+      showNotice("Promotion image updated");
+    } catch (error) {
+      console.error(error);
+      showNotice("Could not upload promotion image");
+    } finally {
+      setUploadingBanner(null);
     }
   };
 
-  if (isLoading) {
+  const save = async () => {
+    try {
+      const categoryRefs = form.categories.categoryIds.map((id) => {
+        const category = categories.find(
+          (item: any) => String(item._id || item.id || item.categoryId) === id,
+        );
+        const imageUrl = category?.image?.secureUrl || category?.image?.url;
+
+        return {
+          id,
+          label: category?.name || id,
+          ...(category?.description
+            ? { description: category.description }
+            : {}),
+          ...(category?.slug
+            ? {
+                href: `/products?category=${encodeURIComponent(category.slug)}`,
+              }
+            : {}),
+          ...(imageUrl ? { imageUrl } : {}),
+        };
+      });
+
+      await updateHomePage({
+        data: {
+          ...form,
+          categories: categoryRefs,
+          categoryProducts: form.categoryProducts.items,
+        },
+      }).unwrap();
+
+      showNotice("Homepage saved successfully");
+    } catch (error) {
+      console.error(error);
+      showNotice("Could not save homepage");
+    }
+  };
+
+  const updateVisibility = (
+    key: keyof HomePageEditorContent["visibility"],
+    value: boolean,
+  ) => {
+    setForm((current) => ({
+      ...current,
+      visibility: {
+        ...current.visibility,
+        [key]: value,
+      },
+    }));
+  };
+
+  const updatePromotion = (field: string, value: unknown) => {
+    setForm((current) => ({
+      ...current,
+      banners: {
+        ...current.banners,
+        [field]: value,
+      },
+    }));
+  };
+
+  const updateFooter = (field: string, value: unknown) => {
+    setForm((current) => ({
+      ...current,
+      footer: {
+        ...current.footer,
+        [field]: value,
+      },
+    }));
+  };
+
+  const updatePromise = (field: string, value: unknown) => {
+    setForm((current) => ({
+      ...current,
+      promise: {
+        ...current.promise,
+        [field]: value,
+      },
+    }));
+  };
+
+  if (homepageLoading) {
     return (
-      <div className="home-editor-state-card">
-        <RefreshCw className="animate-spin" size={32} />
-        <p>Fetching storefront layout...</p>
+      <div className="home-editor-loading">
+        <Loader2 className="spin" size={28} />
+        <span>Loading homepage...</span>
       </div>
     );
   }
 
-  if (isError && !isMissingHomepage) {
+  if (homepageError) {
     return (
-      <div className="home-editor-state-card error">
-        <AlertCircle size={32} />
-        <h3>Failed to load homepage data</h3>
-        <p>
-          An unexpected network or server error occurred while retrieving
-          settings.
-        </p>
+      <div className="home-editor-empty">
+        <X size={22} />
+        <h3>Could not load homepage</h3>
+        <p>Please try again.</p>
+
         <button
           type="button"
-          className="btn btn-secondary"
-          onClick={() => refetch()}
+          className="home-primary-btn"
+          onClick={() => refetchHomepage()}
         >
-          <RefreshCw size={16} /> Retry
+          Try Again
         </button>
       </div>
     );
   }
 
-  if (!form) {
-    return (
-      <div className="home-editor-state-card empty">
-        <Sparkles size={32} />
-        <h3>No storefront content found</h3>
-        <p>Create a blank homepage and add content from your project data.</p>
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={() => setForm(createEmptyHomePage())}
-        >
-          Create blank homepage
-        </button>
-      </div>
-    );
-  }
+  const tabs: {
+    id: TabType;
+    label: string;
+    icon: typeof Layout;
+  }[] = [
+    {
+      id: "hero",
+      label: "Hero",
+      icon: Sparkles,
+    },
+    {
+      id: "visibility",
+      label: "Sections",
+      icon: Layout,
+    },
+    {
+      id: "promotions",
+      label: "Promotions",
+      icon: ImagePlus,
+    },
 
-  const tabs: { id: TabType; label: string; icon: any }[] = [
-    { id: "hero", label: "Hero Slider", icon: Layers },
-    { id: "visibility", label: "Section Visibility", icon: Layout },
-    { id: "banners", label: "Promotions", icon: ImagePlus },
-    { id: "categories", label: "Categories", icon: Tag },
-    { id: "products", label: "Bestsellers", icon: Star },
-    { id: "footer", label: "Promise & Footer", icon: ShieldCheck },
+    {
+      id: "footer",
+      label: "Footer",
+      icon: Layout,
+    },
   ];
 
   return (
-    <form className="home-editor" onSubmit={save}>
-      {/* STICKY TOP NAVIGATION BAR */}
-      <div className="home-editor-sticky-header">
-        <header className="home-editor-header page-header">
-          <div>
-            <span className="home-editor-kicker">
-              <Sparkles size={14} /> Storefront Studio
-            </span>
-            <h1 className="page-title">Homepage Layout</h1>
-          </div>
-          <div className="home-editor-actions">
-            {notice && (
-              <div className={`home-editor-toast ${notice.type}`}>
-                {notice.type === "success" ? (
-                  <CheckCircle2 size={16} />
-                ) : (
-                  <AlertCircle size={16} />
-                )}
-                <span>{notice.text}</span>
-              </div>
-            )}
-            <button type="submit" className="btn btn-primary" disabled={saving}>
-              <Save size={16} />
-              {saving ? "Publishing..." : "Publish homepage"}
-            </button>
-          </div>
-        </header>
+    <div className="home-editor">
+      <div className="home-editor-top">
+        <div>
+          <h1>Homepage</h1>
+        </div>
 
-        {/* TOP TAB SYSTEM */}
-        <nav className="home-editor-tabs-nav">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                className={`tab-btn ${activeTab === tab.id ? "active" : ""}`}
-                onClick={() => setActiveTab(tab.id)}
-              >
-                <Icon size={16} />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </nav>
+        <div className="home-editor-actions">
+          {notice && (
+            <div className="home-editor-notice">
+              <Check size={15} />
+              {notice}
+            </div>
+          )}
+
+          <button
+            type="button"
+            className="home-primary-btn"
+            onClick={save}
+            disabled={saving}
+          >
+            {saving ? (
+              <>
+                <Loader2 className="spin" size={16} />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save size={16} />
+                Save Changes
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
-      {/* TAB CONTENT PANELS */}
-      <div className="tab-content">
-        {/* TAB 1: HERO SLIDER */}
-        {activeTab === "hero" && (
-          <div className="tab-panel">
-            <section className="home-editor-section home-editor-hero-section">
-              <div className="home-editor-section-heading">
-                <div className="heading-title-wrapper">
-                  <span className="home-editor-number">01</span>
-                  <div>
-                    <h2>Hero Slider</h2>
-                    <p>
-                      Promote high-converting hero messages and visual media.
-                    </p>
-                  </div>
-                </div>
-                <label className="home-editor-toggle">
-                  <input
-                    type="checkbox"
-                    checked={form.hero?.autoplay ?? false}
-                    onChange={(event) =>
-                      updateHero({ autoplay: event.target.checked })
-                    }
-                  />
-                  Auto-rotate slides
-                </label>
+      <div className="home-editor-tabs">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              className={`tab-btn ${activeTab === tab.id ? "active" : ""}`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              <Icon size={16} />
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {activeTab === "hero" && (
+        <section className="home-editor-section">
+          <div className="home-section-header">
+            <div>
+              <span className="home-section-icon">
+                <Sparkles size={17} />
+              </span>
+
+              <div>
+                <h2>Hero Section</h2>
+                <p>The first thing customers see on your store.</p>
               </div>
+            </div>
 
-              <div className="home-editor-slider-settings">
-                <Input
-                  label="Rotation interval (ms)"
-                  type="number"
-                  min={3000}
-                  max={15000}
-                  value={form.hero?.intervalMs ?? 5500}
-                  onChange={(event) =>
-                    updateHero({ intervalMs: Number(event.target.value) })
-                  }
-                />
-                <small className="field-hint">Recommended timing: 5500ms</small>
-              </div>
-
-              <div className="home-slide-list">
-                {form.hero?.slides?.map((slide, index) => (
-                  <article className="home-slide-editor" key={slide.id}>
-                    <div
-                      className="home-slide-preview"
-                      style={
-                        slide.imageUrl
-                          ? { backgroundImage: `url(${slide.imageUrl})` }
-                          : undefined
-                      }
-                    >
-                      <span className="slide-badge">
-                        {String(index + 1).padStart(2, "0")}
-                      </span>
-                      {!slide.imageUrl && (
-                        <div className="home-image-size-hint">
-                          <ImagePlus size={24} />
-                          <strong>Banner image</strong>
-                          <small>1440 × 640 px</small>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="home-slide-fields">
-                      <div className="home-slide-title-row">
-                        <strong>Slide {index + 1}</strong>
-                        <div className="action-button-group">
-                          <button
-                            type="button"
-                            className="icon-action"
-                            disabled={index === 0}
-                            onClick={() => moveSlide(index, -1)}
-                          >
-                            <ArrowUp size={16} />
-                          </button>
-                          <button
-                            type="button"
-                            className="icon-action"
-                            disabled={
-                              index === (form.hero?.slides?.length ?? 0) - 1
-                            }
-                            onClick={() => moveSlide(index, 1)}
-                          >
-                            <ArrowDown size={16} />
-                          </button>
-                          <button
-                            type="button"
-                            className="icon-action danger"
-                            disabled={(form.hero?.slides?.length ?? 0) <= 1}
-                            onClick={() =>
-                              updateHero({
-                                slides: form.hero.slides
-                                  .filter(
-                                    (_, slideIndex) => slideIndex !== index,
-                                  )
-                                  .map((item, sortOrder) => ({
-                                    ...item,
-                                    sortOrder,
-                                  })),
-                              })
-                            }
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="home-editor-grid">
-                        <Input
-                          label="Eyebrow"
-                          value={slide.eyebrow || ""}
-                          onChange={(e) =>
-                            updateSlide(index, { eyebrow: e.target.value })
-                          }
-                        />
-                        <Input
-                          label="Button label"
-                          value={slide.buttonLabel || ""}
-                          onChange={(e) =>
-                            updateSlide(index, { buttonLabel: e.target.value })
-                          }
-                        />
-                        <Input
-                          label="Headline"
-                          value={slide.title || ""}
-                          onChange={(e) =>
-                            updateSlide(index, { title: e.target.value })
-                          }
-                        />
-                        <Input
-                          label="Italic emphasis"
-                          value={slide.emphasis || ""}
-                          onChange={(e) =>
-                            updateSlide(index, { emphasis: e.target.value })
-                          }
-                        />
-                        <TextArea
-                          className="wide-field"
-                          label="Description"
-                          value={slide.description || ""}
-                          onChange={(e) =>
-                            updateSlide(index, { description: e.target.value })
-                          }
-                        />
-                        <Input
-                          label="Button link"
-                          value={slide.buttonHref || ""}
-                          onChange={(e) =>
-                            updateSlide(index, { buttonHref: e.target.value })
-                          }
-                        />
-                        <Input
-                          label="Image URL"
-                          value={slide.imageUrl || ""}
-                          onChange={(e) =>
-                            updateSlide(index, { imageUrl: e.target.value })
-                          }
-                        />
-                        <label className="home-upload-button">
-                          <ImagePlus size={15} />
-                          {uploading ? "Uploading..." : "Upload banner"}
-                          <input
-                            type="file"
-                            accept="image/jpeg,image/png,image/webp"
-                            onChange={(event) => uploadSlideImage(index, event)}
-                            disabled={uploading}
-                          />
-                        </label>
-                      </div>
-
-                      <label className="home-editor-toggle slide-active">
-                        <input
-                          type="checkbox"
-                          checked={slide.isActive}
-                          onChange={(e) =>
-                            updateSlide(index, { isActive: e.target.checked })
-                          }
-                        />
-                        Visible on storefront
-                      </label>
-                    </div>
-                  </article>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                className="btn btn-secondary home-add-slide"
-                onClick={() =>
-                  updateHero({
-                    slides: [
-                      ...(form.hero?.slides ?? []),
-                      makeSlide(form.hero?.slides?.length ?? 0),
-                    ],
-                  })
+            <label className="simple-switch">
+              <input
+                type="checkbox"
+                checked={Boolean(form.visibility?.hero)}
+                onChange={(event) =>
+                  updateVisibility("hero", event.target.checked)
                 }
-              >
-                <Plus size={16} /> Add slide
-              </button>
-            </section>
+              />
+              <span />
+              <b>{form.visibility?.hero ? "Visible" : "Hidden"}</b>
+            </label>
           </div>
-        )}
 
-        {/* TAB 2: VISIBILITY */}
-        {activeTab === "visibility" && (
-          <div className="tab-panel">
-            <section className="home-editor-section">
-              <div className="home-editor-section-heading">
-                <div className="heading-title-wrapper">
-                  <span className="home-editor-number">02</span>
-                  <div>
-                    <h2>Section Visibility</h2>
-                    <p>
-                      Toggle display controls for active sections on the live
-                      store.
-                    </p>
-                  </div>
+          <div className="hero-settings">
+            <label className="simple-switch">
+              <input
+                type="checkbox"
+                checked={Boolean(form.hero?.autoplay)}
+                onChange={(event) =>
+                  updateHero("autoplay", event.target.checked)
+                }
+              />
+              <span />
+              <b>Auto change banners</b>
+            </label>
+          </div>
+
+          <div className="home-slide-list">
+            {form.hero?.slides?.map((slide, index) => (
+              <div className="home-slide-card" key={slide.id || index}>
+                <div className="home-slide-preview">
+                  {slide.imageUrl ? (
+                    <div
+                      className="home-slide-image"
+                      style={{
+                        backgroundImage: `url("${slide.imageUrl}")`,
+                      }}
+                    />
+                  ) : (
+                    <div className="home-slide-placeholder">
+                      <ImagePlus size={26} />
+                      <span>Add banner image</span>
+                      <small>Recommended: 1600 × 700</small>
+                    </div>
+                  )}
+
+                  <div className="slide-number">{index + 1}</div>
+
+                  <label className="home-image-upload">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+
+                        if (file) {
+                          uploadSlideImage(index, file);
+                        }
+
+                        event.currentTarget.value = "";
+                      }}
+                    />
+
+                    {uploadingSlide === String(index) ? (
+                      <>
+                        <Loader2 size={15} className="spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <ImagePlus size={15} />
+                        {slide.imageUrl ? "Change Image" : "Upload Image"}
+                      </>
+                    )}
+                  </label>
                 </div>
-              </div>
 
-              <div className="home-visibility-grid">
-                {form.visibility &&
-                  (
-                    Object.keys(form.visibility) as Array<
-                      keyof HomePageContent["visibility"]
-                    >
-                  ).map((section) => (
-                    <label className="visibility-card" key={section}>
+                <div className="home-slide-content">
+                  <div className="home-slide-heading">
+                    <div>
+                      <span>Banner {index + 1}</span>
+
+                      <strong>{slide.title || DEFAULT_HERO.title}</strong>
+                    </div>
+
+                    <div className="slide-actions">
+                      <button
+                        type="button"
+                        className="icon-action"
+                        disabled={index === 0}
+                        onClick={() => moveSlide(index, "up")}
+                        title="Move up"
+                      >
+                        <ArrowUp size={15} />
+                      </button>
+
+                      <button
+                        type="button"
+                        className="icon-action"
+                        disabled={index === form.hero.slides.length - 1}
+                        onClick={() => moveSlide(index, "down")}
+                        title="Move down"
+                      >
+                        <ArrowDown size={15} />
+                      </button>
+
+                      <button
+                        type="button"
+                        className="icon-action danger"
+                        onClick={() => deleteSlide(index)}
+                        disabled={form.hero.slides.length <= 1}
+                        title="Delete"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="simple-form-grid">
+                    <Input
+                      label="Small label"
+                      value={slide.eyebrow || DEFAULT_HERO.eyebrow}
+                      onChange={(event) =>
+                        updateSlide(index, "eyebrow", event.target.value)
+                      }
+                    />
+
+                    <Input
+                      label="Button text"
+                      value={slide.buttonLabel || DEFAULT_HERO.buttonLabel}
+                      onChange={(event) =>
+                        updateSlide(index, "buttonLabel", event.target.value)
+                      }
+                    />
+
+                    <div className="wide-field">
+                      <Input
+                        label="Main title"
+                        value={slide.title || DEFAULT_HERO.title}
+                        onChange={(event) =>
+                          updateSlide(index, "title", event.target.value)
+                        }
+                      />
+                    </div>
+
+                    <div className="wide-field">
+                      <TextArea
+                        label="Description"
+                        value={slide.description || DEFAULT_HERO.description}
+                        onChange={(event) =>
+                          updateSlide(index, "description", event.target.value)
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="slide-footer">
+                    <label className="simple-check">
                       <input
                         type="checkbox"
-                        checked={form.visibility[section]}
+                        checked={Boolean(slide.isActive)}
                         onChange={(event) =>
-                          setForm((current) =>
-                            current
-                              ? {
-                                  ...current,
-                                  visibility: {
-                                    ...current.visibility,
-                                    [section]: event.target.checked,
-                                  },
-                                }
-                              : current,
-                          )
+                          updateSlide(index, "isActive", event.target.checked)
                         }
                       />
-                      <span>
-                        {section === "categoryProducts"
-                          ? "Category product rows"
-                          : section[0].toUpperCase() + section.slice(1)}
-                      </span>
+                      <span>Show this banner</span>
                     </label>
-                  ))}
-              </div>
-            </section>
-          </div>
-        )}
 
-        {/* TAB 3: PROMOTIONS */}
-        {activeTab === "banners" && (
-          <div className="tab-panel">
-            <section className="home-editor-section">
-              <div className="home-editor-section-heading">
-                <div className="heading-title-wrapper">
-                  <span className="home-editor-number">03</span>
-                  <div>
-                    <h2>Promotional Banners</h2>
-                    <p>
-                      Secondary banners for spotlighting campaigns or features.
-                    </p>
+                    <span className="default-note">
+                      Button link defaults to <b>/products</b>
+                    </span>
                   </div>
                 </div>
               </div>
-
-              <div className="home-editor-grid">
-                <Input
-                  label="Section eyebrow"
-                  value={form.banners?.eyebrow || ""}
-                  onChange={(e) =>
-                    setForm((current) =>
-                      current
-                        ? {
-                            ...current,
-                            banners: {
-                              ...current.banners,
-                              eyebrow: e.target.value,
-                            },
-                          }
-                        : current,
-                    )
-                  }
-                />
-                <Input
-                  label="Section title"
-                  value={form.banners?.title || ""}
-                  onChange={(e) =>
-                    setForm((current) =>
-                      current
-                        ? {
-                            ...current,
-                            banners: {
-                              ...current.banners,
-                              title: e.target.value,
-                            },
-                          }
-                        : current,
-                    )
-                  }
-                />
-              </div>
-
-              <div className="home-banner-editor-list">
-                {form.banners?.items?.slice(0, 2)?.map((banner, index) => (
-                  <div className="home-banner-editor" key={banner.id}>
-                    <div
-                      className="home-banner-editor-preview"
-                      style={
-                        banner.imageUrl
-                          ? { backgroundImage: `url(${banner.imageUrl})` }
-                          : undefined
-                      }
-                    >
-                      {!banner.imageUrl && <span>900 × 560 px</span>}
-                    </div>
-                    <div className="home-editor-grid">
-                      <Input
-                        label={`Banner ${index + 1} Image URL`}
-                        value={banner.imageUrl || ""}
-                        onChange={(e) =>
-                          setForm((current) =>
-                            current
-                              ? {
-                                  ...current,
-                                  banners: {
-                                    ...current.banners,
-                                    items: current.banners.items?.map((item) =>
-                                      item.id === banner.id
-                                        ? { ...item, imageUrl: e.target.value }
-                                        : item,
-                                    ),
-                                  },
-                                }
-                              : current,
-                          )
-                        }
-                      />
-                      <Input
-                        label="Eyebrow"
-                        value={banner.eyebrow || ""}
-                        onChange={(e) =>
-                          setForm((current) =>
-                            current
-                              ? {
-                                  ...current,
-                                  banners: {
-                                    ...current.banners,
-                                    items: current.banners.items?.map((item) =>
-                                      item.id === banner.id
-                                        ? { ...item, eyebrow: e.target.value }
-                                        : item,
-                                    ),
-                                  },
-                                }
-                              : current,
-                          )
-                        }
-                      />
-                      <Input
-                        label="Title"
-                        value={banner.title || ""}
-                        onChange={(e) =>
-                          setForm((current) =>
-                            current
-                              ? {
-                                  ...current,
-                                  banners: {
-                                    ...current.banners,
-                                    items: current.banners.items?.map((item) =>
-                                      item.id === banner.id
-                                        ? { ...item, title: e.target.value }
-                                        : item,
-                                    ),
-                                  },
-                                }
-                              : current,
-                          )
-                        }
-                      />
-                      <Input
-                        label="Link"
-                        value={banner.href || ""}
-                        onChange={(e) =>
-                          setForm((current) =>
-                            current
-                              ? {
-                                  ...current,
-                                  banners: {
-                                    ...current.banners,
-                                    items: current.banners.items?.map((item) =>
-                                      item.id === banner.id
-                                        ? { ...item, href: e.target.value }
-                                        : item,
-                                    ),
-                                  },
-                                }
-                              : current,
-                          )
-                        }
-                      />
-                      <label className="home-editor-toggle">
-                        <input
-                          type="checkbox"
-                          checked={banner.isActive}
-                          onChange={(e) =>
-                            setForm((current) =>
-                              current
-                                ? {
-                                    ...current,
-                                    banners: {
-                                      ...current.banners,
-                                      items: current.banners.items?.map(
-                                        (item) =>
-                                          item.id === banner.id
-                                            ? {
-                                                ...item,
-                                                isActive: e.target.checked,
-                                              }
-                                            : item,
-                                      ),
-                                    },
-                                  }
-                                : current,
-                            )
-                          }
-                        />
-                        Visible
-                      </label>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
+            ))}
           </div>
-        )}
 
-        {/* TAB 4: CATEGORIES */}
-        {activeTab === "categories" && (
-          <div className="tab-panel">
-            <section className="home-editor-section">
-              <div className="home-editor-section-heading">
-                <div className="heading-title-wrapper">
-                  <span className="home-editor-number">04</span>
+          <button type="button" className="home-add-btn" onClick={addSlide}>
+            <Plus size={16} />
+            Add Another Banner
+          </button>
+        </section>
+      )}
+
+      {activeTab === "visibility" && (
+        <section className="home-editor-section">
+          <div className="home-section-header">
+            <div>
+              <span className="home-section-icon">
+                <Layout size={17} />
+              </span>
+
+              <div>
+                <h2>Homepage Sections</h2>
+                <p>Choose which parts of your homepage customers can see.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="visibility-list">
+            {[
+              ["hero", "Hero banner", "Main homepage banner"],
+              ["banners", "Promotions", "Special offers and campaigns"],
+              ["categories", "Categories", "Your main product categories"],
+              ["bestsellers", "Bestsellers", "Popular products"],
+              [
+                "categoryProducts",
+                "Category products",
+                "Products grouped by category",
+              ],
+              [
+                "promise",
+                "Trust section",
+                "Delivery, support and store benefits",
+              ],
+              ["footer", "Footer", "Contact and store information"],
+            ].map(([key, title, description]) => {
+              const visibilityKey =
+                key as keyof HomePageEditorContent["visibility"];
+
+              return (
+                <label className="visibility-item" key={key}>
                   <div>
-                    <h2>Shop By Category</h2>
-                    <p>
-                      Select store categories to spotlight directly on the
-                      homepage.
-                    </p>
+                    <strong>{title}</strong>
+                    <span>{description}</span>
                   </div>
-                </div>
-              </div>
 
-              <div className="home-editor-grid home-editor-section-fields">
-                <Input
-                  label="Section eyebrow"
-                  value={form.categorySection?.eyebrow || ""}
-                  onChange={(e) =>
-                    setForm((current) =>
-                      current
-                        ? {
-                            ...current,
-                            categorySection: {
-                              ...current.categorySection,
-                              eyebrow: e.target.value,
-                            },
-                          }
-                        : current,
-                    )
-                  }
-                />
-                <Input
-                  label="Section title"
-                  value={form.categorySection?.title || ""}
-                  onChange={(e) =>
-                    setForm((current) =>
-                      current
-                        ? {
-                            ...current,
-                            categorySection: {
-                              ...current.categorySection,
-                              title: e.target.value,
-                            },
-                          }
-                        : current,
-                    )
-                  }
-                />
-              </div>
-
-              <div className="home-category-picker">
-                {categories.map((category) => (
-                  <label
-                    className={`picker-chip ${selectedCategoryIds.has(category.id) ? "selected" : ""}`}
-                    key={category.id}
-                  >
+                  <span className="switch">
                     <input
                       type="checkbox"
-                      checked={selectedCategoryIds.has(category.id)}
-                      onChange={() => toggleCategory(category)}
-                    />
-                    <span>{category.name}</span>
-                  </label>
-                ))}
-                {categories.length === 0 && (
-                  <p className="home-muted">No active categories found.</p>
-                )}
-              </div>
-            </section>
-          </div>
-        )}
-
-        {/* TAB 5: BESTSELLERS */}
-        {activeTab === "products" && (
-          <div className="tab-panel">
-            <section className="home-editor-section">
-              <div className="home-editor-section-heading">
-                <div className="heading-title-wrapper">
-                  <span className="home-editor-number">05</span>
-                  <div>
-                    <h2>Bestseller Showcase</h2>
-                    <p>
-                      Curate custom top-performing items for homepage
-                      engagement.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="home-editor-grid">
-                <Input
-                  label="Eyebrow"
-                  value={form.bestsellers?.eyebrow || ""}
-                  onChange={(e) =>
-                    setForm((current) =>
-                      current
-                        ? {
-                            ...current,
-                            bestsellers: {
-                              ...current.bestsellers,
-                              eyebrow: e.target.value,
-                            },
-                          }
-                        : current,
-                    )
-                  }
-                />
-                <Input
-                  label="Title"
-                  value={form.bestsellers?.title || ""}
-                  onChange={(e) =>
-                    setForm((current) =>
-                      current
-                        ? {
-                            ...current,
-                            bestsellers: {
-                              ...current.bestsellers,
-                              title: e.target.value,
-                            },
-                          }
-                        : current,
-                    )
-                  }
-                />
-                <Input
-                  label="Product limit"
-                  type="number"
-                  min={1}
-                  max={12}
-                  value={form.bestsellers?.limit ?? 4}
-                  onChange={(e) =>
-                    setForm((current) =>
-                      current
-                        ? {
-                            ...current,
-                            bestsellers: {
-                              ...current.bestsellers,
-                              limit: Number(e.target.value),
-                            },
-                          }
-                        : current,
-                    )
-                  }
-                />
-                <Input
-                  label="View all label"
-                  value={form.bestsellers?.viewAllLabel || ""}
-                  onChange={(e) =>
-                    setForm((current) =>
-                      current
-                        ? {
-                            ...current,
-                            bestsellers: {
-                              ...current.bestsellers,
-                              viewAllLabel: e.target.value,
-                            },
-                          }
-                        : current,
-                    )
-                  }
-                />
-              </div>
-
-              <div className="home-product-picker">
-                {products
-                  .filter((product: any) => product.isActive !== false)
-                  .map((product: any) => {
-                    const isSelected = form.bestsellers?.productIds?.includes(
-                      product.id,
-                    );
-                    return (
-                      <label
-                        className={`picker-chip ${isSelected ? "selected" : ""}`}
-                        key={product.id}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected ?? false}
-                          onChange={() =>
-                            setForm((current) => {
-                              if (!current) return current;
-                              const currentIds =
-                                current.bestsellers?.productIds ?? [];
-                              return {
-                                ...current,
-                                bestsellers: {
-                                  ...current.bestsellers,
-                                  productIds: currentIds.includes(product.id)
-                                    ? currentIds.filter(
-                                        (id) => id !== product.id,
-                                      )
-                                    : [...currentIds, product.id],
-                                },
-                              };
-                            })
-                          }
-                        />
-                        <span>{product.name}</span>
-                      </label>
-                    );
-                  })}
-                {products.length === 0 && (
-                  <p className="home-muted">
-                    No published products available to feature.
-                  </p>
-                )}
-              </div>
-            </section>
-          </div>
-        )}
-
-        {/* TAB 6: PROMISE & FOOTER */}
-        {activeTab === "footer" && (
-          <div className="tab-panel">
-            <section className="home-editor-section">
-              <div className="home-editor-section-heading">
-                <div className="heading-title-wrapper">
-                  <span className="home-editor-number">06</span>
-                  <div>
-                    <h2>Promise & Footer Settings</h2>
-                    <p>Configure trust signals and global support text.</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="home-editor-grid">
-                <Input
-                  label="Promise eyebrow"
-                  value={form.promise?.eyebrow || ""}
-                  onChange={(e) =>
-                    setForm((current) =>
-                      current
-                        ? {
-                            ...current,
-                            promise: {
-                              ...current.promise,
-                              eyebrow: e.target.value,
-                            },
-                          }
-                        : current,
-                    )
-                  }
-                />
-                <Input
-                  label="Promise title"
-                  value={form.promise?.title || ""}
-                  onChange={(e) =>
-                    setForm((current) =>
-                      current
-                        ? {
-                            ...current,
-                            promise: {
-                              ...current.promise,
-                              title: e.target.value,
-                            },
-                          }
-                        : current,
-                    )
-                  }
-                />
-                <Input
-                  label="Promise emphasis"
-                  value={form.promise?.emphasis || ""}
-                  onChange={(e) =>
-                    setForm((current) =>
-                      current
-                        ? {
-                            ...current,
-                            promise: {
-                              ...current.promise,
-                              emphasis: e.target.value,
-                            },
-                          }
-                        : current,
-                    )
-                  }
-                />
-                <Input
-                  label="Support email"
-                  type="email"
-                  value={form.footer?.supportEmail || ""}
-                  onChange={(e) =>
-                    setForm((current) =>
-                      current
-                        ? {
-                            ...current,
-                            footer: {
-                              ...current.footer,
-                              supportEmail: e.target.value,
-                            },
-                          }
-                        : current,
-                    )
-                  }
-                />
-                <TextArea
-                  className="wide-field"
-                  label="Footer description"
-                  value={form.footer?.description || ""}
-                  onChange={(e) =>
-                    setForm((current) =>
-                      current
-                        ? {
-                            ...current,
-                            footer: {
-                              ...current.footer,
-                              description: e.target.value,
-                            },
-                          }
-                        : current,
-                    )
-                  }
-                />
-                <TextArea
-                  className="wide-field"
-                  label="Top announcement"
-                  value={form.footer?.announcement || ""}
-                  onChange={(e) =>
-                    setForm((current) =>
-                      current
-                        ? {
-                            ...current,
-                            footer: {
-                              ...current.footer,
-                              announcement: e.target.value,
-                            },
-                          }
-                        : current,
-                    )
-                  }
-                />
-              </div>
-
-              <div className="home-promise-editor">
-                {form.promise?.items?.map((item, index) => (
-                  <div
-                    className="home-promise-row"
-                    key={`${item.number}-${index}`}
-                  >
-                    <Input
-                      label={`Promise item ${index + 1}`}
-                      value={item.text}
-                      onChange={(e) =>
-                        setForm((current) =>
-                          current
-                            ? {
-                                ...current,
-                                promise: {
-                                  ...current.promise,
-                                  items: current.promise.items?.map(
-                                    (entry, itemIndex) =>
-                                      itemIndex === index
-                                        ? { ...entry, text: e.target.value }
-                                        : entry,
-                                  ),
-                                },
-                              }
-                            : current,
-                        )
+                      checked={Boolean(form.visibility?.[visibilityKey])}
+                      onChange={(event) =>
+                        updateVisibility(visibilityKey, event.target.checked)
                       }
                     />
+                    <i />
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {activeTab === "promotions" && (
+        <section className="home-editor-section">
+          <div className="home-section-header">
+            <div>
+              <span className="home-section-icon">
+                <ImagePlus size={17} />
+              </span>
+
+              <div>
+                <h2>Promotions</h2>
+                <p>Add up to two promotional banners below your hero.</p>
+              </div>
+            </div>
+
+            <label className="simple-switch">
+              <input
+                type="checkbox"
+                checked={Boolean(form.visibility?.banners)}
+                onChange={(event) =>
+                  updateVisibility("banners", event.target.checked)
+                }
+              />
+              <span />
+              <b>{form.visibility?.banners ? "Visible" : "Hidden"}</b>
+            </label>
+          </div>
+
+          <div className="simple-settings">
+            <Input
+              label="Small label"
+              value={form.banners?.eyebrow || DEFAULT_PROMOTION.eyebrow}
+              onChange={(event) =>
+                updatePromotion("eyebrow", event.target.value)
+              }
+            />
+
+            <Input
+              label="Section title"
+              value={form.banners?.title || DEFAULT_PROMOTION.title}
+              onChange={(event) => updatePromotion("title", event.target.value)}
+            />
+          </div>
+
+          <div className="home-banner-editor-list">
+            {form.banners.items.map((banner, index) => (
+              <article className="home-banner-editor" key={banner.id}>
+                <div
+                  className="home-banner-editor-preview"
+                  style={
+                    banner.imageUrl
+                      ? { backgroundImage: `url("${banner.imageUrl}")` }
+                      : undefined
+                  }
+                >
+                  {!banner.imageUrl && <span>Upload a promotion image</span>}
+                  <label className="home-banner-upload">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(event) => {
+                        const file = event.currentTarget.files?.[0];
+                        if (file) uploadBannerImage(index, file);
+                        event.currentTarget.value = "";
+                      }}
+                    />
+                    {uploadingBanner === String(index) ? (
+                      <>
+                        <Loader2 size={15} className="spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <ImagePlus size={15} />
+                        {banner.imageUrl ? "Change image" : "Upload image"}
+                      </>
+                    )}
+                  </label>
+                </div>
+
+                <div className="home-banner-editor-fields">
+                  <div className="home-section-header">
+                    <div>
+                      <h3>Promotion banner {index + 1}</h3>
+                    </div>
                     <button
                       type="button"
                       className="icon-action danger"
-                      onClick={() =>
-                        setForm((current) =>
-                          current
-                            ? {
-                                ...current,
-                                promise: {
-                                  ...current.promise,
-                                  items: current.promise.items.filter(
-                                    (_, itemIndex) => itemIndex !== index,
-                                  ),
-                                },
-                              }
-                            : current,
-                        )
-                      }
+                      onClick={() => deleteBanner(index)}
+                      aria-label={`Remove promotion banner ${index + 1}`}
                     >
-                      <Trash2 size={16} />
+                      <Trash2 size={15} />
                     </button>
                   </div>
-                ))}
-
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() =>
-                    setForm((current) =>
-                      current
-                        ? {
-                            ...current,
-                            promise: {
-                              ...current.promise,
-                              items: [
-                                ...(current.promise.items ?? []),
-                                {
-                                  number: String(
-                                    (current.promise.items?.length ?? 0) + 1,
-                                  ).padStart(2, "0"),
-                                  text: "A promise worth making.",
-                                },
-                              ],
-                            },
-                          }
-                        : current,
-                    )
-                  }
-                >
-                  <Plus size={16} /> Add promise
-                </button>
-              </div>
-            </section>
+                  <div className="simple-form-grid">
+                    <Input
+                      label="Small label"
+                      value={banner.eyebrow || ""}
+                      onChange={(event) =>
+                        updateBanner(index, "eyebrow", event.target.value)
+                      }
+                    />
+                    <Input
+                      label="Title"
+                      value={banner.title || ""}
+                      onChange={(event) =>
+                        updateBanner(index, "title", event.target.value)
+                      }
+                    />
+                    <Input
+                      label="Image description"
+                      value={banner.imageAlt || ""}
+                      onChange={(event) =>
+                        updateBanner(index, "imageAlt", event.target.value)
+                      }
+                    />
+                    <Input
+                      label="Link"
+                      value={banner.href || ""}
+                      onChange={(event) =>
+                        updateBanner(index, "href", event.target.value)
+                      }
+                    />
+                  </div>
+                  <label className="simple-check">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(banner.isActive)}
+                      onChange={(event) =>
+                        updateBanner(index, "isActive", event.target.checked)
+                      }
+                    />
+                    <span>Show this promotion</span>
+                  </label>
+                </div>
+              </article>
+            ))}
           </div>
-        )}
-      </div>
+          <button
+            type="button"
+            className="home-banner-add"
+            onClick={addBanner}
+            disabled={form.banners.items.length >= 2}
+          >
+            <Plus size={16} />
+            Add promotion banner
+          </button>
+        </section>
+      )}
 
-      {/* FLOATING BOTTOM SAVE BAR */}
-      <div className="home-editor-save-bar">
-        <div className="save-bar-info">
-          <Sliders size={18} />
-          <span>
-            Editing section:{" "}
-            <strong>{tabs.find((t) => t.id === activeTab)?.label}</strong>
-          </span>
-        </div>
+      {activeTab === "categories" && (
+        <section className="home-editor-section">
+          <div className="home-section-header">
+            <div>
+              <span className="home-section-icon">
+                <Settings2 size={17} />
+              </span>
+
+              <div>
+                <h2>Categories</h2>
+                <p>Select the categories you want to show on your homepage.</p>
+              </div>
+            </div>
+
+            <label className="simple-switch">
+              <input
+                type="checkbox"
+                checked={Boolean(form.visibility?.categories)}
+                onChange={(event) =>
+                  updateVisibility("categories", event.target.checked)
+                }
+              />
+              <span />
+              <b>{form.visibility?.categories ? "Visible" : "Hidden"}</b>
+            </label>
+          </div>
+
+          <div className="simple-settings">
+            <Input
+              label="Small label"
+              value={form.categories?.eyebrow || "Shop by Category"}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  categories: {
+                    ...current.categories,
+                    eyebrow: event.target.value,
+                  },
+                }))
+              }
+            />
+
+            <Input
+              label="Section title"
+              value={form.categories?.title || "Explore our categories"}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  categories: {
+                    ...current.categories,
+                    title: event.target.value,
+                  },
+                }))
+              }
+            />
+          </div>
+
+          <div className="selection-header">
+            <div>
+              <strong>Select categories</strong>
+              <span>{selectedCategoryIds.length} selected</span>
+            </div>
+          </div>
+
+          <div className="selection-grid">
+            {categories.length === 0 ? (
+              <div className="selection-empty">No categories available.</div>
+            ) : (
+              categories.map((category: any) => {
+                const id = String(
+                  category._id || category.id || category.categoryId,
+                );
+
+                const selected = selectedCategoryIds.includes(id);
+
+                return (
+                  <label
+                    key={id}
+                    className={`selection-card ${selected ? "selected" : ""}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selected}
+                      onChange={() => toggleCategory(id)}
+                    />
+
+                    <span className="selection-check">
+                      {selected && <Check size={13} />}
+                    </span>
+
+                    <span>
+                      <strong>
+                        {category.name || category.title || "Category"}
+                      </strong>
+
+                      {category.description && (
+                        <small>{category.description}</small>
+                      )}
+                    </span>
+                  </label>
+                );
+              })
+            )}
+          </div>
+        </section>
+      )}
+
+      {activeTab === "products" && (
+        <section className="home-editor-section">
+          <div className="home-section-header">
+            <div>
+              <span className="home-section-icon">
+                <Sparkles size={17} />
+              </span>
+
+              <div>
+                <h2>Bestsellers</h2>
+                <p>Choose a few products to highlight.</p>
+              </div>
+            </div>
+
+            <label className="simple-switch">
+              <input
+                type="checkbox"
+                checked={Boolean(form.visibility?.bestsellers)}
+                onChange={(event) =>
+                  updateVisibility("bestsellers", event.target.checked)
+                }
+              />
+              <span />
+              <b>{form.visibility?.bestsellers ? "Visible" : "Hidden"}</b>
+            </label>
+          </div>
+
+          <div className="simple-settings">
+            <Input
+              label="Small label"
+              value={form.bestsellers?.eyebrow || "Bestsellers"}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  bestsellers: {
+                    ...current.bestsellers,
+                    eyebrow: event.target.value,
+                  },
+                }))
+              }
+            />
+
+            <Input
+              label="Section title"
+              value={form.bestsellers?.title || "Popular products"}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  bestsellers: {
+                    ...current.bestsellers,
+                    title: event.target.value,
+                  },
+                }))
+              }
+            />
+
+            <Input
+              label="Products to show"
+              type="number"
+              value={String(form.bestsellers?.limit || 8)}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  bestsellers: {
+                    ...current.bestsellers,
+                    limit: Number(event.target.value || 8),
+                  },
+                }))
+              }
+            />
+          </div>
+
+          <div className="selection-header">
+            <div>
+              <strong>Select products</strong>
+              <span>{form.bestsellers?.productIds?.length || 0} selected</span>
+            </div>
+          </div>
+
+          <div className="selection-grid products">
+            {products.length === 0 ? (
+              <div className="selection-empty">No products available.</div>
+            ) : (
+              products.map((product: any) => {
+                const id = String(
+                  product._id || product.id || product.productId,
+                );
+
+                const selected = form.bestsellers?.productIds?.includes(id);
+
+                return (
+                  <label
+                    key={id}
+                    className={`selection-card ${selected ? "selected" : ""}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={Boolean(selected)}
+                      onChange={() => toggleProduct(id)}
+                    />
+
+                    <span className="selection-check">
+                      {selected && <Check size={13} />}
+                    </span>
+
+                    <span>
+                      <strong>
+                        {product.name || product.title || "Product"}
+                      </strong>
+
+                      {product.price !== undefined && (
+                        <small>{product.price}</small>
+                      )}
+                    </span>
+                  </label>
+                );
+              })
+            )}
+          </div>
+        </section>
+      )}
+
+      {activeTab === "footer" && (
+        <section className="home-editor-section">
+          <div className="home-section-header">
+            <div>
+              <span className="home-section-icon">
+                <Layout size={17} />
+              </span>
+
+              <div>
+                <h2>Trust & Footer</h2>
+                <p>Add the basic information customers need.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="simple-settings">
+            <Input
+              label="Trust section label"
+              value={form.promise?.eyebrow || DEFAULT_FOOTER.promiseEyebrow}
+              onChange={(event) => updatePromise("eyebrow", event.target.value)}
+            />
+
+            <Input
+              label="Trust section title"
+              value={form.promise?.title || DEFAULT_FOOTER.promiseTitle}
+              onChange={(event) => updatePromise("title", event.target.value)}
+            />
+
+            <div className="wide-field">
+              <Input
+                label="Support email"
+                type="email"
+                placeholder="support@example.com"
+                value={form.footer?.supportEmail || ""}
+                onChange={(event) =>
+                  updateFooter("supportEmail", event.target.value)
+                }
+              />
+            </div>
+
+            <div className="wide-field">
+              <TextArea
+                label="Footer description"
+                value={
+                  form.footer?.description || DEFAULT_FOOTER.footerDescription
+                }
+                onChange={(event) =>
+                  updateFooter("description", event.target.value)
+                }
+              />
+            </div>
+
+            <div className="wide-field">
+              <Input
+                label="Top announcement"
+                value={
+                  form.footer?.topAnnouncement || DEFAULT_FOOTER.topAnnouncement
+                }
+                onChange={(event) =>
+                  updateFooter("topAnnouncement", event.target.value)
+                }
+              />
+            </div>
+          </div>
+
+          <div className="footer-preview">
+            <div>
+              <Sparkles size={17} />
+              <span>{form.promise?.title || DEFAULT_FOOTER.promiseTitle}</span>
+            </div>
+
+            <small>
+              {form.footer?.topAnnouncement || DEFAULT_FOOTER.topAnnouncement}
+            </small>
+          </div>
+        </section>
+      )}
+
+      <div className="home-editor-bottom">
+        <span>Changes are not published until you save.</span>
+
         <button
           type="button"
-          className="btn btn-primary"
-          onClick={() => save()}
+          className="home-primary-btn"
+          onClick={save}
           disabled={saving}
         >
-          <Save size={16} />
-          {saving ? "Publishing..." : "Save & Publish"}
+          {saving ? (
+            <>
+              <Loader2 className="spin" size={16} />
+              Saving...
+            </>
+          ) : (
+            <>
+              <Save size={16} />
+              Save Changes
+            </>
+          )}
         </button>
       </div>
-    </form>
+    </div>
   );
 }

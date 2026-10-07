@@ -503,6 +503,7 @@ export default function SubscriptionPage() {
         open={Boolean(selectedPlan)}
         plan={selectedPlan}
         paymentMethods={paymentMethods}
+        user={user?.data ?? user}
         projectId={user?.projectId ?? user?.project?.id}
         submitting={purchasing}
         mode={

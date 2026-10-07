@@ -1,5 +1,6 @@
 "use client";
 
+import { notifyToast } from "@/lib/toast";
 import { useState } from "react";
 import {
   useGetMeQuery,
@@ -36,7 +37,7 @@ export default function ProfilePage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
-      alert("Failed to update profile");
+      notifyToast("Failed to update profile", "error");
     }
   };
 
