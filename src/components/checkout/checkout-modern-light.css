@@ -306,24 +306,58 @@
   }
 }
 
-.checkout-form-modern-light__variant-dropdown {
+.checkout-form-modern-light__variant-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  width: 100%;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.checkout-form-modern-light__variant-options legend {
+  width: 100%;
+  margin-bottom: 0.25rem;
+  color: var(--cf-color-text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.checkout-form-modern-light__variant-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 130px;
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--cf-color-border-strong);
   border-radius: var(--cf-radius-sm);
   background: var(--cf-color-surface);
   color: var(--cf-color-text-primary);
-  font-size: 0.875rem;
   cursor: pointer;
-  min-width: 160px;
-  transition:
-    border-color var(--cf-transition-fast),
-    box-shadow var(--cf-transition-fast);
 }
 
-.checkout-form-modern-light__variant-dropdown:focus {
-  outline: none;
+.checkout-form-modern-light__variant-option:has(input:checked) {
   border-color: var(--cf-color-primary);
-  box-shadow: 0 0 0 3px var(--cf-color-primary-light);
+  background: var(--cf-color-primary-light);
+}
+
+.checkout-form-modern-light__variant-option input {
+  accent-color: var(--cf-color-primary);
+}
+
+.checkout-form-modern-light__variant-option span {
+  display: grid;
+  gap: 0.125rem;
+}
+
+.checkout-form-modern-light__variant-option strong {
+  font-size: 0.875rem;
+}
+
+.checkout-form-modern-light__variant-option small {
+  color: var(--cf-color-text-secondary);
+  font-size: 0.75rem;
 }
 
 /* ---------- Quantity Stepper ---------- */

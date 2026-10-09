@@ -30,15 +30,27 @@ export default function DashboardLayout({
   );
   const { data: subscription } = useGetMySubscriptionQuery({
     packagedata: user?.package,
+  }, {
+    skip: user?.role !== "SUPER_ADMIN",
   });
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.replace("/login");
+    } else if (
+      !isLoading &&
+      isAuthenticated &&
+      user &&
+      user.role !== "SUPER_ADMIN"
+    ) {
+      router.replace("/");
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isLoading, router, user]);
 
-  if (isLoading) {
+  if (
+    isLoading ||
+    (isAuthenticated && user !== null && user.role !== "SUPER_ADMIN")
+  ) {
     return (
       <div className="loading-screen">
         <div className="spinner" />
@@ -47,6 +59,7 @@ export default function DashboardLayout({
   }
 
   if (!isAuthenticated || !user) return null;
+  if (user.role !== "SUPER_ADMIN") return null;
 
   const currentSubscription = Array.isArray(subscription)
     ? (subscription.find(

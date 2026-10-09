@@ -17,7 +17,11 @@ const menuItems = [
       { label: "Products", href: "/dashboard/products", icon: "box" },
       { label: "Categories", href: "/dashboard/categories", icon: "tag" },
       { label: "Orders", href: "/dashboard/orders", icon: "shopping-bag" },
-      { label: "Analytics", href: "/dashboard/analytics", icon: "bar-chart" },
+      {
+        label: "Events Manager",
+        href: "/dashboard/tracking",
+        icon: "activity",
+      },
       { label: "Home page", href: "/dashboard/home-page", icon: "layout" },
       {
         label: "Subscription",
@@ -108,6 +112,18 @@ const icons: Record<string, JSX.Element> = {
       <line x1="12" y1="20" x2="12" y2="10" />
       <line x1="18" y1="20" x2="18" y2="4" />
       <line x1="6" y1="20" x2="6" y2="16" />
+    </svg>
+  ),
+  activity: (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 12h4l3-9 4 18 3-9h4" />
     </svg>
   ),
   truck: (

@@ -4,6 +4,29 @@ const DEDUPE_WINDOW_MS = 60_000;
 const STORAGE_PREFIX = "zane-tracking:";
 const VISITOR_KEY = `${STORAGE_PREFIX}visitor-id`;
 const SESSION_KEY = `${STORAGE_PREFIX}session-id`;
+const CUSTOM_PARAMETERS_KEY = `${STORAGE_PREFIX}custom-parameters`;
+const CUSTOM_PARAMETERS_TTL_MS = 90 * 24 * 60 * 60 * 1000;
+const MAX_CUSTOM_PARAMETERS = 20;
+const TRACKING_PARAMETER_NAMES = new Set([
+  "fbclid",
+  "gclid",
+  "dclid",
+  "ttclid",
+  "msclkid",
+  "twclid",
+  "li_fat_id",
+  "ref",
+  "campaign",
+  "campaign_id",
+  "campaign_name",
+  "ad_id",
+  "adset_id",
+  "source",
+  "medium",
+  "term",
+  "content",
+]);
+const SENSITIVE_PARAMETER_NAME = /email|phone|password|secret|token|auth|address|cookie|session|visitor|user/i;
 
 type DataLayer = Array<Record<string, unknown>>;
 type FacebookPixel = ((...args: unknown[]) => void) & {
@@ -70,6 +93,78 @@ function getSessionId() {
   const value = crypto.randomUUID();
   window.sessionStorage.setItem(SESSION_KEY, value);
   return value;
+}
+
+function sanitizeTrackingParameters(
+  values: Iterable<[string, string]>,
+): Record<string, string> {
+  const parameters: Record<string, string> = {};
+  for (const [rawKey, rawValue] of values) {
+    const key = rawKey.trim().toLowerCase();
+    const value = rawValue.trim();
+    const isCampaignParameter =
+      /^utm_[a-z0-9_]{1,32}$/.test(key) ||
+      /^custom_[a-z0-9_]{1,32}$/.test(key) ||
+      TRACKING_PARAMETER_NAMES.has(key);
+    if (
+      !isCampaignParameter ||
+      SENSITIVE_PARAMETER_NAME.test(key) ||
+      !value ||
+      value.length > 200 ||
+      /[\u0000-\u001f]/.test(value) ||
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+    ) {
+      continue;
+    }
+    parameters[key] = value;
+    if (Object.keys(parameters).length >= MAX_CUSTOM_PARAMETERS) break;
+  }
+  return parameters;
+}
+
+export function getCustomTrackingParameters(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+
+  const currentParameters = sanitizeTrackingParameters(
+    new URLSearchParams(window.location.search).entries(),
+  );
+  let savedParameters: Record<string, string> = {};
+  try {
+    const savedValue = window.localStorage.getItem(CUSTOM_PARAMETERS_KEY);
+    if (savedValue) {
+      const parsed: unknown = JSON.parse(savedValue);
+      if (
+        typeof parsed === "object" &&
+        parsed !== null &&
+        "updatedAt" in parsed &&
+        typeof parsed.updatedAt === "number" &&
+        "parameters" in parsed &&
+        typeof parsed.parameters === "object" &&
+        parsed.parameters !== null &&
+        !Array.isArray(parsed.parameters) &&
+        Date.now() - parsed.updatedAt < CUSTOM_PARAMETERS_TTL_MS
+      ) {
+        savedParameters = sanitizeTrackingParameters(
+          Object.entries(parsed.parameters).filter(
+            (entry): entry is [string, string] =>
+              typeof entry[1] === "string",
+          ),
+        );
+      }
+    }
+
+    const parameters = { ...savedParameters, ...currentParameters };
+    if (Object.keys(currentParameters).length) {
+      window.localStorage.setItem(
+        CUSTOM_PARAMETERS_KEY,
+        JSON.stringify({ updatedAt: Date.now(), parameters }),
+      );
+    }
+    return parameters;
+  } catch (error) {
+    console.warn("Could not persist storefront tracking parameters", error);
+    return currentParameters;
+  }
 }
 
 export function initializeBrowserPixels(options: {
@@ -371,6 +466,7 @@ export function trackStorefrontEvent(
   );
   const standardPayload = {
     ...standardizePayload(event.payload),
+    custom_parameters: getCustomTrackingParameters(),
     event_id: eventId,
     event_time: Math.floor(Date.now() / 1000),
     action_source: "website",

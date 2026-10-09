@@ -30,6 +30,7 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useStorefront } from "@/hooks/useStorefront";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { formatWhatsAppPhoneNumber } from "@/lib/whatsapp";
 import type { HomePageContent } from "@/store/homePageApi";
 import type { Product } from "./types";
 
@@ -466,7 +467,6 @@ export default function Storefront({
         limit: 10,
       }));
   const currency = settings?.store?.currency;
-  console.log({ categories, configuredSections });
   const sidebarCategories =
     categories.length > 0
       ? categories.map((category) => ({
@@ -924,7 +924,7 @@ export function ProductDetailStorefront({
 
   const mainImage =
     galleryImages[activeImageIndex] || "/placeholder-product.png";
-  const storePhone = settings?.contact?.phone || "";
+  const whatsappPhone = formatWhatsAppPhoneNumber(settings?.contact?.phone);
 
   return (
     <div className="storefront-shell">
@@ -996,29 +996,41 @@ export function ProductDetailStorefront({
                 </div>
 
                 {activeVariants.length > 0 && (
-                  <div className="p-detail-variant-box">
-                    <label>Choose Option:</label>
-                    <select
-                      value={selectedVariantId}
-                      onChange={(e) => setSelectedVariantId(e.target.value)}
-                      className="p-variant-select"
-                    >
+                  <fieldset className="p-detail-variant-box">
+                    <legend>Choose Option:</legend>
+                    <div className="p-detail-variant-options">
                       {activeVariants.map((variant, index) => {
                         const key = getVariantKey(variant, index);
                         return (
-                          <option key={key} value={key}>
-                            {variant.name || "Option"}
-                            {typeof variant.price === "number"
-                              ? ` — ${formatCurrency(
-                                  variant.price,
-                                  settings?.store?.currency,
-                                )}`
-                              : ""}
-                          </option>
+                          <label
+                            className={`p-detail-variant-option ${
+                              selectedVariantId === key ? "is-selected" : ""
+                            }`}
+                            key={key}
+                          >
+                            <input
+                              type="radio"
+                              name={`product-variant-${product.id || product._id || slug}`}
+                              value={key}
+                              checked={selectedVariantId === key}
+                              onChange={() => setSelectedVariantId(key)}
+                            />
+                            <span className="p-detail-variant-option-copy">
+                              <span>{variant.name || "Option"}</span>
+                              {typeof variant.price === "number" && (
+                                <strong>
+                                  {formatCurrency(
+                                    variant.price,
+                                    settings?.store?.currency,
+                                  )}
+                                </strong>
+                              )}
+                            </span>
+                          </label>
                         );
                       })}
-                    </select>
-                  </div>
+                    </div>
+                  </fieldset>
                 )}
 
                 <div className="p-detail-qty-box">
@@ -1076,14 +1088,25 @@ export function ProductDetailStorefront({
                   </button>
                 </div>
 
-                {storePhone && (
+                {whatsappPhone && (
                   <button
                     type="button"
                     className="p-btn-whatsapp"
                     onClick={() => {
+                      const message = [
+                        `Hi, I'm interested in ${product.name}.`,
+                        `Quantity: ${quantity}`,
+                        selectedVariant?.name
+                          ? `Variant: ${selectedVariant.name}`
+                          : undefined,
+                        `Product: ${window.location.href}`,
+                      ]
+                        .filter(Boolean)
+                        .join("\n");
                       window.open(
-                        `https://wa.me/${storePhone.replace(/[^0-9]/g, "")}`,
+                        `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(message)}`,
                         "_blank",
+                        "noopener,noreferrer",
                       );
                     }}
                   >
@@ -1212,7 +1235,6 @@ export function ProductDetailStorefront({
           grid-template-columns: 1fr 1fr;
           gap: 32px;
           background: #fff;
-          padding: 24px;
           border-radius: 8px;
           border: 1px solid #e5e7eb;
         }
@@ -1318,21 +1340,55 @@ export function ProductDetailStorefront({
         }
 
         .p-detail-variant-box {
+          border: 0;
+          padding: 0;
+          margin: 0;
           display: flex;
           flex-direction: column;
-          gap: 6px;
+          gap: 8px;
         }
-        .p-detail-variant-box label {
+        .p-detail-variant-box legend {
           font-size: 13px;
           font-weight: 600;
           color: #374151;
+          padding: 0;
         }
-        .p-variant-select {
-          padding: 10px;
-          border-radius: 6px;
+        .p-detail-variant-options {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        .p-detail-variant-option {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          min-width: 120px;
+          padding: 9px 12px;
           border: 1px solid #d1d5db;
-          font-size: 14px;
-          outline: none;
+          border-radius: 8px;
+          color: #374151;
+          cursor: pointer;
+          transition:
+            border-color 0.2s ease,
+            background 0.2s ease;
+        }
+        .p-detail-variant-option.is-selected {
+          border-color: #00a884;
+          background: #ecfdf5;
+        }
+        .p-detail-variant-option input {
+          accent-color: #00a884;
+          margin: 0;
+        }
+        .p-detail-variant-option-copy {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          font-size: 13px;
+        }
+        .p-detail-variant-option-copy strong {
+          font-size: 12px;
+          color: #00a884;
         }
 
         .p-detail-qty-box {

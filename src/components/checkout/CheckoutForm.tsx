@@ -9,6 +9,7 @@ import {
 } from "@/store/publicApi";
 import { formatCurrency } from "@/lib/utils";
 import {
+  getCustomTrackingParameters,
   initializeBrowserPixels,
   trackStorefrontEvent,
 } from "@/lib/tracking";
@@ -34,6 +35,7 @@ type PublicVariant = {
 type Selection = {
   product: PublicProduct;
   variantId?: string;
+  variantIndex?: number;
   quantity: number;
   isSelected: boolean;
 };
@@ -57,18 +59,24 @@ const selectableVariantsOf = (product: PublicProduct) =>
   variantsOf(product).filter((variant) => variant.isActive !== false);
 
 const priceOf = (selection: Selection) => {
-  const variant = variantsOf(selection.product).find(
-    (item) => item.id === selection.variantId,
-  );
+  const selectableVariants = selectableVariantsOf(selection.product);
+  const variant =
+    selection.variantIndex !== undefined
+      ? selectableVariants[selection.variantIndex]
+      : selectableVariants.find((item) => item.id === selection.variantId);
   return Number(variant?.price ?? selection.product.price) || 0;
 };
 
-const createSelection = (product: PublicProduct): Selection => ({
-  product,
-  variantId: selectableVariantsOf(product)[0]?.id,
-  quantity: 1,
-  isSelected: false,
-});
+const createSelection = (product: PublicProduct): Selection => {
+  const firstVariant = selectableVariantsOf(product)[0];
+  return {
+    product,
+    variantId: firstVariant?.id,
+    variantIndex: firstVariant ? 0 : undefined,
+    quantity: 1,
+    isSelected: false,
+  };
+};
 
 const isValidPhone = (phone: string) => {
   const normalized = phone.trim().replace(/[\s-]/g, "");
@@ -368,6 +376,7 @@ export default function CheckoutForm({
         paymentMethod: formValues.selectedPaymentMethod,
         shippingMethod: "standard",
         deliveryZone: formValues.selectedDeliveryZone || undefined,
+        trackingParameters: getCustomTrackingParameters(),
       }).unwrap();
 
       onClear?.();
@@ -483,26 +492,41 @@ export default function CheckoutForm({
                   }}
                 >
                   {productVariants.length > 0 && (
-                    <select
-                      className="checkout-form-modern-light__variant-dropdown"
-                      aria-label={`${product.name} variant`}
-                      value={selection?.variantId ?? ""}
-                      onChange={(event) =>
-                        handleUpdateProductSelection(product, {
-                          variantId: event.target.value,
-                        })
-                      }
+                    <fieldset
+                      className="checkout-form-modern-light__variant-options"
                     >
+                      <legend>{product.name} options</legend>
                       {productVariants.map((variant, index) => (
-                        <option
+                        <label
+                          className="checkout-form-modern-light__variant-option"
                           key={variant.id ?? index}
-                          value={variant.id ?? ""}
                         >
-                          {variant.name || `Option ${index + 1}`} —{" "}
-                          {formatCurrency(Number(variant.price) || 0, currency)}
-                        </option>
+                          <input
+                            type="radio"
+                            name={`checkout-variant-${product.id}`}
+                            value={variant.id ?? String(index)}
+                            checked={selection?.variantIndex === index}
+                            onChange={() =>
+                              handleUpdateProductSelection(product, {
+                                variantId: variant.id,
+                                variantIndex: index,
+                              })
+                            }
+                          />
+                          <span>
+                            <strong>
+                              {variant.name || `Option ${index + 1}`}
+                            </strong>
+                            <small>
+                              {formatCurrency(
+                                Number(variant.price) || 0,
+                                currency,
+                              )}
+                            </small>
+                          </span>
+                        </label>
                       ))}
-                    </select>
+                    </fieldset>
                   )}
 
                   <div className="checkout-form-modern-light__quantity-stepper">

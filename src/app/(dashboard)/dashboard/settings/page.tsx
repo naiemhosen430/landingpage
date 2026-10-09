@@ -44,7 +44,28 @@ type DraftSocial = {
   accessToken: string;
 };
 
+const settingsTabs = [
+  {
+    id: "store",
+    label: "Store & tracking",
+    description: "Store preferences and conversion tracking",
+  },
+  {
+    id: "branding",
+    label: "Branding",
+    description: "Colors, assets, and storefront styling",
+  },
+  {
+    id: "contact",
+    label: "Contact details",
+    description: "Customer contact and social links",
+  },
+] as const;
+
 export default function SettingsPage() {
+  const [activeSettingsTab, setActiveSettingsTab] = useState<
+    "store" | "branding" | "contact"
+  >("store");
   const { data: response, isLoading } = useGetSettingsQuery(undefined);
   const [updateStore, { isLoading: savingStore }] =
     useUpdateStoreInfoMutation();
@@ -221,8 +242,74 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      <div
+        className="settings-tabs"
+        role="tablist"
+        aria-label="Settings sections"
+        onKeyDown={(event) => {
+          if (
+            !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key) ||
+            !(event.target instanceof HTMLButtonElement)
+          ) {
+            return;
+          }
+          const buttons = Array.from(
+            event.currentTarget.querySelectorAll<HTMLButtonElement>(
+              '[role="tab"]',
+            ),
+          );
+          const currentIndex = buttons.indexOf(event.target);
+          const nextIndex =
+            event.key === "Home"
+              ? 0
+              : event.key === "End"
+                ? buttons.length - 1
+                : (currentIndex +
+                    (event.key === "ArrowRight" ? 1 : -1) +
+                    buttons.length) %
+                  buttons.length;
+          const nextTab = settingsTabs.find(
+            ({ id }) => id === buttons[nextIndex]?.dataset.settingsTab,
+          );
+          if (!nextTab) return;
+          event.preventDefault();
+          buttons[nextIndex].focus();
+          setActiveSettingsTab(nextTab.id);
+        }}
+      >
+        {settingsTabs.map(({ id, label, description }, index) => (
+          <button
+            className={`settings-tab ${activeSettingsTab === id ? "is-active" : ""}`}
+            data-settings-tab={id}
+            id={`settings-tab-${id}`}
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={activeSettingsTab === id}
+            aria-controls={`settings-panel-${id}`}
+            tabIndex={activeSettingsTab === id ? 0 : -1}
+            onClick={() => setActiveSettingsTab(id)}
+          >
+            <span className="settings-tab-number">
+              {String(index + 1).padStart(2, "0")}
+            </span>
+            <span className="settings-tab-copy">
+              <strong>{label}</strong>
+              <small>{description}</small>
+            </span>
+          </button>
+        ))}
+      </div>
+
       <div className="settings-layout">
-        <section className="card settings-card">
+        {activeSettingsTab === "store" && (
+        <section
+          className="card settings-card"
+          id="settings-panel-store"
+          role="tabpanel"
+          aria-labelledby="settings-tab-store"
+          tabIndex={0}
+        >
           <div className="card-header">
             <div>
               <h2 className="card-title">Store settings</h2>
@@ -233,7 +320,7 @@ export default function SettingsPage() {
             <span className="settings-section-number">01</span>
           </div>
           <div className="card-body">
-            {/* <div className="settings-form-grid">
+            <div className="settings-form-grid">
               <Select
                 label="Currency"
                 value={store.currency}
@@ -301,7 +388,7 @@ export default function SettingsPage() {
                   {label}
                 </label>
               ))}
-            </div> */}
+            </div>
             <div className="tracking-provider-grid">
               {(["facebook", "tiktok"] as const).map((provider) => (
                 <section
@@ -398,8 +485,16 @@ export default function SettingsPage() {
             </button>
           </div>
         </section>
+        )}
 
-        <section className="card settings-card">
+        {activeSettingsTab === "branding" && (
+        <section
+          className="card settings-card"
+          id="settings-panel-branding"
+          role="tabpanel"
+          aria-labelledby="settings-tab-branding"
+          tabIndex={0}
+        >
           <div className="card-header">
             <div>
               <h2 className="card-title">Branding</h2>
@@ -506,8 +601,16 @@ export default function SettingsPage() {
             </button>
           </div>
         </section>
+        )}
 
-        <section className="card settings-card">
+        {activeSettingsTab === "contact" && (
+        <section
+          className="card settings-card"
+          id="settings-panel-contact"
+          role="tabpanel"
+          aria-labelledby="settings-tab-contact"
+          tabIndex={0}
+        >
           <div className="card-header">
             <div>
               <h2 className="card-title">Contact details</h2>
@@ -528,7 +631,8 @@ export default function SettingsPage() {
                 }
               />
               <Input
-                label="Phone"
+                label="Phone / WhatsApp"
+                hint="Bangladesh numbers without a country code use +880. Include +country code for other countries."
                 value={contact.phone ?? ""}
                 onChange={(event) =>
                   setContact({ ...contact, phone: event.target.value })
@@ -605,6 +709,7 @@ export default function SettingsPage() {
             </button>
           </div>
         </section>
+        )}
       </div>
     </div>
   );

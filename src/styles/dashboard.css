@@ -2406,11 +2406,150 @@
 
 .settings-layout {
   display: grid;
-  gap: 20px;
+  gap: 24px;
+}
+
+.settings-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 22px;
+  padding: 8px;
+  border: 1px solid var(--ui-border);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--ui-surface) 88%, transparent);
+  box-shadow: var(--ui-shadow-sm);
+}
+
+.settings-tab {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid transparent;
+  border-radius: 13px;
+  background: transparent;
+  color: var(--ui-text-soft);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--transition),
+    border-color var(--transition),
+    color var(--transition),
+    box-shadow var(--transition);
+}
+
+.settings-tab:hover {
+  background: var(--ui-surface-hover);
+  color: var(--ui-text);
+}
+
+.settings-tab.is-active {
+  border-color: color-mix(in srgb, var(--ui-primary) 24%, var(--ui-border));
+  background: var(--ui-primary-soft);
+  color: var(--ui-primary-strong);
+  box-shadow: var(--ui-shadow-xs);
+}
+
+.settings-tab:focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: 2px;
+}
+
+.settings-tab-number {
+  display: grid;
+  flex: 0 0 36px;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  background: var(--ui-surface-hover);
+  color: var(--ui-text-muted);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.settings-tab.is-active .settings-tab-number {
+  background: var(--ui-primary);
+  color: #fff;
+}
+
+.settings-tab-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.settings-tab-copy strong {
+  color: inherit;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.settings-tab-copy small {
+  overflow: hidden;
+  color: var(--ui-text-muted);
+  font-size: 11px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
 }
 
 .settings-card {
   overflow: visible;
+  border-radius: 18px;
+}
+
+.settings-card .card-header {
+  padding: 22px 26px;
+}
+
+.settings-card .card-body {
+  padding: 26px;
+}
+
+.settings-card .card-footer {
+  padding: 18px 26px;
+  border-top: 1px solid var(--ui-border);
+  background: var(--ui-surface-soft);
+}
+
+.settings-card .card-title {
+  color: var(--ui-text);
+  font-size: 17px;
+}
+
+.settings-card-description {
+  color: var(--ui-text-muted);
+}
+
+.settings-card .form-group {
+  margin-bottom: 20px;
+}
+
+.settings-card .form-label {
+  margin-bottom: 8px;
+  color: var(--ui-text);
+  font-weight: 600;
+}
+
+.settings-card .form-input,
+.settings-card .form-select,
+.settings-card .form-textarea {
+  min-height: 44px;
+  padding: 11px 13px;
+  border-radius: 10px;
+}
+
+.settings-card input[type="color"].form-input {
+  min-height: 48px;
+  padding: 5px;
+  cursor: pointer;
+}
+
+.settings-card .form-hint {
+  color: var(--ui-text-muted);
+  line-height: 1.5;
 }
 
 .settings-section-number {
@@ -2428,7 +2567,24 @@
 .settings-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 16px;
+  gap: 0 20px;
+}
+
+.settings-switches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 4px;
+  padding: 16px;
+  border: 1px solid var(--ui-border);
+  border-radius: 12px;
+  background: var(--ui-surface-soft);
+}
+
+.settings-switches .settings-toggle {
+  min-height: 24px;
+  color: var(--ui-text-soft);
+  font-weight: 600;
 }
 
 .settings-form-grid-compact {
@@ -2476,6 +2632,48 @@
   gap: 8px;
   color: var(--text-secondary);
   font-size: 13px;
+  cursor: pointer;
+}
+
+.settings-brand-assets {
+  display: grid;
+  gap: 12px;
+  margin: 10px 0 22px;
+}
+
+.settings-brand-asset {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--ui-border);
+  border-radius: 12px;
+  background: var(--ui-surface-soft);
+}
+
+.settings-brand-asset h3 {
+  color: var(--ui-text);
+  font-size: 13px;
+}
+
+.settings-brand-asset p {
+  margin-top: 4px;
+  color: var(--ui-text-muted);
+  font-size: 12px;
+}
+
+.settings-brand-asset img {
+  width: 56px;
+  height: 44px;
+  object-fit: contain;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  background: var(--ui-surface);
+}
+
+.settings-brand-asset input[type="file"] {
+  display: none;
 }
 
 .tracking-provider {
@@ -2554,6 +2752,38 @@
     grid-template-columns: 1fr;
   }
 
+  .settings-tabs {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    padding: 6px;
+  }
+
+  .settings-tab {
+    padding: 11px 12px;
+  }
+
+  .settings-tab-copy small {
+    white-space: normal;
+  }
+
+  .settings-card .card-header,
+  .settings-card .card-body {
+    padding: 20px;
+  }
+
+  .settings-card .card-footer {
+    padding: 16px 20px;
+  }
+
+  .settings-brand-asset {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .settings-brand-asset img {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+
   .settings-hero {
     display: block;
   }
@@ -2570,6 +2800,19 @@
 
   .tracking-provider-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 681px) and (max-width: 960px) {
+  .settings-tab {
+    align-items: flex-start;
+    padding: 12px;
+  }
+
+  .settings-tab-number {
+    flex-basis: 32px;
+    width: 32px;
+    height: 32px;
   }
 }
 

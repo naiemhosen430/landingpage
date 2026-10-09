@@ -14,9 +14,48 @@ const ranges = [
   { label: "30 Days", value: "30d" },
   { label: "90 Days", value: "90d" },
   { label: "12 Months", value: "12m" },
-];
+] satisfies { label: string; value: AnalyticsRange }[];
 
-function SimpleBarChart({ data, color }: { data: number[]; color: string }) {
+function formatDateLabel(date: string) {
+  return new Date(`${date}T00:00:00`).toLocaleDateString(undefined, {
+    month: "numeric",
+    day: "numeric",
+  });
+}
+
+function getAnalyticsErrorMessage(error: unknown) {
+  if (typeof error !== "object" || error === null) {
+    return "Unable to load analytics. Please try again.";
+  }
+
+  if ("data" in error) {
+    const data = error.data;
+    if (
+      typeof data === "object" &&
+      data !== null &&
+      "message" in data &&
+      typeof data.message === "string"
+    ) {
+      return data.message;
+    }
+  }
+
+  if ("error" in error && typeof error.error === "string") {
+    return error.error;
+  }
+
+  return "Unable to load analytics. Please try again.";
+}
+
+function SimpleBarChart({
+  data,
+  labels,
+  color,
+}: {
+  data: number[];
+  labels: string[];
+  color: string;
+}) {
   const max = Math.max(...data, 1);
   return (
     <div
@@ -30,7 +69,8 @@ function SimpleBarChart({ data, color }: { data: number[]; color: string }) {
     >
       {data.map((val, i) => (
         <div
-          key={i}
+          key={labels[i] ?? i}
+          title={`${labels[i] ?? i + 1}: ${val.toLocaleString()}`}
           style={{
             flex: 1,
             display: "flex",
@@ -50,7 +90,7 @@ function SimpleBarChart({ data, color }: { data: number[]; color: string }) {
             }}
           />
           <span style={{ fontSize: 10, color: "var(--text-muted)" }}>
-            {i + 1}
+            {labels[i] ?? i + 1}
           </span>
         </div>
       ))}
@@ -103,17 +143,28 @@ export default function AnalyticsPage() {
     isFetching,
     error,
   } = useGetAnalyticsQuery(isCustomRange ? { range, from, to } : { range }, {
-    skip: isCustomRange && (!from || !to),
+    skip: isCustomRange && (!from || !to || from > to),
   });
-  const summary = analytics?.data?.summary;
-  const detailSummary = analytics?.data?.detail?.summary;
-  const daily = analytics?.data?.detail?.daily ?? summary?.chartData ?? [];
+
+  const customRangeIncomplete = isCustomRange && (!from || !to);
+  const customRangeInvalid = isCustomRange && Boolean(from && to && from > to);
+  const dashboardSummary = analytics?.data?.summary;
+  const rangeSummary = analytics?.data?.detail?.summary;
+  const daily =
+    analytics?.data?.detail?.daily ??
+    dashboardSummary?.chartData.map((point) => ({
+      date: point.label,
+      revenue: point.revenue,
+      orders: point.orders,
+      visitors: 0,
+    })) ??
+    [];
+  const dateLabels = daily.map((point) => formatDateLabel(point.date));
   const revenueData = daily.map((point) => point.revenue);
   const orderData = daily.map((point) => point.orders);
-  const visitorCount = detailSummary?.totalUniqueVisitors ?? 0;
+  const visitorData = daily.map((point) => point.visitors);
   const formatMoney = (value: number) => `৳${value.toLocaleString()}`;
-  const topProducts = { data: [] };
-  const trafficSources = { data: [] };
+  const showChanges = range === "30d";
 
   return (
     <div>
@@ -134,7 +185,7 @@ export default function AnalyticsPage() {
           {ranges.map((item) => (
             <button
               key={item.value}
-              onClick={() => setRange(item.value as AnalyticsRange)}
+              onClick={() => setRange(item.value)}
               className="btn btn-sm"
               style={{
                 background:
@@ -198,43 +249,76 @@ export default function AnalyticsPage() {
 
       {error && (
         <div className="alert alert-error" style={{ marginBottom: 24 }}>
-          Unable to load analytics. Please try again.
+          {getAnalyticsErrorMessage(error)}
         </div>
       )}
 
-      {isLoading ? (
+      {customRangeIncomplete && (
+        <div className="alert" style={{ marginBottom: 24 }}>
+          Select both dates to load analytics for a custom range.
+        </div>
+      )}
+
+      {customRangeInvalid && (
+        <div className="alert alert-error" style={{ marginBottom: 24 }}>
+          The start date must be on or before the end date.
+        </div>
+      )}
+
+      {!isLoading &&
+        !analytics &&
+        !error &&
+        !customRangeIncomplete &&
+        !customRangeInvalid && (
+          <div className="alert alert-error" style={{ marginBottom: 24 }}>
+            The analytics API returned no data.
+          </div>
+        )}
+
+      {isLoading && !customRangeIncomplete ? (
         <div style={{ padding: 40, display: "flex", justifyContent: "center" }}>
           <div className="spinner" />
         </div>
-      ) : (
+      ) : !customRangeIncomplete && !customRangeInvalid && analytics ? (
         <>
+          {rangeSummary && daily.length === 0 && (
+            <div className="alert" style={{ marginBottom: 24 }}>
+              No analytics records were found for this date range.
+            </div>
+          )}
           <div className="stats-grid">
             <StatCard
               label="Revenue"
               value={formatMoney(
-                summary?.totalRevenue ?? detailSummary?.totalRevenue ?? 0,
+                rangeSummary?.totalRevenue ??
+                  dashboardSummary?.totalRevenue ??
+                  0,
               )}
-              change={summary?.revenueChange}
+              change={showChanges ? dashboardSummary?.revenueChange : undefined}
               icon="revenue"
               color="green"
             />
             <StatCard
               label="Orders"
-              value={summary?.totalOrders ?? detailSummary?.totalOrders ?? 0}
-              change={summary?.ordersChange}
+              value={
+                rangeSummary?.totalOrders ?? dashboardSummary?.totalOrders ?? 0
+              }
+              change={showChanges ? dashboardSummary?.ordersChange : undefined}
               icon="orders"
               color="blue"
             />
             <StatCard
               label="Visitors"
-              value={visitorCount.toLocaleString()}
-              change={summary?.customersChange}
+              value={(rangeSummary?.totalUniqueVisitors ?? 0).toLocaleString()}
+              change={
+                showChanges ? dashboardSummary?.customersChange : undefined
+              }
               icon="visitors"
               color="blue"
             />
             <StatCard
               label="Conversion"
-              value={`${summary?.conversionRate ?? 0}%`}
+              value={`${rangeSummary?.avgConversionRate ?? dashboardSummary?.conversionRate ?? 0}%`}
               icon="conversion"
               color="yellow"
             />
@@ -255,6 +339,7 @@ export default function AnalyticsPage() {
               <div className="card-body">
                 <SimpleBarChart
                   data={revenueData.length ? revenueData : [0]}
+                  labels={dateLabels}
                   color="var(--success)"
                 />
               </div>
@@ -266,6 +351,7 @@ export default function AnalyticsPage() {
               <div className="card-body">
                 <SimpleBarChart
                   data={orderData.length ? orderData : [0]}
+                  labels={dateLabels}
                   color="var(--primary)"
                 />
               </div>
@@ -276,7 +362,7 @@ export default function AnalyticsPage() {
               </div>
               <div className="card-body">
                 <SimpleLine
-                  data={revenueData.length ? revenueData : [0]}
+                  data={visitorData.length ? visitorData : [0]}
                   color="var(--info)"
                 />
               </div>
@@ -284,114 +370,133 @@ export default function AnalyticsPage() {
           </div>
 
           <div
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}
+            style={{
+              display: "grid",
+              gridTemplateColumns: analytics.data.platform
+                ? "repeat(3, minmax(0, 1fr))"
+                : "1fr 1fr",
+              gap: 24,
+            }}
           >
             <div className="card">
               <div className="card-header">
-                <h3 className="card-title">Top Products</h3>
+                <h3 className="card-title">Products & Customers</h3>
               </div>
-              <div className="card-body" style={{ padding: 0 }}>
-                <div className="table-wrapper">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>Product</th>
-                        <th>Sold</th>
-                        <th style={{ textAlign: "right" }}>Revenue</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(topProducts?.data || []).map((p: any, i: number) => (
-                        <tr key={i}>
-                          <td>
-                            <div style={{ fontWeight: 500 }}>{p.name}</div>
-                          </td>
-                          <td>{p.sold}</td>
-                          <td style={{ textAlign: "right", fontWeight: 600 }}>
-                            ৳{p.revenue.toLocaleString()}
-                          </td>
-                        </tr>
-                      ))}
-                      {(!topProducts?.data ||
-                        topProducts.data.length === 0) && (
-                        <tr>
-                          <td colSpan={3}>
-                            <div
-                              className="empty-state"
-                              style={{ padding: 24 }}
-                            >
-                              <div className="empty-state-desc">
-                                No data available
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+              <div className="card-body">
+                <div style={{ fontSize: 28, fontWeight: 600 }}>
+                  {rangeSummary?.totalProductsSold?.toLocaleString() ?? "0"}
                 </div>
+                <div style={{ color: "var(--text-secondary)", marginTop: 4 }}>
+                  Products sold in this range
+                </div>
+                <div
+                  style={{
+                    color: "var(--text-secondary)",
+                    marginTop: 8,
+                  }}
+                >
+                  Average order value:{" "}
+                  {formatMoney(rangeSummary?.avgOrderValue ?? 0)}
+                </div>
+                {dashboardSummary && (
+                  <div
+                    style={{
+                      display: "grid",
+                      gap: 8,
+                      marginTop: 16,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <span>Catalog products</span>
+                      <strong>
+                        {dashboardSummary.totalProducts.toLocaleString()}
+                      </strong>
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <span>Total customers</span>
+                      <strong>
+                        {dashboardSummary.totalCustomers.toLocaleString()}
+                      </strong>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
             <div className="card">
               <div className="card-header">
-                <h3 className="card-title">Traffic Sources</h3>
+                <h3 className="card-title">Traffic</h3>
               </div>
               <div className="card-body">
-                <div
-                  style={{ display: "flex", flexDirection: "column", gap: 12 }}
-                >
-                  {(trafficSources?.data || []).map((s: any, i: number) => (
-                    <div key={i}>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          marginBottom: 6,
-                        }}
-                      >
-                        <span style={{ fontWeight: 500, fontSize: 14 }}>
-                          {s.source}
-                        </span>
-                        <span
-                          style={{
-                            fontSize: 14,
-                            color: "var(--text-secondary)",
-                          }}
-                        >
-                          {s.visitors.toLocaleString()} ({s.percentage}%)
-                        </span>
-                      </div>
-                      <div
-                        style={{
-                          width: "100%",
-                          height: 8,
-                          background: "var(--bg-tertiary)",
-                          borderRadius: "var(--radius-full)",
-                          overflow: "hidden",
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: `${s.percentage}%`,
-                            height: "100%",
-                            background: "var(--primary)",
-                            borderRadius: "var(--radius-full)",
-                            transition: "width 0.5s ease",
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                  {(!trafficSources?.data ||
-                    trafficSources.data.length === 0) && (
-                    <div className="empty-state" style={{ padding: 24 }}>
-                      <div className="empty-state-desc">No data available</div>
-                    </div>
-                  )}
+                <div style={{ display: "grid", gap: 12 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <span>Page views</span>
+                    <strong>
+                      {rangeSummary?.totalPageViews.toLocaleString() ?? "0"}
+                    </strong>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <span>Unique visitors</span>
+                    <strong>
+                      {rangeSummary?.totalUniqueVisitors.toLocaleString() ??
+                        "0"}
+                    </strong>
+                  </div>
                 </div>
               </div>
             </div>
+
+            {analytics.data.platform && (
+              <div className="card">
+                <div className="card-header">
+                  <h3 className="card-title">Platform</h3>
+                </div>
+                <div className="card-body" style={{ display: "grid", gap: 12 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <span>Total projects</span>
+                    <strong>
+                      {analytics.data.platform.totalProjects.toLocaleString()}
+                    </strong>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <span>Active projects</span>
+                    <strong>
+                      {analytics.data.platform.activeProjects.toLocaleString()}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           {isFetching && (
             <div style={{ color: "var(--text-muted)", marginTop: 16 }}>
@@ -399,7 +504,7 @@ export default function AnalyticsPage() {
             </div>
           )}
         </>
-      )}
+      ) : null}
     </div>
   );
 }

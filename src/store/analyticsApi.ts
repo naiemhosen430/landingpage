@@ -19,6 +19,13 @@ export interface AnalyticsDailyPoint {
   date: string;
   revenue: number;
   orders: number;
+  visitors: number;
+}
+
+export interface AnalyticsChartPoint {
+  label: string;
+  revenue: number;
+  orders: number;
 }
 
 export interface AnalyticsRangeSummary {
@@ -27,9 +34,8 @@ export interface AnalyticsRangeSummary {
   totalOrders: number;
   totalRevenue: number;
   totalProductsSold: number;
-  newCustomers: number;
-  returningCustomers: number;
   avgOrderValue: number;
+  avgConversionRate: number;
 }
 
 export interface AnalyticsResponse {
@@ -47,7 +53,7 @@ export interface AnalyticsResponse {
       customersChange: number;
       avgOrderValue: number;
       conversionRate: number;
-      chartData: AnalyticsDailyPoint[];
+      chartData: AnalyticsChartPoint[];
     };
     detail?: {
       summary: AnalyticsRangeSummary;
