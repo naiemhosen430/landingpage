@@ -74,17 +74,49 @@ function toImageAsset(value: unknown): ImageAsset | null {
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "data" in error &&
-    typeof error.data === "object" &&
-    error.data !== null &&
-    "message" in error.data &&
-    typeof error.data.message === "string"
-  ) {
-    return error.data.message;
+  if (error instanceof Error && error.message) return error.message;
+
+  if (typeof error === "string" && error.trim()) return error;
+
+  if (typeof error === "object" && error !== null) {
+    const value = error as Record<string, unknown>;
+    const data = value.data;
+
+    if (typeof data === "string" && data.trim()) return data;
+    if (typeof data === "object" && data !== null) {
+      const body = data as Record<string, unknown>;
+      if (typeof body.message === "string" && body.message.trim())
+        return body.message;
+      if (typeof body.error === "string" && body.error.trim())
+        return body.error;
+      if (typeof body.detail === "string" && body.detail.trim())
+        return body.detail;
+      if (Array.isArray(body.errors)) {
+        const messages = body.errors
+          .map((item) => {
+            if (typeof item === "string") return item;
+            if (
+              typeof item === "object" &&
+              item !== null &&
+              "message" in item
+            ) {
+              return String((item as { message: unknown }).message);
+            }
+            return "";
+          })
+          .filter(Boolean);
+        if (messages.length) return messages.join(" ");
+      }
+    }
+
+    if (typeof value.message === "string" && value.message.trim())
+      return value.message;
+    if (typeof value.error === "string" && value.error.trim())
+      return value.error;
+    if (typeof value.status === "number")
+      return `Request failed (${value.status}). Please try again.`;
   }
+
   return fallback;
 }
 
@@ -157,7 +189,11 @@ export default function ProductForm({
   const [updateProduct, { isLoading: updating }] = useUpdateProductMutation();
   const [uploadImages, { isLoading: uploading }] = useUploadImagesMutation();
   const [deleteImages] = useDeleteImagesMutation();
-  const { data: categoriesData } = useGetCategoriesQuery(undefined);
+  const {
+    data: categoriesData,
+    isLoading: categoriesLoading,
+    error: categoriesError,
+  } = useGetCategoriesQuery(undefined);
   const user = useAppSelector((state) => state.auth.user);
   const projectId = user?.projectId ?? user?.project?.id;
 
@@ -167,7 +203,6 @@ export default function ProductForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saveError, setSaveError] = useState("");
   const [imageError, setImageError] = useState("");
-  const [slugEdited, setSlugEdited] = useState(Boolean(initialData?.slug));
 
   const isLoading = creating || updating || uploading;
   const categories = categoriesData?.data ?? [];
@@ -189,7 +224,8 @@ export default function ProductForm({
     setForm((current) => ({
       ...current,
       name,
-      slug: slugEdited ? current.slug : slugify(name),
+      // Always keep a valid automatic slug for new products.
+      slug: slugify(name),
     }));
     setErrors((current) => {
       const next = { ...current };
@@ -315,22 +351,50 @@ export default function ProductForm({
 
   const validate = () => {
     const nextErrors: Record<string, string> = {};
-    if (!form.name.trim()) nextErrors.name = "Product name is required.";
-    if (!form.slug.trim()) nextErrors.slug = "Product URL is required.";
+    const normalizedName = form.name.trim();
+    const normalizedSlug = slugify(form.slug.trim() || normalizedName);
+
+    if (!normalizedName) nextErrors.name = "Product name is required.";
+    if (!normalizedSlug)
+      nextErrors.slug =
+        "Enter a product name using letters or numbers to generate a URL.";
     if (!form.description.trim())
       nextErrors.description = "Product description is required.";
     if (!form.sku.trim()) nextErrors.sku = "SKU is required.";
-    if (form.price === "" || !Number.isFinite(Number(form.price))) {
+
+    const price = Number(form.price);
+    if (form.price.trim() === "" || !Number.isFinite(price)) {
       nextErrors.price = "Enter a valid price.";
-    } else if (Number(form.price) < 0) {
+    } else if (price < 0) {
       nextErrors.price = "Price cannot be negative.";
     }
-    if (errors.attributes) {
-      nextErrors.attributes = errors.attributes;
+
+    for (const [label, value] of [
+      ["Compare-at price", form.compareAtPrice],
+      ["Cost per item", form.costPrice],
+      ["Stock quantity", form.stock],
+      ["Low-stock threshold", form.lowStockThreshold],
+      ["Weight", form.weight],
+      ["Length", form.length],
+      ["Width", form.width],
+      ["Height", form.height],
+    ] as const) {
+      if (
+        value.trim() !== "" &&
+        (!Number.isFinite(Number(value)) || Number(value) < 0)
+      ) {
+        nextErrors[label] = `${label} must be a valid non-negative number.`;
+      }
     }
+
+    if (errors.attributes) nextErrors.attributes = errors.attributes;
     if (!form.thumbnailImage)
-      nextErrors.images = "Upload an image and choose a thumbnail.";
+      nextErrors.images =
+        "Upload at least one image. The first image is selected as the thumbnail automatically.";
     setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      setSaveError(Object.values(nextErrors).join(" "));
+    }
     return Object.keys(nextErrors).length === 0;
   };
 
@@ -343,7 +407,7 @@ export default function ProductForm({
       form.length !== "" || form.width !== "" || form.height !== "";
     const payload = {
       name: form.name.trim(),
-      slug: form.slug.trim(),
+      slug: slugify(form.slug.trim() || form.name.trim()),
       description: form.description.trim(),
       shortDescription: form.shortDescription.trim() || undefined,
       sku: form.sku.trim(),
@@ -400,13 +464,16 @@ export default function ProductForm({
     } catch (error) {
       console.error("Failed to save product:", error);
       setSaveError(
-        getErrorMessage(error, "Could not save the product. Try again."),
+        getErrorMessage(
+          error,
+          "Could not save the product. Check the required fields and try again.",
+        ),
       );
     }
   };
 
   return (
-    <form className="product-editor-form" onSubmit={handleSubmit}>
+    <form className="product-editor-form" onSubmit={handleSubmit} noValidate>
       <div className="product-editor-layout">
         <div className="product-editor-sections">
           <details className="product-editor-section" open>
@@ -419,7 +486,7 @@ export default function ProductForm({
               <ChevronDown size={18} aria-hidden="true" />
             </summary>
             <div className="product-editor-section-body product-editor-grid">
-              <div className="form-group">
+              <div className="form-group product-editor-full">
                 <label className="form-label" htmlFor="product-name">
                   Product name *
                 </label>
@@ -433,25 +500,11 @@ export default function ProductForm({
                 {errors.name && (
                   <span className="form-error">{errors.name}</span>
                 )}
-              </div>
-              <div className="form-group">
-                <label className="form-label" htmlFor="product-slug">
-                  URL handle *
-                </label>
-                <Input
-                  id="product-slug"
-                  value={form.slug}
-                  onChange={(event) => {
-                    setSlugEdited(true);
-                    updateField("slug", slugify(event.target.value));
-                  }}
-                  placeholder="everyday-cotton-shirt"
-                  required
-                />
                 {errors.slug && (
                   <span className="form-error">{errors.slug}</span>
                 )}
               </div>
+
               <div className="form-group product-editor-full">
                 <label
                   className="form-label"
@@ -610,59 +663,37 @@ export default function ProductForm({
               </span>
               <ChevronDown size={18} aria-hidden="true" />
             </summary>
-            <div className="product-editor-section-body product-editor-grid">
+            <div className="product-editor-section-body">
+              {categoriesError && (
+                <div className="form-error" role="alert">
+                  Categories could not be loaded. You can still try saving the
+                  product; if the API requires a category, reload or check the
+                  category API.
+                </div>
+              )}
               <MultiSelect
-                label="Categories"
+                label={
+                  categoriesLoading ? "Categories (loading...)" : "Categories"
+                }
                 hint="Choose one or more categories for this product."
                 value={form.categories}
-                options={categories.map((category: any) => ({
-                  value: category.id ?? category._id,
-                  label: category.name,
-                }))}
+                options={categories
+                  .map((category: any) => {
+                    const id = category.id ?? category._id;
+                    return id
+                      ? {
+                          value: String(id),
+                          label: String(category.name ?? "Unnamed category"),
+                        }
+                      : null;
+                  })
+                  .filter(
+                    (option): option is { value: string; label: string } =>
+                      option !== null,
+                  )}
                 onChange={(values) => updateField("categories", values)}
                 placeholder="Select categories"
               />
-              <div className="form-group">
-                <label className="form-label" htmlFor="product-tags">
-                  Tags
-                </label>
-                <Input
-                  id="product-tags"
-                  value={form.tags}
-                  onChange={(event) => updateField("tags", event.target.value)}
-                  placeholder="cotton, casual, summer"
-                />
-                <small className="form-hint">Separate tags with commas.</small>
-              </div>
-
-              <label className="product-editor-toggle">
-                <Input
-                  type="checkbox"
-                  checked={form.isFeatured}
-                  onChange={(event) =>
-                    updateField("isFeatured", event.target.checked)
-                  }
-                />
-                <span>
-                  <strong>Featured product</strong>
-                  <small>Highlight this product in your storefront.</small>
-                </span>
-              </label>
-              <div className="form-group">
-                <label className="form-label" htmlFor="product-status">
-                  Status
-                </label>
-                <Select
-                  id="product-status"
-                  value={form.isActive ? "active" : "archived"}
-                  onChange={(event) =>
-                    updateField("isActive", event.target.value === "active")
-                  }
-                >
-                  <option value="active">Active</option>
-                  <option value="archived">Archived</option>
-                </Select>
-              </div>
             </div>
 
             <div className="product-editor-section-body">
@@ -960,7 +991,7 @@ export default function ProductForm({
       </div>
 
       {saveError && (
-        <div className="product-editor-error" role="alert">
+        <div className="product-editor-error" role="alert" aria-live="polite">
           {saveError}
         </div>
       )}
@@ -969,22 +1000,59 @@ export default function ProductForm({
           Fix the product attribute JSON before saving.
         </div>
       )}
-      <div className="product-editor-footer">
-        <button
-          className="btn btn-secondary"
-          type="button"
-          onClick={() => router.push("/dashboard/products")}
-          disabled={isLoading}
-        >
-          Cancel
-        </button>
-        <button className="btn btn-primary" type="submit" disabled={isLoading}>
-          {isLoading
-            ? "Saving product…"
-            : isEdit
-              ? "Save changes"
-              : "Create product"}
-        </button>
+      <div
+        className="product-editor-footer"
+        style={{ display: "flex", justifyContent: "space-between" }}
+      >
+        <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+          <label className="product-editor-toggle">
+            <Input
+              type="checkbox"
+              checked={form.isFeatured}
+              onChange={(event) =>
+                updateField("isFeatured", event.target.checked)
+              }
+            />
+            <span>
+              <strong>Featured product</strong>
+              <small>Highlight this product in your storefront.</small>
+            </span>
+          </label>
+          <div className="form-group">
+            <Select
+              id="product-status"
+              value={form.isActive ? "active" : "archived"}
+              onChange={(event) =>
+                updateField("isActive", event.target.value === "active")
+              }
+            >
+              <option value="active">Active</option>
+              <option value="archived">Archived</option>
+            </Select>
+          </div>
+        </div>
+
+        <div>
+          <button
+            className="btn btn-secondary"
+            type="button"
+            onClick={() => router.push("/dashboard/products")}
+            disabled={isLoading}
+          >
+            Cancel
+          </button>
+          <button
+            className="btn btn-primary"
+            type="submit"
+            disabled={isLoading}
+          >
+            {isLoading
+              ? "Saving product…"
+              : isEdit
+                ? "Save changes"
+                : "Create product"}
+          </button>
+        </div>
       </div>
     </form>
   );

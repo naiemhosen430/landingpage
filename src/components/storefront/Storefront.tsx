@@ -251,11 +251,80 @@ function ProductSection({
   );
 }
 
-function StoreBanners({
-  banners,
+function AllProductsSection({
+  products,
+  currency,
+  onAddToCart,
 }: {
-  banners: HomePageContent["banners"];
+  products: Product[];
+  currency?: string;
+  onAddToCart: (product: Product) => void;
 }) {
+  const pageSize = 10;
+  const [page, setPage] = useState(1);
+  const pageCount = Math.ceil(products.length / pageSize);
+  const pageProducts = products.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => {
+    setPage(1);
+  }, [products.length]);
+
+  if (!products.length) return null;
+
+  return (
+    <section className="store-product-section" aria-label="All products">
+      <div className="store-section-heading">
+        <div>
+          <span className="store-section-eyebrow">Explore the collection</span>
+          <h2>All products</h2>
+        </div>
+        <Link href="/products">
+          Shop all <span aria-hidden="true">→</span>
+        </Link>
+      </div>
+      <div className="store-product-grid">
+        {pageProducts.map((product) => (
+          <ProductCard
+            key={product.id || product._id}
+            product={product}
+            currency={currency}
+            onAddToCart={onAddToCart}
+          />
+        ))}
+      </div>
+      {pageCount > 1 && (
+        <nav
+          className="store-product-pagination"
+          aria-label="All products pages"
+        >
+          <button
+            type="button"
+            onClick={() => setPage((current) => Math.max(1, current - 1))}
+            disabled={page === 1}
+            aria-label="Previous products"
+          >
+            Previous
+          </button>
+          <span>
+            Page {page} of {pageCount}
+          </span>
+          <button
+            type="button"
+            onClick={() =>
+              setPage((current) => Math.min(pageCount, current + 1))
+            }
+            disabled={page === pageCount}
+            aria-label="Next products"
+          >
+            Next
+          </button>
+        </nav>
+      )}
+    </section>
+  );
+}
+
+function StoreBanners({ banners }: { banners: HomePageContent["banners"] }) {
   const visibleBanners = banners.items
     .filter((banner) => banner.isActive && banner.imageUrl)
     .sort((a, b) => a.sortOrder - b.sortOrder);
@@ -263,7 +332,10 @@ function StoreBanners({
   if (!visibleBanners.length) return null;
 
   return (
-    <section className="store-promo-section" aria-label={banners.title || "Featured promotions"}>
+    <section
+      className="store-promo-section"
+      aria-label={banners.title || "Featured promotions"}
+    >
       {(banners.eyebrow || banners.title) && (
         <div className="store-section-heading">
           <h2>{banners.title || banners.eyebrow}</h2>
@@ -348,9 +420,11 @@ export default function Storefront({
       setActiveSlideIndex((current) => (current + 1) % heroSlides.length);
     }, interval);
     return () => window.clearInterval(timer);
-  }, [heroSlides.length, initialHomePage?.hero?.autoplay, initialHomePage?.hero?.intervalMs]);
-
-  console.log({ activeSlide });
+  }, [
+    heroSlides.length,
+    initialHomePage?.hero?.autoplay,
+    initialHomePage?.hero?.intervalMs,
+  ]);
 
   const bestsellerIds = initialHomePage?.bestsellers?.productIds ?? [];
   const bestsellers = bestsellerIds.length
@@ -384,7 +458,7 @@ export default function Storefront({
         eyebrow: section.eyebrow,
         category,
         productIds: section.productIds,
-        limit: section.limit,
+        limit: Math.min(section.limit || 10, 10),
       }))
     : categories.map((category) => ({
         title: category.name,
@@ -392,22 +466,25 @@ export default function Storefront({
         limit: 10,
       }));
   const currency = settings?.store?.currency;
+  console.log({ categories, configuredSections });
   const sidebarCategories =
     categories.length > 0
       ? categories.map((category) => ({
           id: category.id,
           name: category.name,
+          slug: category.slug,
         }))
       : (initialHomePage?.categories ?? []).map((category) => ({
           id: category.id,
           name: category.label,
+          slug: category.id,
         }));
-  const showBestsellers =
-    initialHomePage?.visibility?.bestsellers !== false;
+  const showBestsellers = initialHomePage?.visibility?.bestsellers !== false;
   const showCategoryProducts =
     initialHomePage?.visibility?.categoryProducts !== false;
   const showHero = initialHomePage?.visibility?.hero !== false;
   const showBanners = initialHomePage?.visibility?.banners !== false;
+  const showAllProducts = initialHomePage?.visibility?.allProducts !== false;
 
   return (
     <div className="storefront-shell" style={storefrontStyle(settings)}>
@@ -421,32 +498,28 @@ export default function Storefront({
 
       <main className="storefront-main">
         {showHero && (
-          <div
-            className="storefront-feature"
-          >
+          <div className="storefront-feature">
             <aside className="store-category-sidebar">
               <h1>Categories</h1>
-              <button
-                type="button"
+              <Link
+                href="/products"
                 className={selectedCategory === "all" ? "is-selected" : ""}
-                onClick={() => setSelectedCategory("all")}
               >
                 All categories <span aria-hidden="true">›</span>
-              </button>
+              </Link>
               {sidebarCategories.map((category) => (
-                <button
-                  type="button"
+                <Link
                   key={category.id}
+                  href={`/products?category=${encodeURIComponent(category.slug || category.id)}`}
                   className={
                     selectedCategory === category.id ||
                     selectedCategory === category.name
                       ? "is-selected"
                       : ""
                   }
-                  onClick={() => setSelectedCategory(category.id)}
                 >
                   {category.name} <span aria-hidden="true">›</span>
-                </button>
+                </Link>
               ))}
             </aside>
             <HeroBanner
@@ -460,7 +533,7 @@ export default function Storefront({
               onCtaClick={() => {
                 const target = activeSlide?.buttonHref?.trim();
                 if (!target || target === "#") {
-                  setSelectedCategory("all");
+                  router.push("/products");
                 } else if (target.startsWith("/")) {
                   router.push(target);
                 } else {
@@ -499,6 +572,13 @@ export default function Storefront({
                 />
               );
             })}
+          {showAllProducts && (
+            <AllProductsSection
+              products={products}
+              currency={currency}
+              onAddToCart={handleAddToCart}
+            />
+          )}
         </div>
       </main>
 
@@ -730,6 +810,15 @@ export function CheckoutStorefront({
   );
 }
 
+import {
+  Star,
+  CheckCircle2,
+  ShoppingBag,
+  ShoppingCart,
+  Phone,
+  Clock,
+} from "lucide-react";
+
 interface ProductDetailStorefrontProps extends SharedStorefrontProps {
   slug: string;
   initialProduct?: Product | null;
@@ -751,6 +840,12 @@ export function ProductDetailStorefront({
   });
   const [trackAnalyticsEvent] = useTrackAnalyticsEventMutation();
   const product = initialProduct;
+
+  const [quantity, setQuantity] = useState(1);
+  const [activeTab, setActiveTab] = useState<"description" | "delivery">(
+    "description",
+  );
+
   const activeVariants = (product?.variants ?? []).filter(
     (variant) => variant.isActive !== false,
   );
@@ -758,15 +853,19 @@ export function ProductDetailStorefront({
     variant: NonNullable<Product["variants"]>[number],
     index: number,
   ) => variant.id || variant.name || String(index);
+
   const [selectedVariantId, setSelectedVariantId] = useState(
     activeVariants[0] ? getVariantKey(activeVariants[0], 0) : "",
   );
   const selectedVariant = activeVariants.find(
     (variant, index) => getVariantKey(variant, index) === selectedVariantId,
   );
+
+  const currentPrice = selectedVariant?.price ?? product?.price ?? 0;
   const isOutOfStock =
     (selectedVariant?.stock ?? product?.stock) !== undefined &&
     (selectedVariant?.stock ?? product?.stock ?? 0) <= 0;
+
   const galleryImages = product
     ? [
         ...(Array.isArray(product.images)
@@ -777,14 +876,18 @@ export function ProductDetailStorefront({
             ? [product.images]
             : []),
         product.thumbnailImage?.secureUrl || product.thumbnailImage?.url,
-      ].filter((url, index, all): url is string =>
-        Boolean(url) && all.indexOf(url) === index,
+      ].filter(
+        (url, index, all): url is string =>
+          Boolean(url) && all.indexOf(url) === index,
       )
     : [];
+
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+
   useEffect(() => {
     setActiveImageIndex(0);
   }, [product?.id]);
+
   useEffect(() => {
     if (!product) return;
     const productId = product.id || product._id || slug;
@@ -818,160 +921,243 @@ export function ProductDetailStorefront({
       },
     );
   }, [product, slug, trackAnalyticsEvent]);
-  const image = galleryImages[activeImageIndex] || "/placeholder-product.png";
+
+  const mainImage =
+    galleryImages[activeImageIndex] || "/placeholder-product.png";
+  const storePhone = settings?.contact?.phone || "";
 
   return (
     <div className="storefront-shell">
-      <StorefrontHeader settings={settings} categories={categories} />
-      <main className="storefront-main store-product-detail">
+      <Header settings={settings} categories={categories} />
+      <main className="storefront-main custom-product-detail-layout">
         {product ? (
           <>
-            <div className="store-product-detail-image">
-              <div className="store-product-gallery-main">
-                <img src={image} alt={product.name} />
+            {/* Top Grid: Main Image & Details */}
+            <div className="p-detail-top-grid">
+              {/* Media Gallery */}
+              <div className="p-detail-media">
+                <div className="p-detail-main-img-box">
+                  <img
+                    src={mainImage}
+                    alt={product.name}
+                    className="p-detail-main-img"
+                  />
+                </div>
                 {galleryImages.length > 1 && (
-                  <>
-                    <button
-                      type="button"
-                      className="store-product-gallery-arrow store-product-gallery-previous"
-                      aria-label="Show previous product image"
-                      onClick={() =>
-                        setActiveImageIndex(
-                          (current) =>
-                            (current - 1 + galleryImages.length) %
-                            galleryImages.length,
-                        )
-                      }
-                    >
-                      <span aria-hidden="true">‹</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="store-product-gallery-arrow store-product-gallery-next"
-                      aria-label="Show next product image"
-                      onClick={() =>
-                        setActiveImageIndex(
-                          (current) => (current + 1) % galleryImages.length,
-                        )
-                      }
-                    >
-                      <span aria-hidden="true">›</span>
-                    </button>
-                    <span className="store-product-gallery-count" aria-live="polite">
-                      {activeImageIndex + 1} / {galleryImages.length}
-                    </span>
-                  </>
-                )}
-              </div>
-              {galleryImages.length > 1 && (
-                <div
-                  className="store-product-gallery-thumbnails"
-                  aria-label="Product images"
-                >
-                  {galleryImages.map((galleryImage, index) => (
-                    <button
-                      type="button"
-                      key={galleryImage}
-                      className={
-                        index === activeImageIndex ? "is-active" : undefined
-                      }
-                      aria-label={`Show product image ${index + 1}`}
-                      aria-pressed={index === activeImageIndex}
-                      onClick={() => setActiveImageIndex(index)}
-                    >
-                      <img src={galleryImage} alt="" />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="store-product-detail-copy">
-              <p className="store-product-detail-category">
-                {product.categories?.[0] || "Collection"}
-              </p>
-              <h1>{product.name}</h1>
-              {product.shortDescription && (
-                <p className="store-product-detail-short">
-                  {product.shortDescription}
-                </p>
-              )}
-              <p className="store-product-detail-price">
-                {formatCurrency(
-                  selectedVariant?.price ?? product.price,
-                  settings?.store?.currency,
-                )}
-              </p>
-              <div className="store-product-availability">
-                <span className={isOutOfStock ? "is-out-of-stock" : "is-in-stock"}>
-                  <span aria-hidden="true" />
-                  {isOutOfStock ? "Currently unavailable" : "In stock"}
-                </span>
-                {product.stock !== undefined && product.stock > 0 && (
-                  <span>{product.stock} available</span>
-                )}
-              </div>
-              {product.description && (
-                <div className="store-product-detail-description">
-                  <h2>Product details</h2>
-                  <p>{product.description}</p>
-                </div>
-              )}
-              {product.tags && product.tags.length > 0 && (
-                <div className="store-product-tags" aria-label="Product tags">
-                  {product.tags.map((tag) => (
-                    <span key={tag}>{tag}</span>
-                  ))}
-                </div>
-              )}
-              {activeVariants.length > 0 && (
-                <label className="store-product-variant">
-                  <span>Choose an option</span>
-                  <select
-                    value={selectedVariantId}
-                    onChange={(event) =>
-                      setSelectedVariantId(event.target.value)
-                    }
+                  <div
+                    className="p-detail-thumbs"
+                    aria-label="Product thumbnails"
                   >
-                    {activeVariants.map((variant, index) => {
-                      const key = getVariantKey(variant, index);
-                      return (
-                        <option key={key} value={key}>
-                          {variant.name || "Option"}
-                          {typeof variant.price === "number"
-                            ? ` — ${formatCurrency(variant.price, settings?.store?.currency)}`
-                            : ""}
-                        </option>
+                    {galleryImages.map((galleryImage, index) => (
+                      <button
+                        type="button"
+                        key={galleryImage}
+                        className={`p-detail-thumb-btn ${
+                          index === activeImageIndex ? "is-active" : ""
+                        }`}
+                        onClick={() => setActiveImageIndex(index)}
+                      >
+                        <img src={galleryImage} alt="" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Product Info & Purchase Actions */}
+              <div className="p-detail-info">
+                {product.categories?.[0] && (
+                  <div className="p-detail-sku">
+                    <span>CATEGORY:</span>{" "}
+                    <strong>{product.categories[0]}</strong>
+                  </div>
+                )}
+                <h1 className="p-detail-title">{product.name}</h1>
+
+                <div className="p-detail-rating">
+                  <div className="p-stars-row">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} size={16} fill="#f59e0b" color="#f59e0b" />
+                    ))}
+                  </div>
+                  <span className="p-detail-in-stock">
+                    <CheckCircle2 size={16} color="#10b981" />{" "}
+                    {isOutOfStock ? "Out of Stock" : "In Stock"}
+                  </span>
+                </div>
+
+                <div className="p-detail-price-box">
+                  <span className="p-detail-price-label">Price:</span>
+                  <div className="p-detail-prices">
+                    <span className="p-detail-current-price">
+                      {formatCurrency(currentPrice, settings?.store?.currency)}
+                    </span>
+                  </div>
+                </div>
+
+                {activeVariants.length > 0 && (
+                  <div className="p-detail-variant-box">
+                    <label>Choose Option:</label>
+                    <select
+                      value={selectedVariantId}
+                      onChange={(e) => setSelectedVariantId(e.target.value)}
+                      className="p-variant-select"
+                    >
+                      {activeVariants.map((variant, index) => {
+                        const key = getVariantKey(variant, index);
+                        return (
+                          <option key={key} value={key}>
+                            {variant.name || "Option"}
+                            {typeof variant.price === "number"
+                              ? ` — ${formatCurrency(
+                                  variant.price,
+                                  settings?.store?.currency,
+                                )}`
+                              : ""}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                )}
+
+                <div className="p-detail-qty-box">
+                  <label>QUANTITY:</label>
+                  <div className="p-detail-qty-controls">
+                    <button
+                      type="button"
+                      aria-label="Decrease quantity"
+                      onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                    >
+                      <Minus size={14} />
+                    </button>
+                    <span>{quantity}</span>
+                    <button
+                      type="button"
+                      aria-label="Increase quantity"
+                      onClick={() => setQuantity((q) => q + 1)}
+                    >
+                      <Plus size={14} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-detail-actions-primary">
+                  <button
+                    type="button"
+                    className="p-btn-order-now"
+                    disabled={isOutOfStock}
+                    onClick={() => {
+                      for (let i = 0; i < quantity; i++) {
+                        storefront.handleAddToCart(
+                          product,
+                          selectedVariant?.id,
+                        );
+                      }
+                      router.push("/checkout");
+                    }}
+                  >
+                    <ShoppingBag size={18} /> Order Now
+                  </button>
+                  <button
+                    type="button"
+                    className="p-btn-add-cart"
+                    disabled={isOutOfStock}
+                    onClick={() => {
+                      for (let i = 0; i < quantity; i++) {
+                        storefront.handleAddToCart(
+                          product,
+                          selectedVariant?.id,
+                        );
+                      }
+                    }}
+                  >
+                    <ShoppingCart size={18} /> Add to Cart
+                  </button>
+                </div>
+
+                {storePhone && (
+                  <button
+                    type="button"
+                    className="p-btn-whatsapp"
+                    onClick={() => {
+                      window.open(
+                        `https://wa.me/${storePhone.replace(/[^0-9]/g, "")}`,
+                        "_blank",
                       );
-                    })}
-                  </select>
-                </label>
-              )}
-              {isOutOfStock && (
-                <p className="store-stock-status">Out of stock</p>
-              )}
-              <div className="store-product-detail-actions">
+                    }}
+                  >
+                    <Phone size={18} /> Order via WhatsApp
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Description & Details Tab Section */}
+            <div className="p-detail-tabs-container">
+              <div className="p-detail-tab-buttons">
                 <button
                   type="button"
-                  className="store-primary-link"
-                  disabled={isOutOfStock}
-                  onClick={() =>
-                    storefront.handleAddToCart(product, selectedVariant?.id)
-                  }
+                  className={`p-tab-btn ${
+                    activeTab === "description" ? "is-active" : ""
+                  }`}
+                  onClick={() => setActiveTab("description")}
                 >
-                  Add to cart
+                  Description
                 </button>
                 <button
                   type="button"
-                  className="store-order-now"
-                  disabled={isOutOfStock}
-                  onClick={() => {
-                    storefront.handleAddToCart(product, selectedVariant?.id);
-                    router.push("/checkout");
-                  }}
+                  className={`p-tab-btn ${
+                    activeTab === "delivery" ? "is-active" : ""
+                  }`}
+                  onClick={() => setActiveTab("delivery")}
                 >
-                  Order now
+                  Delivery & Return
                 </button>
               </div>
+
+              {activeTab === "description" && (
+                <div className="p-detail-tab-content">
+                  {product.shortDescription && (
+                    <p className="p-short-desc">{product.shortDescription}</p>
+                  )}
+
+                  {product.description && (
+                    <div className="p-full-desc">
+                      <h3>Product Description</h3>
+                      <p>{product.description}</p>
+                    </div>
+                  )}
+
+                  {product.tags && product.tags.length > 0 && (
+                    <div className="p-tags-container">
+                      <strong>Tags:</strong>
+                      <div className="p-tags-list">
+                        {product.tags.map((tag) => (
+                          <span key={tag} className="p-tag-item">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === "delivery" && (
+                <div className="p-detail-tab-content">
+                  <div className="p-delivery-info">
+                    <Clock size={20} className="text-teal-600" />
+                    <div>
+                      <h3>Delivery Information</h3>
+                      <p>
+                        Standard delivery within 2-4 business days. Safe and
+                        secure packaging guaranteed.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </>
         ) : (
@@ -982,16 +1168,17 @@ export function ProductDetailStorefront({
             </Link>
           </div>
         )}
-        <span className="sr-only">{slug}</span>
       </main>
+
+      {/* Related Products Grid */}
       {product && relatedProducts.length > 0 && (
-        <section className="store-related-products">
+        <section className="store-related-products custom-related-wrapper">
           <div className="store-related-products-heading">
             <div>
-              <p>Picked for you</p>
-              <h2>Related products</h2>
+              <span className="store-section-eyebrow">EXPLORE MORE</span>
+              <h2>Related Products</h2>
             </div>
-            <Link href="/products">View all products</Link>
+            <Link href="/products">View all</Link>
           </div>
           <div className="store-product-grid">
             {relatedProducts.map((relatedProduct) => (
@@ -1005,6 +1192,7 @@ export function ProductDetailStorefront({
           </div>
         </section>
       )}
+
       <StorefrontFooter settings={settings} categories={categories} />
       <CartDrawer
         isOpen={storefront.isCartOpen}
@@ -1012,6 +1200,308 @@ export function ProductDetailStorefront({
         onCheckout={storefront.handleCheckout}
         currency={settings?.store?.currency}
       />
+
+      <style jsx>{`
+        .custom-product-detail-layout {
+          max-width: 1100px;
+          margin: 0 auto;
+          padding: 14px 2px;
+        }
+        .p-detail-top-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 32px;
+          background: #fff;
+          padding: 24px;
+          border-radius: 8px;
+          border: 1px solid #e5e7eb;
+        }
+        @media (max-width: 768px) {
+          .p-detail-top-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+        .p-detail-media {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .p-detail-main-img-box {
+          position: relative;
+          background: #f9fafb;
+          border-radius: 8px;
+          overflow: hidden;
+          aspect-ratio: 1;
+          border: 1px solid #f3f4f6;
+        }
+        .p-detail-main-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        .p-detail-thumbs {
+          display: flex;
+          gap: 8px;
+          overflow-x: auto;
+        }
+        .p-detail-thumb-btn {
+          width: 64px;
+          height: 64px;
+          border: 1px solid #e5e7eb;
+          border-radius: 6px;
+          overflow: hidden;
+          background: none;
+          cursor: pointer;
+          padding: 0;
+          flex-shrink: 0;
+        }
+        .p-detail-thumb-btn.is-active {
+          border-color: #00a884;
+          border-width: 2px;
+        }
+        .p-detail-thumb-btn img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .p-detail-info {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+        .p-detail-sku {
+          font-size: 12px;
+          color: #6b7280;
+        }
+        .p-detail-title {
+          font-size: 24px;
+          font-weight: 700;
+          color: #111827;
+          line-height: 1.3;
+        }
+        .p-detail-rating {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+        .p-stars-row {
+          display: flex;
+          gap: 2px;
+        }
+        .p-detail-in-stock {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          color: #10b981;
+          font-size: 13px;
+          font-weight: 600;
+        }
+
+        .p-detail-price-box {
+          border: 1px solid #e5e7eb;
+          padding: 12px 16px;
+          border-radius: 6px;
+          background: #f9fafb;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .p-detail-price-label {
+          font-size: 12px;
+          color: #6b7280;
+        }
+        .p-detail-current-price {
+          font-size: 26px;
+          font-weight: 800;
+          color: #00a884;
+        }
+
+        .p-detail-variant-box {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .p-detail-variant-box label {
+          font-size: 13px;
+          font-weight: 600;
+          color: #374151;
+        }
+        .p-variant-select {
+          padding: 10px;
+          border-radius: 6px;
+          border: 1px solid #d1d5db;
+          font-size: 14px;
+          outline: none;
+        }
+
+        .p-detail-qty-box {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .p-detail-qty-box label {
+          font-size: 12px;
+          color: #374151;
+          font-weight: 600;
+        }
+        .p-detail-qty-controls {
+          display: flex;
+          align-items: center;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
+          width: fit-content;
+          overflow: hidden;
+        }
+        .p-detail-qty-controls button {
+          padding: 8px 16px;
+          background: #f9fafb;
+          border: none;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .p-detail-qty-controls span {
+          padding: 8px 16px;
+          font-weight: 600;
+          font-size: 14px;
+        }
+
+        .p-detail-actions-primary {
+          display: flex;
+          gap: 12px;
+        }
+        .p-btn-order-now {
+          flex: 1;
+          background: #00a884;
+          color: white;
+          padding: 12px;
+          border: none;
+          border-radius: 6px;
+          font-weight: 700;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        }
+        .p-btn-add-cart {
+          flex: 1;
+          background: #f3f4f6;
+          color: #1f2937;
+          border: 1px solid #d1d5db;
+          padding: 12px;
+          border-radius: 6px;
+          font-weight: 700;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        }
+        .p-btn-whatsapp {
+          background: #25d366;
+          color: white;
+          padding: 12px;
+          border: none;
+          border-radius: 6px;
+          font-weight: 700;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        }
+
+        /* Tab Details */
+        .p-detail-tabs-container {
+          margin-top: 32px;
+          background: #fff;
+          border-radius: 8px;
+          padding: 24px;
+          border: 1px solid #e5e7eb;
+        }
+        .p-detail-tab-buttons {
+          display: flex;
+          gap: 12px;
+          border-bottom: 2px solid #e5e7eb;
+          margin-bottom: 20px;
+        }
+        .p-tab-btn {
+          padding: 12px 16px;
+          border: none;
+          background: none;
+          font-weight: 700;
+          color: #6b7280;
+          cursor: pointer;
+          border-bottom: 3px solid transparent;
+        }
+        .p-tab-btn.is-active {
+          color: #00a884;
+          border-bottom-color: #00a884;
+        }
+        .p-short-desc {
+          font-size: 15px;
+          color: #4b5563;
+          line-height: 1.6;
+          margin-bottom: 16px;
+        }
+        .p-full-desc h3 {
+          font-size: 16px;
+          font-weight: 700;
+          color: #111827;
+          margin-bottom: 8px;
+        }
+        .p-full-desc p {
+          font-size: 14px;
+          color: #6b7280;
+          line-height: 1.6;
+          white-space: pre-line;
+        }
+        .p-tags-container {
+          margin-top: 16px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 14px;
+        }
+        .p-tags-list {
+          display: flex;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+        .p-tag-item {
+          background: #f3f4f6;
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 12px;
+          color: #374151;
+        }
+
+        .p-delivery-info {
+          display: flex;
+          gap: 12px;
+          align-items: flex-start;
+          background: #f9fafb;
+          padding: 16px;
+          border-radius: 6px;
+        }
+        .p-delivery-info h3 {
+          font-size: 14px;
+          font-weight: 700;
+          margin-bottom: 4px;
+        }
+        .p-delivery-info p {
+          font-size: 13px;
+          color: #6b7280;
+        }
+
+        .custom-related-wrapper {
+          max-width: 1100px;
+          margin: 32px auto 0 auto;
+        }
+      `}</style>
     </div>
   );
 }

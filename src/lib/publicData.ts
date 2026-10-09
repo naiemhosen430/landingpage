@@ -6,6 +6,7 @@ import type {
   PublicDeliveryArea,
   PublicPaymentMethod,
 } from "@/lib/landingPage";
+import { readPublicJsonResponse } from "@/lib/publicResponse";
 
 const apiBase = process.env.NEXT_PUBLIC_API_URL;
 const projectId = process.env.NEXT_PUBLIC_PROJECT_ID;
@@ -30,9 +31,11 @@ async function fetchPublic<T>(
       next: { revalidate: 60 },
     });
 
-    if (!response.ok) return response.json();
-    const json = await response.json();
-    return (json?.data?.data ?? json?.data ?? json) as T;
+    const json = await readPublicJsonResponse(response, path);
+    if (json === null) return null;
+    const data = isRecord(json) ? json.data : undefined;
+    const nestedData = isRecord(data) ? data.data : undefined;
+    return (nestedData ?? data ?? json) as T;
   } catch (error) {
     console.error(`Failed to fetch public data from ${path}:`, error);
     throw error;

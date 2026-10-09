@@ -105,6 +105,7 @@ function createEmptyHomePage(): HomePageEditorContent {
       categories: true,
       bestsellers: true,
       categoryProducts: true,
+      allProducts: true,
       promise: true,
       footer: true,
     },
@@ -906,6 +907,11 @@ export default function HomePageEditor() {
                 "categoryProducts",
                 "Category products",
                 "Products grouped by category",
+              ],
+              [
+                "allProducts",
+                "All products",
+                "Scrollable product list with pagination",
               ],
               [
                 "promise",

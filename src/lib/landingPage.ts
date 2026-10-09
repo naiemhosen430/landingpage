@@ -1,3 +1,5 @@
+import { readPublicJsonResponse } from "@/lib/publicResponse";
+
 export type LandingPage = {
   id: string;
   projectId: string;
@@ -119,12 +121,13 @@ export async function fetchPublicLandingPage(
       },
     );
 
-    if (!res.ok) {
-      return null;
-    }
-
-    const json = await res.json();
-    return json?.data ?? null;
+    const json = await readPublicJsonResponse(
+      res,
+      `/public/v1/landing-pages/${encodeURIComponent(slug)}`,
+    );
+    return isRecord(json)
+      ? (json.data as PublicLandingPageData | undefined) ?? null
+      : null;
   } catch (error) {
     // Handle network errors gracefully (e.g., during build time when API is unavailable)
     console.error("Failed to fetch landing page:", error);
@@ -146,12 +149,17 @@ export async function fetchPublicSettings(): Promise<PublicSettingsData> {
       next: { revalidate: 60 },
     });
 
-    if (!res.ok) return {};
-    const json = await res.json();
+    const json = await readPublicJsonResponse(res, "/public/v1/settings");
 
-    return json?.data ?? {};
+    return isRecord(json) && isRecord(json.data)
+      ? (json.data as PublicSettingsData)
+      : {};
   } catch (error) {
     console.error("Failed to fetch public settings:", error);
     return {};
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

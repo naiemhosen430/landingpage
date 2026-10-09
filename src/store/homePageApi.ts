@@ -35,6 +35,7 @@ export type HomePageContent = {
     banners: boolean;
     categoryProducts: boolean;
     bestsellers: boolean;
+    allProducts: boolean;
     promise: boolean;
   };
   hero: { slides: HomePageSlide[]; autoplay: boolean; intervalMs: number };
@@ -84,6 +85,7 @@ export type HomePageEditorContent = {
     categories: boolean;
     bestsellers: boolean;
     categoryProducts: boolean;
+    allProducts: boolean;
     promise: boolean;
     footer: boolean;
   };

@@ -55,6 +55,15 @@ export default function CategoriesPage() {
     value: CategoryForm[K],
   ) => setForm((current) => ({ ...current, [field]: value }));
 
+  const generateSlug = (value: string) => {
+    return value
+      .toLowerCase()
+      .trim()
+      .replace(/['’]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  };
+
   const resetForm = () => {
     setForm(emptyForm);
     setEditingId(null);
@@ -118,15 +127,15 @@ export default function CategoriesPage() {
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!form.name.trim() || !form.slug.trim()) {
-      notifyToast("Name and slug are required", "error");
+    if (!form.name.trim()) {
+      notifyToast("Category name is required", "error");
       return;
     }
     try {
       const payload = {
         ...form,
         name: form.name.trim(),
-        slug: form.slug.trim(),
+        slug: editingId ? form.slug.trim() : generateSlug(form.name),
         description: form.description.trim() || undefined,
         image: editingId ? form.image : (form.image ?? undefined),
         parentId: form.parentId || undefined,
@@ -225,21 +234,40 @@ export default function CategoriesPage() {
               </div>
               <div className="card-body">
                 <label className="form-label">Name *</label>
+
                 <input
                   className="form-input"
                   value={form.name}
-                  onChange={(e) => updateField("name", e.target.value)}
+                  onChange={(e) => {
+                    const name = e.target.value;
+
+                    setForm((current) => ({
+                      ...current,
+                      name,
+                      ...(editingId ? {} : { slug: generateSlug(name) }),
+                    }));
+                  }}
                   placeholder="Shoes"
                 />
-                <label className="form-label" style={{ marginTop: 14 }}>
-                  Slug *
-                </label>
-                <input
-                  className="form-input"
-                  value={form.slug}
-                  onChange={(e) => updateField("slug", e.target.value)}
-                  placeholder="shoes"
-                />
+
+                <div style={{ marginTop: 14 }}>
+                  <label className="form-label">Parent</label>
+                  <select
+                    className="form-select"
+                    value={form.parentId}
+                    onChange={(e) => updateField("parentId", e.target.value)}
+                  >
+                    <option value="">None</option>
+                    {categories
+                      .filter((category) => category.id !== editingId)
+                      .map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
                 <label className="form-label" style={{ marginTop: 14 }}>
                   Description
                 </label>
@@ -292,75 +320,59 @@ export default function CategoriesPage() {
                     </button>
                   </div>
                 )}
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 12,
-                    marginTop: 14,
-                  }}
-                >
-                  <div>
-                    <label className="form-label">Parent</label>
-                    <select
-                      className="form-select"
-                      value={form.parentId}
-                      onChange={(e) => updateField("parentId", e.target.value)}
-                    >
-                      <option value="">None</option>
-                      {categories
-                        .filter((category) => category.id !== editingId)
-                        .map((category) => (
-                          <option key={category.id} value={category.id}>
-                            {category.name}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                </div>
-                <label
-                  style={{
-                    display: "flex",
-                    gap: 8,
-                    alignItems: "center",
-                    marginTop: 16,
-                    fontSize: 13,
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={form.isActive}
-                    onChange={(e) => updateField("isActive", e.target.checked)}
-                  />{" "}
-                  Active
-                </label>
               </div>
               <div
                 className="card-footer"
-                style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  justifyContent: "space-between",
+                }}
               >
-                {editingId && (
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={resetForm}
+                <div>
+                  <label
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      alignItems: "center",
+                      marginTop: 16,
+                      fontSize: 13,
+                    }}
                   >
-                    Cancel
+                    <input
+                      type="checkbox"
+                      checked={form.isActive}
+                      onChange={(e) =>
+                        updateField("isActive", e.target.checked)
+                      }
+                    />{" "}
+                    Active
+                  </label>
+                </div>
+                <div>
+                  {editingId && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={resetForm}
+                    >
+                      Cancel
+                    </button>
+                  )}
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={isSaving}
+                  >
+                    {uploading
+                      ? "Uploading..."
+                      : isSaving
+                        ? "Saving..."
+                        : editingId
+                          ? "Update category"
+                          : "Create category"}
                   </button>
-                )}
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={isSaving}
-                >
-                  {uploading
-                    ? "Uploading..."
-                    : isSaving
-                      ? "Saving..."
-                      : editingId
-                        ? "Update category"
-                        : "Create category"}
-                </button>
+                </div>
               </div>
             </form>
           </div>
