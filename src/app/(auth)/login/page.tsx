@@ -125,9 +125,7 @@ export default function LoginPage() {
    */
   useEffect(() => {
     if (authToken && sessionUser) {
-      router.replace(
-        sessionUser.role === "SUPER_ADMIN" ? "/dashboard" : "/",
-      );
+      router.replace("/dashboard");
     }
   }, [authToken, router, sessionUser]);
 
@@ -288,7 +286,7 @@ export default function LoginPage() {
         /*
          * Go directly to dashboard
          */
-        router.replace(user.role === "SUPER_ADMIN" ? "/dashboard" : "/");
+        router.replace("/dashboard");
       } catch (error) {
         if (cancelled) {
           return;
@@ -434,7 +432,7 @@ export default function LoginPage() {
       /*
        * Redirect after successful login
        */
-      router.push(user.role === "SUPER_ADMIN" ? "/dashboard" : "/");
+      router.push("/dashboard");
     } catch (err: unknown) {
       console.error("LOGIN EXCEPTION:", err);
 
