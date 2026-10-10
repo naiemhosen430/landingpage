@@ -3,15 +3,34 @@ import { api } from "./api";
 export const packageApi = api.injectEndpoints({
   endpoints: (builder) => ({
     getActivePackages: builder.query<
-      any,
+      {
+        data: any[];
+        meta?: {
+          page: number;
+          limit: number;
+          total: number;
+          totalPages: number;
+          hasNextPage: boolean;
+          hasPrevPage: boolean;
+        };
+      },
       { page?: number; limit?: number; search?: string }
     >({
       query: ({ page = 1, limit = 20 } = {}) => ({
         url: "/admin/packages",
         params: { page, limit },
       }),
-      transformResponse: (response: any) =>
-        response?.data?.data ?? response?.data ?? response,
+      transformResponse: (response: any) => {
+        const payload = response?.data ?? response;
+        return Array.isArray(payload)
+          ? { data: payload }
+          : {
+              data: Array.isArray(payload?.data)
+                ? payload.data
+                : (payload?.packages ?? []),
+              meta: payload?.meta,
+            };
+      },
       providesTags: (result) => [{ type: "Package", id: "LIST" }],
     }),
 

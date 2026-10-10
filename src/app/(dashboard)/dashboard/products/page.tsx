@@ -30,7 +30,12 @@ export default function ProductsPage() {
   }, 300);
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this product?")) return;
+    if (
+      !confirm(
+        "Move this product to the recycle bin? You can restore it for 30 days.",
+      )
+    )
+      return;
     try {
       await deleteProduct(id).unwrap();
     } catch (err) {

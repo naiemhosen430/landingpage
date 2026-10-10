@@ -1,7 +1,8 @@
 "use client";
 
 import { notifyToast } from "@/lib/toast";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import PaginationControls from "@/components/dashboard/PaginationControls";
 import {
   type Courier,
   type CourierInput,
@@ -84,14 +85,16 @@ const emptyForm: CourierInput = {
 
 export default function CourierPage() {
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<CourierInput>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [credentials, setCredentials] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState("");
-  const { data, isLoading } = useGetCouriersQuery({
-    page: 1,
-    limit: 50,
+  const { data, isLoading, isFetching } = useGetCouriersQuery({
+    page,
+    limit: 10,
+    search: search || undefined,
   });
   const [createCourier, { isLoading: creating }] = useCreateCourierMutation();
   const [updateCourier, { isLoading: updating }] = useUpdateCourierMutation();
@@ -99,12 +102,13 @@ export default function CourierPage() {
   const [deleteCourier] = useDeleteCourierMutation();
 
   const couriers = data?.data ?? [];
-  const visibleCouriers = couriers.filter((courier) =>
-    `${courier.name} ${courier.code} ${courier.description ?? ""}`
-      .toLowerCase()
-      .includes(search.toLowerCase()),
-  );
+  const meta = data?.meta;
   const saving = creating || updating;
+  useEffect(() => {
+    if (meta?.totalPages && page > meta.totalPages) {
+      setPage(meta.totalPages);
+    }
+  }, [meta?.totalPages, page]);
   const availableProviders = COURIER_PROVIDERS.filter(
     (provider) =>
       !couriers.some((courier) => courier.code === provider.code) ||
@@ -222,7 +226,12 @@ export default function CourierPage() {
   };
 
   const handleDelete = async (courier: Courier) => {
-    if (!window.confirm(`Delete ${courier.name}?`)) return;
+    if (
+      !window.confirm(
+        `Move ${courier.name} to the recycle bin? You can restore it for 30 days.`,
+      )
+    )
+      return;
     try {
       await deleteCourier(courier.id).unwrap();
       if (editingId === courier.id) resetForm();
@@ -286,7 +295,10 @@ export default function CourierPage() {
             style={{ maxWidth: 240 }}
             placeholder="Search couriers"
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setPage(1);
+            }}
           />
         </div>
         <div className="card-body" style={{ padding: 0 }}>
@@ -309,7 +321,7 @@ export default function CourierPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleCouriers.length === 0 && (
+                  {couriers.length === 0 && (
                     <tr>
                       <td colSpan={5}>
                         <div className="empty-state">
@@ -320,7 +332,7 @@ export default function CourierPage() {
                       </td>
                     </tr>
                   )}
-                  {visibleCouriers.map((courier) => (
+                  {couriers.map((courier) => (
                     <tr key={courier.id}>
                       <td>
                         <strong>{courier.name}</strong>
@@ -380,6 +392,17 @@ export default function CourierPage() {
             </div>
           )}
         </div>
+        {meta && (
+          <PaginationControls
+            page={meta.page}
+            limit={meta.limit}
+            total={meta.total}
+            totalPages={meta.totalPages}
+            isFetching={isFetching}
+            itemLabel="couriers"
+            onPageChange={setPage}
+          />
+        )}
       </div>
 
       {formOpen && (

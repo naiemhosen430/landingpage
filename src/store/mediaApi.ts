@@ -18,14 +18,21 @@ export type MediaAsset = {
 
 export type MediaListResponse = {
   resources: MediaAsset[];
-  nextCursor?: string;
+  meta?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
 };
 
 export type MediaListParams = {
   projectId?: string;
   folder?: string;
+  page?: number;
   limit?: number;
-  nextCursor?: string;
 };
 
 export type MediaDeletePayload = {
@@ -47,11 +54,6 @@ export const mediaApi = api.injectEndpoints({
       transformResponse: (response: any) => {
         const payload = response?.data ?? response;
 
-        // normalized list extraction supporting multiple backend shapes:
-        // - { data: { data: [ ... ], meta: { ... } } }
-        // - { data: { resources: [ ... ], nextCursor } }
-        // - { resources: [ ... ], nextCursor }
-        // - raw array
         const items = Array.isArray(payload?.data)
           ? payload.data
           : Array.isArray(payload?.resources)
@@ -59,12 +61,6 @@ export const mediaApi = api.injectEndpoints({
             : Array.isArray(payload)
               ? payload
               : [];
-
-        const meta = payload?.meta ?? payload;
-        const nextCursor =
-          payload?.nextCursor ??
-          meta?.nextCursor ??
-          (meta?.hasNextPage ? String((meta.page ?? 0) + 1) : undefined);
 
         const normalize = (it: any) => ({
           publicId:
@@ -91,7 +87,7 @@ export const mediaApi = api.injectEndpoints({
 
         return {
           resources: items.map(normalize),
-          nextCursor,
+          meta: payload?.meta,
         } as MediaListResponse;
       },
       providesTags: ["Media"],

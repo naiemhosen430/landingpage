@@ -1,7 +1,8 @@
 "use client";
 
 import { notifyToast } from "@/lib/toast";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import PaginationControls from "@/components/dashboard/PaginationControls";
 import {
   useGetDeliveryAreasQuery,
   useCreateDeliveryAreaMutation,
@@ -10,10 +11,10 @@ import {
 } from "@/store/deliveryApi";
 
 export default function DeliveryAreasPage() {
-  const [page] = useState(1);
-  const { data, isLoading, refetch } = useGetDeliveryAreasQuery({
+  const [page, setPage] = useState(1);
+  const { data, isLoading, isFetching, refetch } = useGetDeliveryAreasQuery({
     page,
-    limit: 50,
+    limit: 10,
   });
   const [createDeliveryArea] = useCreateDeliveryAreaMutation();
   const [updateDeliveryArea] = useUpdateDeliveryAreaMutation();
@@ -26,6 +27,12 @@ export default function DeliveryAreasPage() {
     zones: [{ zone: "", price: 0 }],
     isActive: false,
   });
+
+  useEffect(() => {
+    if (data?.meta?.totalPages && page > data.meta.totalPages) {
+      setPage(data.meta.totalPages);
+    }
+  }, [data?.meta?.totalPages, page]);
 
   const handleNew = () => {
     setEditing(null);
@@ -58,7 +65,12 @@ export default function DeliveryAreasPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this delivery area?")) return;
+    if (
+      !confirm(
+        "Move this delivery area to the recycle bin? You can restore it for 30 days.",
+      )
+    )
+      return;
     try {
       await deleteDeliveryArea(id).unwrap();
       refetch();
@@ -126,6 +138,17 @@ export default function DeliveryAreasPage() {
             </div>
           )}
         </div>
+        {data?.meta && (
+          <PaginationControls
+            page={data.meta.page}
+            limit={data.meta.limit}
+            total={data.meta.total}
+            totalPages={data.meta.totalPages}
+            isFetching={isFetching}
+            itemLabel="delivery areas"
+            onPageChange={setPage}
+          />
+        )}
       </div>
 
       {formVisible && (

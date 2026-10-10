@@ -9,6 +9,9 @@ import {
   useGetPaymentMethodsAdminQuery,
   useUpdatePaymentMethodMutation,
 } from "@/store/paymentMethodApi";
+import PaginationControls from "@/components/dashboard/PaginationControls";
+
+const PAGE_SIZE = 10;
 
 const emptyForm: PaymentMethodInput = {
   code: "",
@@ -85,11 +88,14 @@ function getErrorMessage(error: any) {
 }
 
 export default function PaymentMethodsPage() {
+  const [page, setPage] = useState(1);
   const {
-    data: methods = [],
+    data,
     isLoading,
     isFetching,
-  } = useGetPaymentMethodsAdminQuery();
+  } = useGetPaymentMethodsAdminQuery({ page, limit: PAGE_SIZE });
+  const methods = data?.data ?? [];
+  const meta = data?.meta;
   const [createPaymentMethod, { isLoading: isCreating }] =
     useCreatePaymentMethodMutation();
   const [updatePaymentMethod, { isLoading: isUpdating }] =
@@ -103,6 +109,12 @@ export default function PaymentMethodsPage() {
   const [error, setError] = useState("");
 
   const isSaving = isCreating || isUpdating;
+
+  useEffect(() => {
+    if (meta?.totalPages && page > meta.totalPages) {
+      setPage(meta.totalPages);
+    }
+  }, [meta?.totalPages, page]);
 
   useEffect(() => {
     if (!editingId) return;
@@ -198,7 +210,12 @@ export default function PaymentMethodsPage() {
   };
 
   const handleDelete = async (method: PaymentMethod) => {
-    if (!window.confirm(`Delete ${method.name}?`)) return;
+    if (
+      !window.confirm(
+        `Move ${method.name} to the recycle bin? You can restore it for 30 days.`,
+      )
+    )
+      return;
     setError("");
     try {
       await deletePaymentMethod(method.id).unwrap();
@@ -595,6 +612,17 @@ export default function PaymentMethodsPage() {
               </tbody>
             </table>
           </div>
+        )}
+        {meta && (
+          <PaginationControls
+            page={meta.page}
+            limit={meta.limit}
+            total={meta.total}
+            totalPages={meta.totalPages}
+            isFetching={isFetching}
+            itemLabel="payment methods"
+            onPageChange={setPage}
+          />
         )}
       </div>
     </div>

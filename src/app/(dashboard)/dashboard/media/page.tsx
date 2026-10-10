@@ -2,9 +2,9 @@
 
 import { notifyToast } from "@/lib/toast";
 import { useEffect, useRef, useState } from "react";
+import PaginationControls from "@/components/dashboard/PaginationControls";
 import { useAppSelector } from "@/store/hooks";
 import {
-  type MediaAsset,
   useDeleteMediaMutation,
   useGetMediaDetailQuery,
   useGetMediaQuery,
@@ -40,16 +40,15 @@ export default function MediaPage() {
     user?.projectId ?? user?.project?.id ?? process.env.NEXT_PUBLIC_PROJECT_ID;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [folder, setFolder] = useState("general");
-  const [cursor, setCursor] = useState<string | undefined>();
-  const [assets, setAssets] = useState<MediaAsset[]>([]);
+  const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<string[]>([]);
   const [detailPublicId, setDetailPublicId] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState("");
-  const { data, isLoading, isFetching, refetch } = useGetMediaQuery({
+  const { data, isLoading, isFetching } = useGetMediaQuery({
     projectId,
     folder,
+    page,
     limit: 30,
-    nextCursor: cursor,
   });
   const [uploadMedia, { isLoading: uploading }] = useUploadMediaMutation();
   const [deleteMedia, { isLoading: deleting }] = useDeleteMediaMutation();
@@ -59,21 +58,14 @@ export default function MediaPage() {
   );
 
   useEffect(() => {
-    if (cursor && data?.resources?.length) {
-      setAssets((previous) => {
-        const existing = new Set(previous.map((asset) => asset.publicId));
-        return [
-          ...previous,
-          ...data.resources.filter((asset) => !existing.has(asset.publicId)),
-        ];
-      });
+    if (data?.meta?.totalPages && page > data.meta.totalPages) {
+      setPage(data.meta.totalPages);
     }
-  }, [cursor, data?.resources]);
+  }, [data?.meta?.totalPages, page]);
 
   const changeFolder = (value: string) => {
     setFolder(value);
-    setCursor(undefined);
-    setAssets([]);
+    setPage(1);
     setSelected([]);
   };
 
@@ -98,9 +90,7 @@ export default function MediaPage() {
         folder,
         images: await Promise.all(files.map(fileToDataUri)),
       }).unwrap();
-      setCursor(undefined);
-      setAssets([]);
-      await refetch();
+      setPage(1);
     } catch (error: any) {
       setUploadError(error?.data?.message ?? "Upload failed.");
     } finally {
@@ -112,16 +102,13 @@ export default function MediaPage() {
     if (
       !publicIds.length ||
       !window.confirm(
-        `Delete ${publicIds.length} selected file${publicIds.length === 1 ? "" : "s"}?`,
+        `Move ${publicIds.length} selected file${publicIds.length === 1 ? "" : "s"} to the recycle bin? You can restore them for 30 days.`,
       )
     )
       return;
     try {
       await deleteMedia({ projectId, publicIds }).unwrap();
       setSelected([]);
-      setCursor(undefined);
-      setAssets([]);
-      await refetch();
     } catch (error: any) {
       notifyToast(error?.data?.message ?? "Delete failed.", "error");
     }
@@ -135,8 +122,7 @@ export default function MediaPage() {
     );
   };
 
-  const visibleAssets = cursor ? assets : (data?.resources ?? []);
-  const hasMore = Boolean(data?.nextCursor);
+  const visibleAssets = data?.resources ?? [];
 
   return (
     <div>
@@ -172,7 +158,7 @@ export default function MediaPage() {
               onClick={() => removeAssets(selected)}
               disabled={deleting}
             >
-              Delete ({selected.length})
+              Move to recycle bin ({selected.length})
             </button>
           )}
           <button
@@ -198,7 +184,7 @@ export default function MediaPage() {
           {uploadError}
         </div>
       )}
-      {isLoading && !assets.length ? (
+      {isLoading ? (
         <div style={{ padding: 40, display: "flex", justifyContent: "center" }}>
           <div className="spinner" />
         </div>
@@ -283,7 +269,7 @@ export default function MediaPage() {
                       className="btn btn-danger btn-sm"
                       onClick={() => removeAssets([asset.publicId])}
                     >
-                      Delete
+                      Move to recycle bin
                     </button>
                   </div>
                 </div>
@@ -300,25 +286,16 @@ export default function MediaPage() {
               </div>
             )}
           </div>
-          {hasMore && (
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                marginTop: 24,
-              }}
-            >
-              <button
-                className="btn btn-secondary"
-                disabled={isFetching}
-                onClick={() => {
-                  setAssets(visibleAssets);
-                  setCursor(data?.nextCursor);
-                }}
-              >
-                {isFetching ? "Loading..." : "Load more"}
-              </button>
-            </div>
+          {data?.meta && (
+            <PaginationControls
+              page={data.meta.page}
+              limit={data.meta.limit}
+              total={data.meta.total}
+              totalPages={data.meta.totalPages}
+              isFetching={isFetching}
+              itemLabel="media files"
+              onPageChange={setPage}
+            />
           )}
         </>
       )}

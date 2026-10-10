@@ -51,6 +51,11 @@ const menuItems = [
         href: "/dashboard/landing-pages",
         icon: "layout",
       },
+      {
+        label: "Recycle Bin",
+        href: "/dashboard/recycle-bin",
+        icon: "trash",
+      },
       { label: "Settings", href: "/dashboard/settings", icon: "settings" },
     ],
   },
@@ -221,6 +226,21 @@ const icons: Record<string, JSX.Element> = {
       <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
       <line x1="6" y1="16" x2="6.01" y2="16" />
       <line x1="10" y1="16" x2="10.01" y2="16" />
+    </svg>
+  ),
+  trash: (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="3 6 5 6 21 6" />
+      <path d="m19 6-1 14H6L5 6" />
+      <path d="M10 11v6M14 11v6" />
+      <path d="M9 6V4h6v2" />
     </svg>
   ),
 };

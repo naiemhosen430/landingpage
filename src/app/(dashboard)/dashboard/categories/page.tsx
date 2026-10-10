@@ -1,7 +1,7 @@
 "use client";
 
 import { notifyToast } from "@/lib/toast";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Category,
   useCreateCategoryMutation,
@@ -17,6 +17,9 @@ import {
 } from "@/store/productApi";
 import { useAppSelector } from "@/store/hooks";
 import ConfirmModal from "@/components/ui/ConfirmModal";
+import PaginationControls from "@/components/dashboard/PaginationControls";
+
+const PAGE_SIZE = 10;
 
 const emptyForm = {
   name: "",
@@ -32,12 +35,15 @@ type CategoryForm = typeof emptyForm;
 
 export default function CategoriesPage() {
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [form, setForm] = useState<CategoryForm>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null);
-  const { data, isLoading } = useGetCategoriesQuery({
+  const { data, isLoading, isFetching } = useGetCategoriesQuery({
     search: search || undefined,
+    page,
+    limit: PAGE_SIZE,
   });
   const [createCategory, { isLoading: creating }] = useCreateCategoryMutation();
   const [updateCategory, { isLoading: updating }] = useUpdateCategoryMutation();
@@ -47,6 +53,12 @@ export default function CategoriesPage() {
   const projectId = useAppSelector(
     (state) => state.auth.user?.projectId ?? state.auth.user?.project?.id,
   );
+
+  useEffect(() => {
+    if (data?.meta?.totalPages && page > data.meta.totalPages) {
+      setPage(data.meta.totalPages);
+    }
+  }, [data?.meta?.totalPages, page]);
 
   const categories = data?.data ?? [];
   const isSaving = creating || updating;
@@ -174,12 +186,6 @@ export default function CategoriesPage() {
     if (!deleteTarget) return;
     try {
       await deleteCategory(deleteTarget.id).unwrap();
-      if (deleteTarget.image?.publicId) {
-        await deleteImages({
-          projectId,
-          publicId: deleteTarget.image.publicId,
-        }).unwrap();
-      }
       if (editingId === deleteTarget.id) resetForm();
       setDeleteTarget(null);
     } catch {
@@ -387,12 +393,13 @@ export default function CategoriesPage() {
               className="form-input"
               style={{ maxWidth: 320 }}
               placeholder="Search categories..."
-              onChange={(e) =>
-                debounce(
-                  (value: string) => setSearch(value),
-                  300,
-                )(e.target.value)
-              }
+              onChange={(e) => {
+                const value = e.target.value;
+                setPage(1);
+                debounce((nextValue: string) => setSearch(nextValue), 300)(
+                  value,
+                );
+              }}
             />
             <span
               style={{
@@ -479,17 +486,28 @@ export default function CategoriesPage() {
               ))
             )}
           </div>
+          {data?.meta && (
+            <PaginationControls
+              page={data.meta.page}
+              limit={data.meta.limit}
+              total={data.meta.total}
+              totalPages={data.meta.totalPages}
+              isFetching={isFetching}
+              itemLabel="categories"
+              onPageChange={setPage}
+            />
+          )}
         </div>
       </div>
       <ConfirmModal
         open={!!deleteTarget}
-        title="Delete category?"
+        title="Move category to recycle bin?"
         description={
           deleteTarget
-            ? `This will permanently delete ${deleteTarget.name}.`
+            ? `${deleteTarget.name} can be restored from the recycle bin for 30 days.`
             : undefined
         }
-        confirmLabel="Delete"
+        confirmLabel="Move to recycle bin"
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />

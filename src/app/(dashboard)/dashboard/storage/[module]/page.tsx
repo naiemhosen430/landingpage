@@ -138,7 +138,7 @@ export default function StorageModulePage() {
       setConfirmAction(null);
       setToast({
         visible: true,
-        message: `${result.deletedCount} record${result.deletedCount === 1 ? "" : "s"} deleted.`,
+        message: `${result.deletedCount} record${result.deletedCount === 1 ? "" : "s"} moved to the recycle bin.`,
         type: "success",
       });
       await refetch();
@@ -306,15 +306,15 @@ export default function StorageModulePage() {
         open={confirmAction !== null}
         title={
           confirmAction === "all"
-            ? "Clear this module?"
-            : "Delete selected records?"
+            ? "Move this module's records to the recycle bin?"
+            : "Move selected records to the recycle bin?"
         }
         description={
           confirmAction === "all"
-            ? "This permanently deletes every scoped record in this module."
-            : `This permanently deletes ${selectedIds.length} selected record${selectedIds.length === 1 ? "" : "s"}.`
+            ? "Every scoped record in this module will be kept in the recycle bin for 30 days."
+            : `${selectedIds.length} selected record${selectedIds.length === 1 ? "" : "s"} will be kept in the recycle bin for 30 days.`
         }
-        confirmLabel={deleting ? "Deleting..." : "Delete"}
+        confirmLabel={deleting ? "Moving..." : "Move to recycle bin"}
         onCancel={() => setConfirmAction(null)}
         onConfirm={handleDelete}
       />

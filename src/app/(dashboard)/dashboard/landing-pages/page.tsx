@@ -510,8 +510,8 @@ export default function LandingPagesPage() {
         open={!!deleteId}
         onClose={() => setDeleteId(null)}
         onConfirm={handleDelete}
-        title="Delete Landing Page"
-        description="Are you sure you want to delete this landing page? This action cannot be undone."
+        title="Move Landing Page to Recycle Bin"
+        description="You can restore this landing page from the recycle bin for 30 days."
       />
     </div>
   );

@@ -19,17 +19,42 @@ export type PaymentMethodInput = Omit<
   "id" | "projectId" | "createdAt" | "updatedAt"
 >;
 
+export type PaymentMethodListResponse = {
+  data: PaymentMethod[];
+  meta?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
+};
+
+export type PaymentMethodQueryParams = {
+  page?: number;
+  limit?: number;
+};
+
 const unwrapData = (response: any) => response?.data ?? response;
 
-const unwrapPaymentMethods = (response: any): PaymentMethod[] => {
+const unwrapPaymentMethods = (response: any): PaymentMethodListResponse => {
   const data = unwrapData(response);
-  return Array.isArray(data) ? data : (data?.data ?? []);
+  return Array.isArray(data)
+    ? { data }
+    : { data: data?.data ?? [], meta: data?.meta };
 };
 
 export const paymentMethodApi = api.injectEndpoints({
   endpoints: (builder) => ({
-    getPaymentMethodsAdmin: builder.query<PaymentMethod[], void>({
-      query: () => "/admin/payment-methods",
+    getPaymentMethodsAdmin: builder.query<
+      PaymentMethodListResponse,
+      PaymentMethodQueryParams | void
+    >({
+      query: (params) => ({
+        url: "/admin/payment-methods",
+        params: params ?? {},
+      }),
       transformResponse: unwrapPaymentMethods,
       providesTags: ["PaymentMethods"],
     }),

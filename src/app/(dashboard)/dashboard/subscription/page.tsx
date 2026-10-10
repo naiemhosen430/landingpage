@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import PackagePurchaseModal from "@/components/dashboard/PackagePurchaseModal";
+import PaginationControls from "@/components/dashboard/PaginationControls";
 import Toast from "@/components/ui/Toast";
 import { useGetMeQuery } from "@/store/authApi";
 import {
@@ -30,6 +31,7 @@ const titleize = (value: string) =>
     .replace(/^./, (letter) => letter.toUpperCase());
 
 export default function SubscriptionPage() {
+  const [packagesPage, setPackagesPage] = useState(1);
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState<"current" | "usage" | "features">(
     "current",
@@ -44,8 +46,11 @@ export default function SubscriptionPage() {
     isLoading: subscriptionLoading,
     refetch,
   } = useGetMySubscriptionQuery({ packagedata: user?.package });
-  const { data: packagesData, isLoading: packagesLoading } =
-    useGetActivePackagesQuery({ page: 1, limit: 100 });
+  const {
+    data: packagesData,
+    isLoading: packagesLoading,
+    isFetching: packagesFetching,
+  } = useGetActivePackagesQuery({ page: packagesPage, limit: 9 });
   const { data: paymentMethodsData } = useGetPaymentMethodsQuery();
   const [createPurchaseRequest, { isLoading: purchasing }] =
     useCreatePurchaseRequestMutation();
@@ -79,6 +84,7 @@ export default function SubscriptionPage() {
       ? currentSubscription
       : null);
   const packages = asList(packagesData, ["packages", "data"]);
+  const packagesMeta = packagesData?.meta;
   const paymentMethods = asList(paymentMethodsData, ["data"]);
   const limits = currentPackage?.limits ?? {};
   const usage =
@@ -390,7 +396,7 @@ export default function SubscriptionPage() {
             <div className="subscription-kicker">Available plans</div>
             <h2>Choose the right package</h2>
           </div>
-          <span>{packages.length} plans</span>
+          <span>{packagesMeta?.total ?? packages.length} plans</span>
         </div>
         <div className="package-grid">
           {packages.map((plan: any) => (
@@ -437,6 +443,17 @@ export default function SubscriptionPage() {
             </div>
           ))}
         </div>
+        {packagesMeta && (
+          <PaginationControls
+            page={packagesMeta.page}
+            limit={packagesMeta.limit}
+            total={packagesMeta.total}
+            totalPages={packagesMeta.totalPages}
+            isFetching={packagesFetching}
+            itemLabel="plans"
+            onPageChange={setPackagesPage}
+          />
+        )}
         {packages.length === 0 && (
           <div className="empty-state">
             <div className="empty-state-desc">

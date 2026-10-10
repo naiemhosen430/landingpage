@@ -27,6 +27,13 @@ export type CategoryListResponse = {
   };
 };
 
+export type CategoryQueryParams = {
+  page?: number;
+  limit?: number;
+  search?: string;
+  projectId?: string;
+};
+
 const normalizeList = (response: any): CategoryListResponse => {
   const payload = response?.data ?? response;
   return {
@@ -45,7 +52,7 @@ export const categoryApi = api.injectEndpoints({
   endpoints: (builder) => ({
     getCategories: builder.query<
       CategoryListResponse,
-      { search?: string; projectId?: string } | void
+      CategoryQueryParams | void
     >({
       query: (params) => ({
         url: "/admin/categories",

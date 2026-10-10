@@ -18,7 +18,19 @@ export type DeliveryAreaInput = Omit<
 
 export type DeliveryAreaListResponse = {
   data: DeliveryArea[];
-  meta?: Record<string, unknown>;
+  meta?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
+};
+
+export type DeliveryAreaQueryParams = {
+  page?: number;
+  limit?: number;
 };
 
 const unwrapData = (response: any) => response?.data ?? response;
@@ -27,7 +39,7 @@ export const deliveryApi = api.injectEndpoints({
   endpoints: (builder) => ({
     getDeliveryAreas: builder.query<
       DeliveryAreaListResponse,
-      Record<string, unknown> | void
+      DeliveryAreaQueryParams | void
     >({
       query: (params) => ({
         url: "/admin/delivery-areas",
