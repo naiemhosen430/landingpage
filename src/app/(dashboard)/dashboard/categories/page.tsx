@@ -2,6 +2,7 @@
 
 import { notifyToast } from "@/lib/toast";
 import { useEffect, useState } from "react";
+import { Pencil, Trash2 } from "lucide-react";
 import {
   Category,
   useCreateCategoryMutation,
@@ -471,16 +472,20 @@ export default function CategoriesPage() {
                     {category.isActive ? "Active" : "Inactive"}
                   </span>
                   <button
-                    className="btn btn-secondary"
+                    className="btn btn-secondary btn-icon-action"
                     onClick={() => edit(category)}
+                    title="Edit category"
+                    aria-label={`Edit ${category.name}`}
                   >
-                    Edit
+                    <Pencil size={16} aria-hidden="true" />
                   </button>
                   <button
-                    className="btn btn-danger"
+                    className="btn btn-danger btn-icon-action"
                     onClick={() => remove(category)}
+                    title="Delete category"
+                    aria-label={`Delete ${category.name}`}
                   >
-                    Delete
+                    <Trash2 size={16} aria-hidden="true" />
                   </button>
                 </div>
               ))

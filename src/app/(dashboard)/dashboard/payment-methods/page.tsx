@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Pencil, Trash2 } from "lucide-react";
 import {
   PaymentMethod,
   PaymentMethodInput,
@@ -592,19 +593,23 @@ export default function PaymentMethodsPage() {
                     <td>{method.sortOrder}</td>
                     <td style={{ textAlign: "right" }}>
                       <button
-                        className="btn btn-secondary btn-sm"
+                        className="btn btn-secondary btn-sm btn-icon-action"
                         type="button"
                         onClick={() => handleEdit(method)}
+                        title="Edit payment method"
+                        aria-label={`Edit ${method.name}`}
                       >
-                        Edit
+                        <Pencil size={15} aria-hidden="true" />
                       </button>{" "}
                       <button
-                        className="btn btn-danger btn-sm"
+                        className="btn btn-danger btn-sm btn-icon-action"
                         type="button"
                         disabled={isDeleting}
                         onClick={() => handleDelete(method)}
+                        title="Delete payment method"
+                        aria-label={`Delete ${method.name}`}
                       >
-                        Delete
+                        <Trash2 size={15} aria-hidden="true" />
                       </button>
                     </td>
                   </tr>

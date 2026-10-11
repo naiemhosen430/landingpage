@@ -15,6 +15,7 @@ const TRACKING_PARAMETER_NAMES = new Set([
   "msclkid",
   "twclid",
   "li_fat_id",
+  "referrer",
   "ref",
   "campaign",
   "campaign_id",
@@ -128,6 +129,17 @@ export function getCustomTrackingParameters(): Record<string, string> {
   const currentParameters = sanitizeTrackingParameters(
     new URLSearchParams(window.location.search).entries(),
   );
+  let firstTouchReferrer: string | undefined;
+  if (document.referrer) {
+    try {
+      const referrer = new URL(document.referrer);
+      if (referrer.hostname !== window.location.hostname) {
+        firstTouchReferrer = referrer.origin;
+      }
+    } catch {
+      firstTouchReferrer = undefined;
+    }
+  }
   let savedParameters: Record<string, string> = {};
   try {
     const savedValue = window.localStorage.getItem(CUSTOM_PARAMETERS_KEY);
@@ -153,8 +165,14 @@ export function getCustomTrackingParameters(): Record<string, string> {
       }
     }
 
-    const parameters = { ...savedParameters, ...currentParameters };
-    if (Object.keys(currentParameters).length) {
+    const parameters = {
+      ...savedParameters,
+      ...(firstTouchReferrer && !savedParameters.referrer
+        ? { referrer: firstTouchReferrer }
+        : {}),
+      ...currentParameters,
+    };
+    if (Object.keys(currentParameters).length || firstTouchReferrer) {
       window.localStorage.setItem(
         CUSTOM_PARAMETERS_KEY,
         JSON.stringify({ updatedAt: Date.now(), parameters }),
@@ -464,9 +482,13 @@ export function trackStorefrontEvent(
   const eventId = String(
     event.payload?.event_id ?? `${event.eventName}-${eventKey}`,
   );
+  const customParameters = getCustomTrackingParameters();
   const standardPayload = {
     ...standardizePayload(event.payload),
-    custom_parameters: getCustomTrackingParameters(),
+    custom_parameters: customParameters,
+    ...(customParameters.referrer
+      ? { referrer: customParameters.referrer }
+      : {}),
     event_id: eventId,
     event_time: Math.floor(Date.now() / 1000),
     action_source: "website",

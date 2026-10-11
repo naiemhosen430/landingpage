@@ -2,6 +2,7 @@
 
 import { notifyToast } from "@/lib/toast";
 import { useEffect, useState } from "react";
+import { Pencil, Trash2 } from "lucide-react";
 import PaginationControls from "@/components/dashboard/PaginationControls";
 import {
   type Courier,
@@ -372,16 +373,20 @@ export default function CourierPage() {
                           }}
                         >
                           <button
-                            className="btn btn-ghost btn-sm"
+                            className="btn btn-ghost btn-sm btn-icon-action"
                             onClick={() => editCourier(courier)}
+                            title="Edit courier"
+                            aria-label={`Edit ${courier.name}`}
                           >
-                            Edit
+                            <Pencil size={15} aria-hidden="true" />
                           </button>
                           <button
-                            className="btn btn-danger btn-sm"
+                            className="btn btn-danger btn-sm btn-icon-action"
                             onClick={() => handleDelete(courier)}
+                            title="Delete courier"
+                            aria-label={`Delete ${courier.name}`}
                           >
-                            Delete
+                            <Trash2 size={15} aria-hidden="true" />
                           </button>
                         </div>
                       </td>

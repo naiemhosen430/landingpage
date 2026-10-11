@@ -207,6 +207,7 @@ export const api = createApi({
     "Storage",
     "HomePage",
     "Trash",
+    "Notifications",
   ],
   endpoints: () => ({}),
 });

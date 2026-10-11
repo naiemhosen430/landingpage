@@ -1,8 +1,18 @@
 "use client";
 
 import { notifyToast } from "@/lib/toast";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import {
+  Eye,
+  Globe,
+  Music2,
+  Pencil,
+  Printer,
+  Search,
+  Share2,
+  Truck,
+} from "lucide-react";
 import {
   useGetOrdersQuery,
   useUpdateOrderMutation,
@@ -27,10 +37,39 @@ const statusMap: Record<string, string> = {
   returned: "badge-danger",
 };
 
+function OrderSource({ platform }: { platform?: string }) {
+  if (!platform) return <span title="Source not available">—</span>;
+  const normalized = platform.toLowerCase();
+  const Icon = /google|bing|yahoo|search/.test(normalized)
+    ? Search
+    : /tiktok/.test(normalized)
+      ? Music2
+      : /facebook|instagram|linkedin|pinterest|snapchat|twitter/.test(
+            normalized,
+          ) || normalized === "x"
+        ? Share2
+        : Globe;
+  return (
+    <span
+      title={`Order source: ${platform}`}
+      style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+    >
+      <Icon size={15} aria-hidden="true" />
+      {platform}
+    </span>
+  );
+}
+
 export default function OrdersPage() {
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<OrderStatus | "">("");
   const [search, setSearch] = useState("");
+  useEffect(() => {
+    const searchParam = new URLSearchParams(window.location.search).get(
+      "search",
+    );
+    if (searchParam) setSearch(searchParam);
+  }, []);
   const [bookingOrderId, setBookingOrderId] = useState<string | null>(null);
   const [bookingOrder, setBookingOrder] = useState<any | null>(null);
   const [deliveryAreas, setDeliveryAreas] = useState<RedXDeliveryArea[]>([]);
@@ -75,9 +114,7 @@ export default function OrdersPage() {
       const areas = await getRedXDeliveryAreas(order.id).unwrap();
       setBookingOrder(order);
       setDeliveryAreas(areas);
-      setSelectedDeliveryAreaId(
-        areas.length === 1 ? String(areas[0].id) : "",
-      );
+      setSelectedDeliveryAreaId(areas.length === 1 ? String(areas[0].id) : "");
       setDeliveryAreaSearch("");
     } catch (error: any) {
       notifyToast(
@@ -166,7 +203,10 @@ export default function OrdersPage() {
         }).unwrap();
       setEditingOrder(null);
     } catch (error: any) {
-      notifyToast(error?.data?.message ?? "Could not update this order.", "error");
+      notifyToast(
+        error?.data?.message ?? "Could not update this order.",
+        "error",
+      );
     }
   };
 
@@ -253,9 +293,10 @@ export default function OrdersPage() {
                     <th>Customer</th>
                     <th>Items</th>
                     <th>Total</th>
-                    <th>Payment</th>
                     <th>Status</th>
                     <th>Courier</th>
+                    <th>Source</th>
+                    <th>Order note</th>
                     <th>Date</th>
                     <th style={{ textAlign: "right" }}>Actions</th>
                   </tr>
@@ -263,7 +304,7 @@ export default function OrdersPage() {
                 <tbody>
                   {orders.length === 0 && (
                     <tr>
-                      <td colSpan={9}>
+                      <td colSpan={11}>
                         <div className="empty-state">
                           <div className="empty-state-title">
                             No orders found
@@ -354,6 +395,18 @@ export default function OrdersPage() {
                           "-"
                         )}
                       </td>
+                      <td>
+                        <OrderSource platform={order.sourcePlatform} />
+                      </td>
+                      <td>
+                        {order.notes ? (
+                          <span className="order-list-note" title={order.notes}>
+                            {order.notes}
+                          </span>
+                        ) : (
+                          <span className="order-list-note-empty">-</span>
+                        )}
+                      </td>
                       <td
                         style={{ fontSize: 13, color: "var(--text-secondary)" }}
                       >
@@ -369,19 +422,36 @@ export default function OrdersPage() {
                         >
                           <Link
                             href={`/dashboard/orders/${order.id}`}
-                            className="btn btn-ghost btn-sm"
+                            className="btn btn-ghost btn-sm btn-icon-action"
+                            title="View order"
+                            aria-label={`View order ${order.orderNumber}`}
                           >
-                            View
+                            <Eye size={16} aria-hidden="true" />
+                          </Link>
+                          <Link
+                            href={`/dashboard/orders/${order.id}?print=1`}
+                            className="btn btn-secondary btn-sm btn-icon-action"
+                            title="Print invoice"
+                            aria-label={`Print invoice for order ${order.orderNumber}`}
+                          >
+                            <Printer size={16} aria-hidden="true" />
                           </Link>
                           <button
-                            className="btn btn-secondary btn-sm"
+                            className="btn btn-secondary btn-sm btn-icon-action"
                             onClick={() => openEditOrder(order)}
+                            title="Edit order"
+                            aria-label={`Edit order ${order.orderNumber}`}
                           >
-                            Update
+                            <Pencil size={16} aria-hidden="true" />
                           </button>
                           <button
-                            className="btn btn-primary btn-sm"
+                            className="btn btn-primary btn-sm btn-icon-action"
                             onClick={() => handleBookOrder(order)}
+                            aria-label={
+                              order.courier
+                                ? `Rebook courier for order ${order.orderNumber}`
+                                : `Book courier for order ${order.orderNumber}`
+                            }
                             disabled={
                               booking ||
                               loadingDeliveryAreas ||
@@ -394,20 +464,15 @@ export default function OrdersPage() {
                               order.courier.providerCode !== "REDX"
                                 ? `${order.courier.name} booking integration is pending`
                                 : order.courier
-                                ? `Rebook with ${order.courier.name}`
-                                : "Book with assigned courier"
+                                  ? `Rebook with ${order.courier.name}`
+                                  : "Book with assigned courier"
                             }
                           >
-                            {order.courier?.providerCode &&
-                            order.courier.providerCode !== "REDX"
-                              ? "Booking pending"
-                              : bookingOrderId === order.id
-                              ? loadingDeliveryAreas
-                                ? "Loading areas..."
-                                : "Booking..."
-                              : order.courier
-                                ? "Rebook courier"
-                                : "Book courier"}
+                            {bookingOrderId === order.id ? (
+                              <span className="action-button-spinner" />
+                            ) : (
+                              <Truck size={16} aria-hidden="true" />
+                            )}
                           </button>
                         </div>
                       </td>
@@ -626,10 +691,10 @@ export default function OrdersPage() {
                       })
                     }
                   >
-                    <option value="pending">Pending</option>
-                    <option value="paid">Paid</option>
-                    <option value="failed">Failed</option>
-                    <option value="refunded">Refunded</option>
+                    <option value="PENDING">Pending</option>
+                    <option value="PAID">Paid</option>
+                    <option value="FAILED">Failed</option>
+                    <option value="REFUNDED">Refunded</option>
                   </select>
                 </div>
                 <div className="form-group">

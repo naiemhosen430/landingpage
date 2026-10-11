@@ -2,6 +2,7 @@
 
 import { notifyToast } from "@/lib/toast";
 import { useEffect, useState } from "react";
+import { Pencil, Trash2 } from "lucide-react";
 import PaginationControls from "@/components/dashboard/PaginationControls";
 import {
   useGetDeliveryAreasQuery,
@@ -121,16 +122,20 @@ export default function DeliveryAreasPage() {
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>
                     <button
-                      className="btn btn-secondary btn-sm"
+                      className="btn btn-secondary btn-sm btn-icon-action"
                       onClick={() => handleEdit(area)}
+                      title="Edit delivery area"
+                      aria-label={`Edit ${area.name}`}
                     >
-                      Edit
+                      <Pencil size={15} aria-hidden="true" />
                     </button>
                     <button
-                      className="btn btn-danger btn-sm"
+                      className="btn btn-danger btn-sm btn-icon-action"
                       onClick={() => handleDelete(area._id)}
+                      title="Delete delivery area"
+                      aria-label={`Delete ${area.name}`}
                     >
-                      Delete
+                      <Trash2 size={15} aria-hidden="true" />
                     </button>
                   </div>
                 </div>

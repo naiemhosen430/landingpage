@@ -8,6 +8,7 @@ import { api } from "@/store/api";
 import { clearRememberedLoginEmail } from "@/store/authStorage";
 import { useRouter } from "next/navigation";
 import { JSX } from "react/jsx-runtime";
+import { useGetSettingsQuery } from "@/store/settingsApi";
 
 const menuItems = [
   {
@@ -17,6 +18,7 @@ const menuItems = [
       { label: "Products", href: "/dashboard/products", icon: "box" },
       { label: "Categories", href: "/dashboard/categories", icon: "tag" },
       { label: "Orders", href: "/dashboard/orders", icon: "shopping-bag" },
+      { label: "Notifications", href: "/dashboard/notifications", icon: "bell" },
       {
         label: "Events Manager",
         href: "/dashboard/tracking",
@@ -173,6 +175,19 @@ const icons: Record<string, JSX.Element> = {
       <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
     </svg>
   ),
+  bell: (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+      <path d="M10 21h4" />
+    </svg>
+  ),
   "credit-card": (
     <svg
       viewBox="0 0 24 24"
@@ -255,6 +270,10 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const user = useAppSelector((state) => state.auth.user);
   const dispatch = useAppDispatch();
   const router = useRouter();
+  const { data: settingsResponse } = useGetSettingsQuery(undefined);
+  const companyLogo =
+    settingsResponse?.data.branding.logo?.secureUrl ||
+    settingsResponse?.data.branding.logo?.url;
 
   const handleLogout = () => {
     dispatch(logout());
@@ -266,9 +285,17 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   return (
     <aside className={`sidebar ${open ? "open" : ""}`}>
       <div className="sidebar-header">
-        <span className="sidebar-logo">
-          {process.env.NEXT_PUBLIC_STORE_NAME || "Store"}
-        </span>
+        {companyLogo ? (
+          <img
+            className="sidebar-logo-image"
+            src={companyLogo}
+            alt="Company logo"
+          />
+        ) : (
+          <span className="sidebar-logo">
+            {process.env.NEXT_PUBLIC_STORE_NAME || "Store"}
+          </span>
+        )}
       </div>
 
       <nav className="sidebar-nav">
@@ -292,9 +319,17 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
       <div className="sidebar-footer">
         <div className="sidebar-user">
-          <div className="sidebar-user-avatar">
-            {user?.name?.charAt(0)?.toUpperCase() || "U"}
-          </div>
+          {companyLogo ? (
+            <img
+              className="sidebar-user-avatar sidebar-user-avatar-image"
+              src={companyLogo}
+              alt="Company logo"
+            />
+          ) : (
+            <div className="sidebar-user-avatar">
+              {user?.name?.charAt(0)?.toUpperCase() || "U"}
+            </div>
+          )}
           <div className="sidebar-user-info">
             <div className="sidebar-user-name">{user?.name || "User"}</div>
             <div className="sidebar-user-role">{user?.role || "Admin"}</div>

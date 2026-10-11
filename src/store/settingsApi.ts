@@ -18,6 +18,7 @@ export type SocialProviderSettings = {
 
 export type SettingsData = {
   store: {
+    name?: string;
     currency: string;
     timezone: string;
     language: string;

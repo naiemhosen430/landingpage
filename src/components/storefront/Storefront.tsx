@@ -28,9 +28,19 @@ import {
 } from "@/store/cartSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useStorefront } from "@/hooks/useStorefront";
-import { Minus, Plus, Trash2 } from "lucide-react";
+import {
+  Mail,
+  MapPin,
+  Minus,
+  PackageSearch,
+  Phone,
+  Plus,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { formatWhatsAppPhoneNumber } from "@/lib/whatsapp";
+import { getSocialIcon } from "@/lib/socialIcons";
 import type { HomePageContent } from "@/store/homePageApi";
 import type { Product } from "./types";
 
@@ -92,23 +102,31 @@ function StorefrontFooter({
             {Object.entries(settings?.contact?.socialLinks ?? {})
               .filter(([, url]) => Boolean(url))
               .slice(0, 3)
-              .map(([network, url]) => (
-                <a
-                  key={network}
-                  href={url}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label={network}
-                >
-                  {network.slice(0, 1).toUpperCase()}
-                </a>
-              ))}
+              .map(([network, url]) => {
+                const SocialIcon = getSocialIcon(network);
+                return (
+                  <a
+                    key={network}
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={network}
+                  >
+                    <SocialIcon size={15} aria-hidden="true" />
+                    <span>{network.replace(/[_-]+/g, " ")}</span>
+                  </a>
+                );
+              })}
           </div>
         </div>
         <div className="store-footer-column">
           <h2>Quick Pages</h2>
           <Link href="/products">Shop all products</Link>
           <Link href="/cart">Shopping cart</Link>
+          <Link href="/track-order" className="store-footer-icon-link">
+            <PackageSearch size={14} aria-hidden="true" />
+            Track order
+          </Link>
           {categories.slice(0, 3).map((category) => (
             <Link
               key={category.id}
@@ -126,8 +144,28 @@ function StorefrontFooter({
         <div className="store-footer-column store-footer-contact">
           <h2>Customer Care</h2>
           <p>Questions? We are happy to help.</p>
-          {phone && <a href={`tel:${phone}`}>{phone}</a>}
-          {email && <a href={`mailto:${email}`}>{email}</a>}
+          {phone && (
+            <a className="store-footer-icon-link" href={`tel:${phone}`}>
+              <Phone size={14} aria-hidden="true" />
+              {phone}
+            </a>
+          )}
+          {email && (
+            <a className="store-footer-icon-link" href={`mailto:${email}`}>
+              <Mail size={14} aria-hidden="true" />
+              {email}
+            </a>
+          )}
+          {Object.entries(settings?.contact?.address ?? {})
+            .filter(([, value]) => Boolean(value))
+            .map(([label, value]) => (
+              <span className="store-footer-icon-link" key={label}>
+                <MapPin size={14} aria-hidden="true" />
+                <span>
+                  {label.replace(/[_-]+/g, " ")}: {value}
+                </span>
+              </span>
+            ))}
           <div className="store-footer-support">
             <span aria-hidden="true">✓</span>
             <p>
@@ -491,8 +529,6 @@ export default function Storefront({
       <Header
         settings={settings}
         categories={categories}
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
         onOpenCart={() => setIsCartOpen(true)}
       />
 
@@ -597,12 +633,14 @@ interface CatalogStorefrontProps extends SharedStorefrontProps {
   initialProducts?: Product[] | null;
   initialCategory?: string;
   initialSearch?: string;
+  searchPage?: boolean;
 }
 
 export function CatalogStorefront({
   initialProducts = [],
   initialCategory = "all",
   initialSearch = "",
+  searchPage = false,
   settings,
   categories = [],
 }: CatalogStorefrontProps) {
@@ -619,17 +657,34 @@ export function CatalogStorefront({
       <Header
         settings={settings}
         categories={categories}
-        searchTerm={storefront.searchTerm}
-        onSearchChange={storefront.setSearchTerm}
         onOpenCart={() => storefront.setIsCartOpen(true)}
       />
       <main className="storefront-main store-catalog-main">
-        <h1 className="store-catalog-title">Shop all products</h1>
+        {searchPage && (
+          <form
+            className="store-search-page-form"
+            action="/search"
+            method="get"
+            role="search"
+          >
+            <input
+              type="search"
+              name="search"
+              aria-label="Search products"
+              placeholder="Search products..."
+              defaultValue={initialSearch}
+            />
+            <button type="submit" aria-label="Search products">
+              <Search size={18} />
+            </button>
+          </form>
+        )}
         <ProductGrid
           products={storefront.products}
           categories={storefront.categories}
           selectedCategory={storefront.selectedCategory}
           onSelectCategory={storefront.setSelectedCategory}
+          title={searchPage ? "Search products" : "Shop all products"}
           isLoading={storefront.isLoading}
           currency={settings?.store?.currency}
           onAddToCart={storefront.handleAddToCart}
@@ -815,7 +870,6 @@ import {
   CheckCircle2,
   ShoppingBag,
   ShoppingCart,
-  Phone,
   Clock,
 } from "lucide-react";
 

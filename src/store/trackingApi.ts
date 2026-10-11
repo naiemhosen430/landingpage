@@ -11,6 +11,7 @@ export type TrackingEvent = {
   visitorId?: string;
   sessionId?: string;
   customParameters?: Record<string, string>;
+  sourcePlatform?: string;
   visitor?: {
     ipAddress?: string;
     userAgent?: string;
@@ -63,6 +64,7 @@ export type TrackingEventsResponse = {
       operatingSystem?: string;
       count: number;
     }>;
+    sourceBreakdown: Array<{ platform: string; count: number }>;
   };
 };
 
@@ -93,6 +95,7 @@ export const trackingApi = api.injectEndpoints({
           eventBreakdown: [],
           locationBreakdown: [],
           deviceBreakdown: [],
+          sourceBreakdown: [],
         },
       }),
       providesTags: (result) =>

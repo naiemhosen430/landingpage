@@ -11,6 +11,7 @@ interface ProductGridProps {
   categories: string[];
   selectedCategory: string;
   onSelectCategory: (category: string) => void;
+  title?: string;
   isLoading?: boolean;
   currency?: string;
   onAddToCart: (product: Product) => void;
@@ -23,6 +24,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   categories,
   selectedCategory,
   onSelectCategory,
+  title = "Shop all products",
   isLoading = false,
   currency,
   onAddToCart,
@@ -246,7 +248,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
       <div className="store-catalog-products">
         <div className="catalog-toolbar">
           <div className="catalog-toolbar-copy">
-            <h1>Shop all products</h1>
+            <h1>{title}</h1>
             <p>
               {isLoading
                 ? "Loading products…"

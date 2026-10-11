@@ -45,6 +45,7 @@ export type Order = {
   currency?: string;
   paymentMethod?: string;
   paymentMethodName?: string;
+  sourcePlatform?: string;
   paymentStatus?: string;
   shippingMethod?: string;
   deliveryZone?: string;
@@ -89,6 +90,27 @@ export type OrderListResponse = {
   };
 };
 
+export type PublicOrderTracking = {
+  orderNumber: string;
+  items: Array<{
+    productName: string;
+    quantity: number;
+    variantName?: string;
+  }>;
+  total: number;
+  status: OrderStatus;
+  paymentStatus: string;
+  paymentMethodName?: string;
+  courier?: {
+    name: string;
+    status: "ASSIGNED" | "BOOKED" | "FAILED";
+    trackingNumber?: string;
+  };
+  createdAt: string;
+  shippedAt?: string;
+  deliveredAt?: string;
+};
+
 const unwrapData = (response: any) => response?.data ?? response;
 
 const normalizeOrderList = (response: any): OrderListResponse => {
@@ -120,6 +142,17 @@ export const orderApi = api.injectEndpoints({
       query: (id) => `/admin/orders/${id}`,
       transformResponse: (response: any) => unwrapData(response),
       providesTags: (result, error, id) => [{ type: "Order", id }],
+    }),
+    trackPublicOrder: builder.mutation<
+      PublicOrderTracking,
+      { orderNumber: string; phone: string }
+    >({
+      query: (body) => ({
+        url: "/public/v1/orders/track",
+        method: "POST",
+        body,
+      }),
+      transformResponse: unwrapData,
     }),
     updateOrder: builder.mutation<
       Order,
@@ -164,6 +197,7 @@ export const orderApi = api.injectEndpoints({
 export const {
   useGetOrdersQuery,
   useGetOrderQuery,
+  useTrackPublicOrderMutation,
   useUpdateOrderMutation,
   useUpdateOrderStatusMutation,
   useExportOrdersQuery,

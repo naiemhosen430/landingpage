@@ -1,7 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Activity, Eye, RefreshCw, ShoppingCart, Wallet } from "lucide-react";
+import {
+  Activity,
+  Eye,
+  Globe,
+  Music2,
+  RefreshCw,
+  Search,
+  Share2,
+  ShoppingCart,
+  Wallet,
+} from "lucide-react";
 import {
   useGetTrackingEventsQuery,
   type TrackingEvent,
@@ -125,6 +135,34 @@ function eventDevice(event: TrackingEvent) {
     .join(" · ");
 }
 
+function sourceLabel(event: TrackingEvent) {
+  if (event.sourcePlatform) return event.sourcePlatform;
+  const parameters = event.customParameters ?? {};
+  const source = parameters.utm_source ?? parameters.source;
+  if (source) return source;
+  if (parameters.gclid || parameters.dclid) return "Google";
+  if (parameters.fbclid) return "Facebook";
+  if (parameters.ttclid) return "TikTok";
+  if (parameters.msclkid) return "Bing";
+  if (parameters.twclid) return "X";
+  if (parameters.li_fat_id) return "LinkedIn";
+  return "Direct";
+}
+
+function SourceIcon({ platform }: { platform: string }) {
+  const normalized = platform.toLowerCase();
+  const Icon = /google|bing|yahoo|search/.test(normalized)
+    ? Search
+    : /tiktok/.test(normalized)
+      ? Music2
+      : /facebook|instagram|linkedin|pinterest|snapchat|twitter/.test(
+            normalized,
+          ) || normalized === "x"
+        ? Share2
+        : Globe;
+  return <Icon size={15} aria-hidden="true" />;
+}
+
 function safePayloadEntries(payload: Record<string, unknown>) {
   const visibleKeys = new Set([
     "event_source_url",
@@ -181,6 +219,7 @@ export default function TrackingPage() {
   const breakdown = summary?.eventBreakdown ?? [];
   const locationBreakdown = summary?.locationBreakdown ?? [];
   const deviceBreakdown = summary?.deviceBreakdown ?? [];
+  const sourceBreakdown = summary?.sourceBreakdown ?? [];
   const maxEventCount = Math.max(...breakdown.map((event) => event.count), 1);
   const selectedPayload = useMemo(
     () => (selectedEvent ? safePayloadEntries(selectedEvent.payload) : []),
@@ -476,6 +515,7 @@ export default function TrackingPage() {
                       <th>Visitor IP</th>
                       <th>Approx. location</th>
                       <th>Device</th>
+                      <th>Source</th>
                       <th>Value</th>
                       <th>Page</th>
                       <th>Received</th>
@@ -510,6 +550,18 @@ export default function TrackingPage() {
                             {eventLocation(event) || "Unavailable"}
                           </td>
                           <td>{eventDevice(event) || "Unavailable"}</td>
+                          <td>
+                            <span
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 6,
+                              }}
+                            >
+                              <SourceIcon platform={sourceLabel(event)} />
+                              {sourceLabel(event)}
+                            </span>
+                          </td>
                           <td>{value === undefined ? "—" : formatMoney(value)}</td>
                           <td
                             style={{
@@ -597,6 +649,44 @@ export default function TrackingPage() {
           marginTop: 20,
         }}
       >
+        <section className="card">
+          <div className="card-header">
+            <h2 className="card-title">Traffic sources</h2>
+          </div>
+          <div className="card-body" style={{ display: "grid", gap: 10 }}>
+            {sourceBreakdown.length ? (
+              sourceBreakdown.map((source) => (
+                <div
+                  key={source.platform}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    <SourceIcon platform={source.platform} />
+                    {source.platform}
+                  </span>
+                  <strong>{source.count.toLocaleString()}</strong>
+                </div>
+              ))
+            ) : (
+              <div className="empty-state-desc">
+                Traffic sources will appear as events include campaign or
+                referrer data.
+              </div>
+            )}
+          </div>
+        </section>
+
         <section className="card">
           <div className="card-header">
             <h2 className="card-title">Visitor locations</h2>
@@ -752,6 +842,7 @@ export default function TrackingPage() {
                         .filter(Boolean)
                         .join(" ") || undefined,
                     ],
+                    ["Traffic source", sourceLabel(selectedEvent)],
                     [
                       "Operating system",
                       [

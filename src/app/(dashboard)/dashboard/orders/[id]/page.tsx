@@ -1,8 +1,11 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
+import { Printer } from "lucide-react";
 import { useGetOrderQuery } from "@/store/orderApi";
-import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { useGetSettingsQuery } from "@/store/settingsApi";
+import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 
 const statusMap: Record<string, string> = {
   pending: "badge-warning",
@@ -17,8 +20,27 @@ const statusMap: Record<string, string> = {
 export default function OrderDetailPage() {
   const { id } = useParams();
   const { data, isLoading } = useGetOrderQuery(id as string);
+  const { data: settingsResponse, isLoading: settingsLoading } =
+    useGetSettingsQuery(undefined);
+  const autoPrintStarted = useRef(false);
 
   const order = data;
+  const settings = settingsResponse?.data;
+
+  useEffect(() => {
+    if (
+      !order ||
+      isLoading ||
+      settingsLoading ||
+      autoPrintStarted.current ||
+      new URLSearchParams(window.location.search).get("print") !== "1"
+    ) {
+      return;
+    }
+    autoPrintStarted.current = true;
+    const timer = window.setTimeout(() => window.print(), 400);
+    return () => window.clearTimeout(timer);
+  }, [isLoading, order, settingsLoading]);
 
   if (isLoading) {
     return (
@@ -37,7 +59,7 @@ export default function OrderDetailPage() {
   }
 
   return (
-    <div>
+    <div className="admin-order-detail">
       <div className="page-header">
         <div>
           <h1 className="page-title">Order #{order.orderNumber}</h1>
@@ -45,7 +67,7 @@ export default function OrderDetailPage() {
             Placed on {formatDateTime(order.createdAt)}
           </p>
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <div className="admin-order-header-actions">
           <span className={`badge ${statusMap[order.status]}`}>
             {order.status}
           </span>
@@ -54,6 +76,14 @@ export default function OrderDetailPage() {
           >
             {order.paymentStatus}
           </span>
+          <button
+            className="btn btn-primary"
+            type="button"
+            onClick={() => window.print()}
+          >
+            <Printer size={16} aria-hidden="true" />
+            Print invoice
+          </button>
         </div>
       </div>
 
@@ -355,6 +385,161 @@ export default function OrderDetailPage() {
           </div>
         </div>
       </div>
+
+      <article className="admin-invoice" aria-label="Order invoice">
+        <header className="admin-invoice-header">
+          <div className="admin-invoice-logo">
+            {settings?.branding.logo?.secureUrl || settings?.branding.logo?.url ? (
+              <img
+                src={
+                  settings.branding.logo.secureUrl ||
+                  settings.branding.logo.url ||
+                  ""
+                }
+                alt={`${settings.store.name || "Store"} logo`}
+              />
+            ) : (
+              <strong>{settings?.store.name || "Store"}</strong>
+            )}
+          </div>
+          <div className="admin-invoice-number">
+            NO. {order.orderNumber}
+          </div>
+          <h2>INVOICE</h2>
+          <p>
+            <strong>Date:</strong> {formatDate(order.createdAt)}
+          </p>
+        </header>
+
+        <div className="admin-invoice-parties">
+          <section>
+            <h3>Billed to:</h3>
+            <strong>{order.customer?.name || "Customer"}</strong>
+            {order.customer?.phone && <span>{order.customer.phone}</span>}
+            {order.customer?.email && <span>{order.customer.email}</span>}
+            {order.customer?.address && (
+              <span>
+                {typeof order.customer.address === "string"
+                  ? order.customer.address
+                  : Object.values(order.customer.address).filter(Boolean).join(", ")}
+              </span>
+            )}
+            {(order.customer?.city || order.customer?.district) && (
+              <span>
+                {[order.customer.city, order.customer.district]
+                  .filter(Boolean)
+                  .join(", ")}
+              </span>
+            )}
+          </section>
+          <section>
+            <h3>From:</h3>
+            <strong>{settings?.store.name || "Store"}</strong>
+            {settings?.contact.address &&
+              Object.values(settings.contact.address)
+                .filter(Boolean)
+                .map((line, index) => <span key={`${line}-${index}`}>{line}</span>)}
+            {settings?.contact.email && <span>{settings.contact.email}</span>}
+            {settings?.contact.phone && <span>{settings.contact.phone}</span>}
+          </section>
+        </div>
+
+        <div className="admin-invoice-table-wrap">
+          <table className="admin-invoice-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Quantity</th>
+                <th>Price</th>
+                <th>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {order.items.map((item: any, index: number) => {
+                const quantity = Number(item.quantity) || 0;
+                const price = Number(item.unitPrice ?? item.price) || 0;
+                const amount =
+                  Number(item.totalPrice ?? item.total) || price * quantity;
+                return (
+                  <tr key={item.id ?? `${item.productId}-${index}`}>
+                    <td>
+                      {item.name ?? item.productName ?? "Product"}
+                      {(item.variant ?? item.variantName) && (
+                        <small>{item.variant ?? item.variantName}</small>
+                      )}
+                    </td>
+                    <td>{quantity}</td>
+                    <td>{formatCurrency(price, order.currency)}</td>
+                    <td>{formatCurrency(amount, order.currency)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              {(order.discount ?? order.discountAmount ?? 0) > 0 && (
+                <tr>
+                  <th colSpan={3}>Discount</th>
+                  <td>
+                    -{formatCurrency(
+                      order.discount ?? order.discountAmount,
+                      order.currency,
+                    )}
+                  </td>
+                </tr>
+              )}
+              {(order.deliveryCharge ?? order.shippingAmount ?? order.shipping ?? 0) > 0 && (
+                <tr>
+                  <th colSpan={3}>Delivery</th>
+                  <td>
+                    {formatCurrency(
+                      order.deliveryCharge ??
+                        order.shippingAmount ??
+                        order.shipping ??
+                        0,
+                      order.currency,
+                    )}
+                  </td>
+                </tr>
+              )}
+              {(order.tax ?? order.taxAmount ?? 0) > 0 && (
+                <tr>
+                  <th colSpan={3}>Tax</th>
+                  <td>
+                    {formatCurrency(order.tax ?? order.taxAmount, order.currency)}
+                  </td>
+                </tr>
+              )}
+              {(order.codCharge ?? 0) > 0 && (
+                <tr>
+                  <th colSpan={3}>COD charge</th>
+                  <td>{formatCurrency(order.codCharge, order.currency)}</td>
+                </tr>
+              )}
+              <tr className="admin-invoice-total">
+                <th colSpan={3}>Total</th>
+                <td>{formatCurrency(order.total, order.currency)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <footer className="admin-invoice-footer">
+          <p>
+            <strong>Payment method:</strong>{" "}
+            {order.paymentMethodName ||
+              order.paymentMethod
+                ?.replace(/[_-]/g, " ")
+                .replace(/\b\w/g, (letter: string) => letter.toUpperCase()) ||
+              "Not selected"}
+          </p>
+          {order.notes && (
+            <p>
+              <strong>Note:</strong> {order.notes}
+            </p>
+          )}
+          <span>{settings?.store.name || "Thank you for your business."}</span>
+        </footer>
+      </article>
     </div>
   );
 }

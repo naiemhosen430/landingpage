@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { RotateCcw, Trash2 } from "lucide-react";
 import PaginationControls from "@/components/dashboard/PaginationControls";
 import {
   TrashItem,
@@ -208,19 +209,23 @@ export default function RecycleBinPage() {
                       <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
                         <button
                           type="button"
-                          className="btn btn-secondary btn-sm"
+                          className="btn btn-secondary btn-sm btn-icon-action"
                           onClick={() => restoreSelected([id])}
                           disabled={restoring || deleting}
+                          title="Restore item"
+                          aria-label={`Restore ${item.label}`}
                         >
-                          Restore
+                          <RotateCcw size={15} aria-hidden="true" />
                         </button>{" "}
                         <button
                           type="button"
-                          className="btn btn-danger btn-sm"
+                          className="btn btn-danger btn-sm btn-icon-action"
                           onClick={() => permanentlyDeleteSelected([id])}
                           disabled={restoring || deleting}
+                          title="Delete permanently"
+                          aria-label={`Permanently delete ${item.label}`}
                         >
-                          Delete permanently
+                          <Trash2 size={15} aria-hidden="true" />
                         </button>
                       </td>
                     </tr>

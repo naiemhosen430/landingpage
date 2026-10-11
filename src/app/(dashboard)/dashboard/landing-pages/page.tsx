@@ -447,12 +447,14 @@ export default function LandingPagesPage() {
                     onClick={() => handleEdit(pageItem)}
                     className="lp-btn lp-btn-ghost lp-btn-icon"
                     title="Edit"
+                    aria-label={`Edit ${pageItem.pageName}`}
                   >
                     <Pencil size={13} />
                   </button>
                   <button
                     className="lp-btn lp-btn-ghost lp-btn-icon"
                     title="Duplicate"
+                    aria-label={`Duplicate ${pageItem.pageName}`}
                     onClick={() => {}}
                   >
                     <Copy size={13} />
@@ -460,6 +462,7 @@ export default function LandingPagesPage() {
                   <button
                     className="lp-btn lp-btn-danger lp-btn-icon"
                     title="Delete"
+                    aria-label={`Delete ${pageItem.pageName}`}
                     onClick={() => setDeleteId(pageItem.id)}
                   >
                     <Trash2 size={13} />

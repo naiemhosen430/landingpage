@@ -196,7 +196,9 @@ export default function ProductTable({
                 >
                   <Link
                     href={`/dashboard/products/${product.id}/edit`}
-                    className="btn btn-ghost btn-sm"
+                    className="btn btn-ghost btn-sm btn-icon-action"
+                    title="Edit product"
+                    aria-label={`Edit ${product.name}`}
                     onClick={(event) => {
                       if (onEdit) {
                         event.preventDefault();
@@ -220,8 +222,10 @@ export default function ProductTable({
                   </Link>
                   <button
                     onClick={() => onDelete(product.id)}
-                    className="btn btn-ghost btn-sm"
+                    className="btn btn-ghost btn-sm btn-icon-action"
                     style={{ color: "var(--danger)" }}
+                    title="Delete product"
+                    aria-label={`Delete ${product.name}`}
                   >
                     <svg
                       width="16"

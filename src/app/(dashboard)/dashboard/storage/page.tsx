@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ExternalLink, Settings2 } from "lucide-react";
 import { useGetStorageUsageQuery } from "@/store/storageApi";
 
 const formatMB = (value: number) => `${value.toFixed(2)} MB`;
@@ -153,9 +154,15 @@ export default function StoragePage() {
                         <td>
                           <Link
                             href={nativeRoute ?? `/dashboard/storage/${name}`}
-                            className="btn btn-ghost btn-sm"
+                            className="btn btn-ghost btn-sm btn-icon-action"
+                            title={nativeRoute ? "Open page" : "Manage module"}
+                            aria-label={`${nativeRoute ? "Open" : "Manage"} ${name}`}
                           >
-                            {nativeRoute ? "Open page" : "Manage"}
+                            {nativeRoute ? (
+                              <ExternalLink size={16} aria-hidden="true" />
+                            ) : (
+                              <Settings2 size={16} aria-hidden="true" />
+                            )}
                           </Link>
                         </td>
                       </tr>
