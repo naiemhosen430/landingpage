@@ -94,7 +94,9 @@ const baseQueryWithReauth = async (args: any, api: any, extraOptions: any) => {
           refreshData.success === false &&
           (refreshData.statusCode === 401 || refreshData.statusCode === 403);
         if (!invalidToken) {
-          console.error("Session refresh response did not include an access token");
+          console.error(
+            "Session refresh response did not include an access token",
+          );
         }
         return { accessToken: null, invalidToken };
       }
@@ -166,8 +168,9 @@ const baseQueryWithReauth = async (args: any, api: any, extraOptions: any) => {
       const response = result?.data as { message?: string } | undefined;
       const endpointLabel = api.endpoint
         .replace(/([a-z])([A-Z])/g, "$1 $2")
-        .replace(/^(create|update|delete|remove|set|upload|place|book|cancel)/i, (action: string) =>
-          `${action} `,
+        .replace(
+          /^(create|update|delete|remove|set|upload|place|book|cancel)/i,
+          (action: string) => `${action} `,
         );
       notifyToast(
         response?.message ??

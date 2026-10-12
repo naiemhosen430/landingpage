@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-const getApiBase = () => process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
+const getApiBase = () => process.env.NEXT_PUBLIC_API_URL;
 
 export async function POST(request: Request) {
   const apiBase = getApiBase();

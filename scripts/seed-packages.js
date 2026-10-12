@@ -85,7 +85,7 @@ const packages = [
 
 async function upsertPackage(pkg) {
   try {
-    const res = await fetch(`${API_URL.replace(/\/$/, "")}/admin/packages`, {
+    const res = await fetch(`${API_URL}/admin/packages`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
