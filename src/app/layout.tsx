@@ -3,7 +3,7 @@ import { Inter } from "next/font/google";
 import StoreProvider from "@/providers/StoreProvider";
 import { fetchPublicStoreSettings } from "@/lib/publicData";
 import "./style.css";
-
+// test
 export const dynamic = "force-dynamic";
 
 const inter = Inter({
