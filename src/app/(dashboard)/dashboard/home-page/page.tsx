@@ -631,7 +631,7 @@ export default function HomePageEditor() {
   ];
 
   return (
-    <div className="home-editor">
+    <div className="page-container">
       <div className="home-editor-top">
         <div>
           <h1>Homepage</h1>

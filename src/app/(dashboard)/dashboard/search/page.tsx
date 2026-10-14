@@ -10,21 +10,81 @@ import {
 } from "@/store/searchApi";
 
 const dashboardPages = [
-  { title: "Dashboard", description: "Overview and recent activity", href: "/dashboard" },
-  { title: "Products", description: "Product catalogue and inventory", href: "/dashboard/products" },
-  { title: "Categories", description: "Product categories", href: "/dashboard/categories" },
-  { title: "Orders", description: "Customer orders and payments", href: "/dashboard/orders" },
-  { title: "Home page", description: "Storefront homepage content", href: "/dashboard/home-page" },
-  { title: "Subscription", description: "Plan and billing information", href: "/dashboard/subscription" },
-  { title: "Storage", description: "Storage usage and uploaded files", href: "/dashboard/storage" },
-  { title: "Courier", description: "Courier providers", href: "/dashboard/courier" },
-  { title: "Delivery Areas", description: "Shipping regions and delivery charges", href: "/dashboard/delivery-areas" },
-  { title: "Payment Methods", description: "Checkout payment options", href: "/dashboard/payment-methods" },
-  { title: "Media Library", description: "Store images and uploaded media", href: "/dashboard/media" },
-  { title: "Landing Pages", description: "Campaign and custom landing pages", href: "/dashboard/landing-pages" },
-  { title: "Recycle Bin", description: "Recently deleted store data", href: "/dashboard/recycle-bin" },
-  { title: "Settings", description: "Store, branding, and contact settings", href: "/dashboard/settings" },
-  { title: "Profile", description: "Your account profile", href: "/dashboard/profile" },
+  {
+    title: "Dashboard",
+    description: "Overview and recent activity",
+    href: "/dashboard",
+  },
+  {
+    title: "Products",
+    description: "Product catalogue and inventory",
+    href: "/dashboard/products",
+  },
+  {
+    title: "Categories",
+    description: "Product categories",
+    href: "/dashboard/categories",
+  },
+  {
+    title: "Orders",
+    description: "Customer orders and payments",
+    href: "/dashboard/orders",
+  },
+  {
+    title: "Home page",
+    description: "Website homepage content",
+    href: "/dashboard/home-page",
+  },
+  {
+    title: "Subscription",
+    description: "Plan and billing information",
+    href: "/dashboard/subscription",
+  },
+  {
+    title: "Storage",
+    description: "Storage usage and uploaded files",
+    href: "/dashboard/storage",
+  },
+  {
+    title: "Courier",
+    description: "Courier providers",
+    href: "/dashboard/courier",
+  },
+  {
+    title: "Delivery Areas",
+    description: "Shipping regions and delivery charges",
+    href: "/dashboard/delivery-areas",
+  },
+  {
+    title: "Payment Methods",
+    description: "Checkout payment options",
+    href: "/dashboard/payment-methods",
+  },
+  {
+    title: "Media Library",
+    description: "Store images and uploaded media",
+    href: "/dashboard/media",
+  },
+  {
+    title: "Landing Pages",
+    description: "Campaign and custom landing pages",
+    href: "/dashboard/landing-pages",
+  },
+  {
+    title: "Recycle Bin",
+    description: "Recently deleted store data",
+    href: "/dashboard/recycle-bin",
+  },
+  {
+    title: "Settings",
+    description: "Store, branding, and contact settings",
+    href: "/dashboard/settings",
+  },
+  {
+    title: "Profile",
+    description: "Your account profile",
+    href: "/dashboard/profile",
+  },
 ];
 
 function DashboardSearchResults() {
@@ -36,12 +96,10 @@ function DashboardSearchResults() {
   const [results, setResults] = useState<GlobalSearchResult[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const query = routeQuery.trim();
-  const {
-    currentData,
-    isLoading,
-    isFetching,
-    isError,
-  } = useGlobalSearchQuery({ query, offset }, { skip: query.length < 2 });
+  const { currentData, isLoading, isFetching, isError } = useGlobalSearchQuery(
+    { query, offset },
+    { skip: query.length < 2 },
+  );
 
   useEffect(() => {
     setSearch(routeQuery);
@@ -54,7 +112,9 @@ function DashboardSearchResults() {
     if (!currentData) return;
     setResults((previous) => {
       if (offset === 0) return currentData.results;
-      const seen = new Set(previous.map((result) => `${result.type}-${result.id}`));
+      const seen = new Set(
+        previous.map((result) => `${result.type}-${result.id}`),
+      );
       return [
         ...previous,
         ...currentData.results.filter(
@@ -89,7 +149,11 @@ function DashboardSearchResults() {
         </div>
       </div>
 
-      <form className="global-search-form" role="search" onSubmit={submitSearch}>
+      <form
+        className="global-search-form"
+        role="search"
+        onSubmit={submitSearch}
+      >
         <Search size={20} aria-hidden="true" />
         <input
           autoFocus
@@ -116,23 +180,33 @@ function DashboardSearchResults() {
           </div>
 
           {isError && (
-            <div className="global-search-state global-search-error" role="alert">
+            <div
+              className="global-search-state global-search-error"
+              role="alert"
+            >
               Search could not be completed. Please try again.
             </div>
           )}
 
-          {!loading && !isError && pageResults.length === 0 && results.length === 0 && (
-            <div className="global-search-state">
-              No matching records or dashboard pages were found.
-            </div>
-          )}
+          {!loading &&
+            !isError &&
+            pageResults.length === 0 &&
+            results.length === 0 && (
+              <div className="global-search-state">
+                No matching records or dashboard pages were found.
+              </div>
+            )}
 
           {pageResults.length > 0 && (
             <section className="global-search-section">
               <h2>Dashboard pages</h2>
               <div className="global-search-results">
                 {pageResults.map((page) => (
-                  <Link className="global-search-result" href={page.href} key={page.href}>
+                  <Link
+                    className="global-search-result"
+                    href={page.href}
+                    key={page.href}
+                  >
                     <span className="global-search-result-icon">
                       <Search size={17} aria-hidden="true" />
                     </span>
@@ -164,7 +238,9 @@ function DashboardSearchResults() {
                       <strong>{result.title}</strong>
                       <span>{result.subtitle}</span>
                     </span>
-                    <span className="global-search-result-type">{result.type}</span>
+                    <span className="global-search-result-type">
+                      {result.type}
+                    </span>
                   </Link>
                 ))}
               </div>
@@ -190,7 +266,9 @@ function DashboardSearchResults() {
 
 export default function DashboardSearchPage() {
   return (
-    <Suspense fallback={<div className="global-search-state">Loading search...</div>}>
+    <Suspense
+      fallback={<div className="global-search-state">Loading search...</div>}
+    >
       <DashboardSearchResults />
     </Suspense>
   );

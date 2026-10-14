@@ -87,9 +87,6 @@ export default function RecycleBinPage() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Recycle Bin</h1>
-          <p className="page-subtitle">
-            Deleted items are kept for 30 days, then permanently removed.
-          </p>
         </div>
         <button
           type="button"

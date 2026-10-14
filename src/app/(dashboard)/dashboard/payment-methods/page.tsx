@@ -90,11 +90,10 @@ function getErrorMessage(error: any) {
 
 export default function PaymentMethodsPage() {
   const [page, setPage] = useState(1);
-  const {
-    data,
-    isLoading,
-    isFetching,
-  } = useGetPaymentMethodsAdminQuery({ page, limit: PAGE_SIZE });
+  const { data, isLoading, isFetching } = useGetPaymentMethodsAdminQuery({
+    page,
+    limit: PAGE_SIZE,
+  });
   const methods = data?.data ?? [];
   const meta = data?.meta;
   const [createPaymentMethod, { isLoading: isCreating }] =
@@ -176,7 +175,10 @@ export default function PaymentMethodsPage() {
       .map(({ key, label, value }) => ({
         key: presetKeys.has(key)
           ? key
-          : label.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_"),
+          : label
+              .trim()
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "_"),
         value: value.trim(),
       }))
       .filter((field) => field.key && field.value);
@@ -255,9 +257,6 @@ export default function PaymentMethodsPage() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Payment Methods</h1>
-          <p className="page-subtitle">
-            Configure the payment options shown on your public storefront.
-          </p>
         </div>
         <button className="btn btn-primary" onClick={openNewForm} type="button">
           Add payment method
@@ -350,7 +349,7 @@ export default function PaymentMethodsPage() {
                   />
                 </div>
               </div>
-              <div className="form-group">
+              {/* <div className="form-group">
                 <label className="form-label" htmlFor="payment-description">
                   Description
                 </label>
@@ -362,7 +361,7 @@ export default function PaymentMethodsPage() {
                     updateField("description", event.target.value)
                   }
                 />
-              </div>
+              </div> */}
               <div className="form-group">
                 <label className="form-label" htmlFor="payment-instructions">
                   Instructions
@@ -408,7 +407,8 @@ export default function PaymentMethodsPage() {
                         key={`${field.key}-${index}`}
                         style={{
                           display: "grid",
-                          gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr) auto",
+                          gridTemplateColumns:
+                            "minmax(0, 1fr) minmax(0, 1fr) auto",
                           gap: 8,
                           alignItems: "center",
                         }}
@@ -469,7 +469,9 @@ export default function PaymentMethodsPage() {
                       </div>
                     ))}
                     {detailFields.length === 0 && (
-                      <span style={{ color: "var(--text-muted)", fontSize: 13 }}>
+                      <span
+                        style={{ color: "var(--text-muted)", fontSize: 13 }}
+                      >
                         No extra details needed. Add account or transfer
                         instructions if customers need them.
                       </span>
@@ -477,7 +479,7 @@ export default function PaymentMethodsPage() {
                   </div>
                 </div>
               )}
-              <div className="form-group">
+              {/* <div className="form-group">
                 <label className="form-label" htmlFor="payment-sort-order">
                   Display order
                 </label>
@@ -492,7 +494,7 @@ export default function PaymentMethodsPage() {
                     updateField("sortOrder", Number(event.target.value) || 0)
                   }
                 />
-              </div>
+              </div> */}
               <div
                 style={{
                   display: "grid",
@@ -516,7 +518,7 @@ export default function PaymentMethodsPage() {
                       updateField("isActive", event.target.checked)
                     }
                   />
-                  Active on the public storefront
+                  Active
                 </label>
               </div>
               <div style={{ display: "flex", gap: 12 }}>

@@ -165,13 +165,7 @@ export default function StorageModulePage() {
       <div className="page-header">
         <div>
           <h1 className="page-title">{titleize(module)}</h1>
-          <p className="page-subtitle">
-            Browse and manage records in this storage module.
-          </p>
         </div>
-        <Link href="/dashboard/storage" className="btn btn-ghost btn-sm">
-          Back to storage
-        </Link>
       </div>
 
       {isError ? (

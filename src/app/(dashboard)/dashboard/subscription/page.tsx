@@ -167,14 +167,10 @@ export default function SubscriptionPage() {
   }
 
   return (
-    <div className="subscription-page">
+    <div className="page-container">
       <div className="page-header subscription-page-header">
         <div>
-          <div className="subscription-kicker">Billing & access</div>
           <h1 className="page-title">Subscriptions</h1>
-          <p className="page-subtitle">
-            Manage your current package, usage, and plan options.
-          </p>
         </div>
         {currentPackage && (
           <span
@@ -189,16 +185,9 @@ export default function SubscriptionPage() {
         <>
           <section className="subscription-current card">
             <div className="subscription-current-main">
-              <div className="subscription-plan-mark">
-                {(currentPackage.name ?? "P").slice(0, 1)}
-              </div>
               <div>
                 <div className="subscription-eyebrow">Current package</div>
                 <h2>{currentPackage.name ?? "Unnamed package"}</h2>
-                <p>
-                  {currentPackage.description ??
-                    "Your project access and limits are managed by this package."}
-                </p>
               </div>
             </div>
             <div className="subscription-current-actions">
@@ -223,7 +212,6 @@ export default function SubscriptionPage() {
           >
             {[
               ["current", "Current package"],
-              ["usage", "Usage"],
               ["features", "Features"],
             ].map(([tab, label]) => (
               <button
@@ -314,54 +302,6 @@ export default function SubscriptionPage() {
               </section>
             )}
 
-            {activeTab === "usage" && (
-              <section className="card subscription-details-card">
-                <div className="card-header">
-                  <h2 className="card-title">Current usage</h2>
-                </div>
-                <div className="card-body subscription-usage-list">
-                  {Object.entries(limits).map(([key, limit]) => {
-                    const used =
-                      usage[
-                        key
-                          .replace(/^max/, "")
-                          .replace(/^./, (letter) => letter.toLowerCase())
-                      ] ??
-                      usage[key] ??
-                      0;
-                    const numericLimit = typeof limit === "number" ? limit : 0;
-                    const percentage = numericLimit
-                      ? Math.min(
-                          100,
-                          Math.round((Number(used) / numericLimit) * 100),
-                        )
-                      : 0;
-                    return (
-                      <div key={key} className="subscription-usage-row">
-                        <div>
-                          <span>{titleize(key.replace(/^max/, ""))}</span>
-                          <strong>
-                            {String(used)} / {String(limit)}
-                          </strong>
-                        </div>
-                        <div className="package-progress-bar">
-                          <div
-                            className="package-progress-fill"
-                            style={{ width: `${percentage}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {!Object.keys(limits).length && (
-                    <p className="empty-state-desc">
-                      No usage limits are available for this package.
-                    </p>
-                  )}
-                </div>
-              </section>
-            )}
-
             {activeTab === "features" && (
               <section className="card package-features-card">
                 <div className="card-header">
@@ -393,7 +333,6 @@ export default function SubscriptionPage() {
       <section className="subscription-plans-section">
         <div className="section-heading">
           <div>
-            <div className="subscription-kicker">Available plans</div>
             <h2>Choose the right package</h2>
           </div>
           <span>{packagesMeta?.total ?? packages.length} plans</span>

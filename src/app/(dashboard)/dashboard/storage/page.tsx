@@ -64,13 +64,7 @@ export default function StoragePage() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Storage usage</h1>
-          <p className="page-subtitle">
-            A detailed breakdown of your project storage in {storage.unit}.
-          </p>
         </div>
-        <Link href="/dashboard" className="btn btn-ghost btn-sm">
-          Back to dashboard
-        </Link>
       </div>
 
       <div className="storage-overview-grid">
@@ -114,11 +108,7 @@ export default function StoragePage() {
         <div className="card-header">
           <div>
             <h2 className="card-title">Module breakdown</h2>
-            <p className="storage-table-subtitle">
-              Sorted from largest to smallest.
-            </p>
           </div>
-          <span className="badge badge-info">{storage.unit}</span>
         </div>
         <div className="table-wrapper">
           {modules.length ? (

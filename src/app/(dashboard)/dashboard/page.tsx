@@ -82,6 +82,8 @@ export default function DashboardPage() {
   const { data: activities } = useGetRecentActivitiesQuery(undefined);
   const user = useAppSelector((state) => state.auth.user);
 
+  console.log({ activities });
+
   const {
     data: subscription,
     isLoading: subscriptionLoading,
@@ -368,18 +370,14 @@ export default function DashboardPage() {
 
   return (
     <div className="dashboard-home">
-      <section className="dashboard-welcome">
+      {/* <section className="dashboard-welcome">
         <div className="dashboard-welcome-copy">
           <h1>Welcome back, {firstName}</h1>
-          <p>
-            Here’s what’s happening with your business. Let’s make today a great
-            one.
-          </p>
         </div>
         <div className="dashboard-welcome-actions">
           <Link href="/" className="dashboard-welcome-link">
             <Store size={17} aria-hidden="true" />
-            View storefront
+            View Website
             <ArrowUpRight size={15} aria-hidden="true" />
           </Link>
           <Link
@@ -392,7 +390,7 @@ export default function DashboardPage() {
         </div>
         <div className="dashboard-welcome-orb dashboard-welcome-orb-one" />
         <div className="dashboard-welcome-orb dashboard-welcome-orb-two" />
-      </section>
+      </section> */}
 
       {showRenewalBanner && (
         <div className="subscription-banner dashboard-renewal-banner">
@@ -501,9 +499,6 @@ export default function DashboardPage() {
         <div className="card dashboard-home-panel dashboard-orders-panel">
           <div className="dashboard-panel-heading">
             <div>
-              <span className="dashboard-section-kicker">
-                Your latest sales
-              </span>
               <h2>Recent orders</h2>
             </div>
             <Link href="/dashboard/orders" className="dashboard-panel-link">
@@ -525,14 +520,13 @@ export default function DashboardPage() {
         <div className="card dashboard-home-panel dashboard-activity-panel">
           <div className="dashboard-panel-heading">
             <div>
-              <span className="dashboard-section-kicker">Store updates</span>
               <h2>Latest activity</h2>
             </div>
           </div>
           <div className="card-body dashboard-activity-body">
-            {activities?.data?.length ? (
+            {activities?.data?.activities?.length ? (
               <div className="dashboard-activity-list">
-                {activities.data.map((activity: any) => (
+                {activities.data?.activities?.map((activity: any) => (
                   <div key={activity.id} className="dashboard-activity-item">
                     <div className="dashboard-activity-marker">
                       <svg
@@ -572,112 +566,78 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <div className="package-summary">
-        <div className="card package-summary-card">
-          <div className="card-header">
-            <h3 className="card-title">Current Package</h3>
-            <span
-              className={`badge ${
-                packageStatus === "ACTIVE" ? "badge-success" : "badge-warning"
-              }`}
-            >
-              {packageStatus}
-            </span>
-          </div>
-          <div className="card-body">
-            <div style={{ display: "grid", gap: 16 }}>
-              <div className="package-summary-row">
-                <div>
-                  <div className="package-summary-label">Package</div>
-                  <div className="package-summary-value">{packageName}</div>
+      <div className="card package-summary-card">
+        <div className="card-header">
+          <h3 className="card-title">Package Overview & Usage</h3>
+          <span
+            className={`badge ${
+              packageStatus === "ACTIVE" ? "badge-success" : "badge-warning"
+            }`}
+          >
+            {packageStatus}
+          </span>
+        </div>
+        <div className="card-body">
+          <div style={{ display: "grid", gap: 24 }}>
+            {/* Top Row: Subscription Details & Progress */}
+            <div className="package-summary-row">
+              <div>
+                <div className="package-summary-label">Package</div>
+                <div className="package-summary-value">{packageName}</div>
+              </div>
+              <div>
+                <div className="package-summary-label">Billing cycle</div>
+                <div className="package-summary-value">{packagePeriod}</div>
+              </div>
+              <div>
+                <div className="package-summary-label">Next billing</div>
+                <div className="package-summary-value">
+                  {endDate ? formatDate(endDate) : "—"}
                 </div>
-                <div>
-                  <div className="package-summary-label">Billing cycle</div>
-                  <div className="package-summary-value">{packagePeriod}</div>
-                </div>
-                <div>
-                  <div className="package-summary-label">Next billing</div>
-                  <div className="package-summary-value">
-                    {endDate ? formatDate(endDate) : "—"}
+              </div>
+            </div>
+
+            <div className="package-progress-block">
+              <div className="package-progress-title">
+                Subscription progress
+              </div>
+              <div className="package-progress-bar">
+                <div
+                  className="package-progress-fill"
+                  style={{ width: `${subscriptionProgress}%` }}
+                />
+              </div>
+              <div className="package-progress-meta">
+                {subscriptionProgress}% elapsed · {daysLeft ?? 0} days left
+              </div>
+            </div>
+
+            <hr
+              style={{
+                border: "none",
+                borderTop: "1px solid var(--border-color, #e5e7eb)",
+                margin: 0,
+              }}
+            />
+
+            {/* Bottom Row: Usage Metrics */}
+            <div>
+              <div className="package-usage-grid">
+                <div className="package-usage-item">
+                  <div className="package-usage-label">Storage</div>
+                  <div className="package-usage-value">
+                    {storageUsed} / {storageLimit} GB
+                  </div>
+                  <div className="package-progress-bar">
+                    <div
+                      className="package-progress-fill"
+                      style={{ width: `${storageProgress}%` }}
+                    />
                   </div>
                 </div>
               </div>
-
-              <div className="package-progress-block">
-                <div className="package-progress-title">
-                  Subscription progress
-                </div>
-                <div className="package-progress-bar">
-                  <div
-                    className="package-progress-fill"
-                    style={{ width: `${subscriptionProgress}%` }}
-                  />
-                </div>
-                <div className="package-progress-meta">
-                  {subscriptionProgress}% elapsed · {daysLeft ?? 0} days left
-                </div>
-              </div>
             </div>
           </div>
-        </div>
-
-        <div className="card package-summary-card">
-          <div className="card-header">
-            <h3 className="card-title">Package usage</h3>
-          </div>
-          <div className="card-body">
-            <div className="package-usage-grid">
-              <div className="package-usage-item">
-                <div className="package-usage-label">Storage</div>
-                <div className="package-usage-value">
-                  {storageUsed} / {storageLimit} GB
-                </div>
-                <div className="package-progress-bar">
-                  <div
-                    className="package-progress-fill"
-                    style={{ width: `${storageProgress}%` }}
-                  />
-                </div>
-              </div>
-              <div className="package-usage-item">
-                <div className="package-usage-label">Products</div>
-                <div className="package-usage-value">
-                  {usage.products ?? "-"} / {packageLimits.maxProducts ?? "-"}
-                </div>
-              </div>
-              <div className="package-usage-item">
-                <div className="package-usage-label">Orders</div>
-                <div className="package-usage-value">
-                  {usage.orders ?? "-"} / {packageLimits.maxOrders ?? "-"}
-                </div>
-              </div>
-              <div className="package-usage-item">
-                <div className="package-usage-label">Customers</div>
-                <div className="package-usage-value">
-                  {usage.customers ?? "-"} / {packageLimits.maxCustomers ?? "-"}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="card package-features-card">
-        <div className="card-header">
-          <h3 className="card-title">Plan features</h3>
-        </div>
-        <div className="card-body package-features-grid">
-          {packageFeatures.length ? (
-            packageFeatures.map((feature: string) => (
-              <div key={feature} className="package-feature-item">
-                {feature}
-              </div>
-            ))
-          ) : (
-            <div className="empty-state-desc">
-              No feature details available for this plan.
-            </div>
-          )}
         </div>
       </div>
 

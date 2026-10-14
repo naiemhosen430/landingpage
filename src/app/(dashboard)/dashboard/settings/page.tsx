@@ -53,7 +53,7 @@ const settingsTabs = [
   {
     id: "branding",
     label: "Branding",
-    description: "Colors, assets, and storefront styling",
+    description: "Colors, assets, and website styling",
   },
   {
     id: "contact",
@@ -73,8 +73,7 @@ export default function SettingsPage() {
     useUpdateBrandingMutation();
   const [updateContact, { isLoading: savingContact }] =
     useUpdateContactMutation();
-  const [uploadMedia, { isLoading: uploadingMedia }] =
-    useUploadMediaMutation();
+  const [uploadMedia, { isLoading: uploadingMedia }] = useUploadMediaMutation();
   const settings = response?.data ?? emptySettings;
 
   const [store, setStore] = useState(settings.store);
@@ -152,14 +151,16 @@ export default function SettingsPage() {
       !/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(branding.primaryColor) ||
       !/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(branding.secondaryColor)
     ) {
-      notifyToast("Brand colors must be valid 3 or 6 digit hex colors.", "error");
+      notifyToast(
+        "Brand colors must be valid 3 or 6 digit hex colors.",
+        "error",
+      );
       return;
     }
     return save(() => updateBranding(branding).unwrap());
   };
 
-  const saveContact = () =>
-    save(() => updateContact(contact).unwrap());
+  const saveContact = () => save(() => updateContact(contact).unwrap());
 
   const uploadBrandingImage = async (
     event: ChangeEvent<HTMLInputElement>,
@@ -186,7 +187,9 @@ export default function SettingsPage() {
             ? resolve(reader.result)
             : reject(new Error("Could not read the selected image."));
         reader.onerror = () =>
-          reject(reader.error ?? new Error("Could not read the selected image."));
+          reject(
+            reader.error ?? new Error("Could not read the selected image."),
+          );
         reader.readAsDataURL(file);
       });
       const result = await uploadMedia({
@@ -231,14 +234,10 @@ export default function SettingsPage() {
     );
 
   return (
-    <div className="settings-page">
+    <div className="page-container">
       <div className="settings-hero page-header">
         <div>
-          <p className="settings-kicker">Store workspace</p>
           <h1 className="page-title">Settings</h1>
-          <p className="page-subtitle">
-            Manage store behavior, branding, and customer contact details.
-          </p>
         </div>
       </div>
 
@@ -290,12 +289,8 @@ export default function SettingsPage() {
             tabIndex={activeSettingsTab === id ? 0 : -1}
             onClick={() => setActiveSettingsTab(id)}
           >
-            <span className="settings-tab-number">
-              {String(index + 1).padStart(2, "0")}
-            </span>
             <span className="settings-tab-copy">
               <strong>{label}</strong>
-              <small>{description}</small>
             </span>
           </button>
         ))}
@@ -303,412 +298,374 @@ export default function SettingsPage() {
 
       <div className="settings-layout">
         {activeSettingsTab === "store" && (
-        <section
-          className="card settings-card"
-          id="settings-panel-store"
-          role="tabpanel"
-          aria-labelledby="settings-tab-store"
-          tabIndex={0}
-        >
-          <div className="card-header">
-            <div>
-              <h2 className="card-title">Store settings</h2>
-              <p className="settings-card-description">
-                Defaults used by your storefront and checkout.
-              </p>
+          <section
+            className="card settings-card"
+            id="settings-panel-store"
+            role="tabpanel"
+            aria-labelledby="settings-tab-store"
+            tabIndex={0}
+          >
+            <div className="card-header">
+              <div>
+                <h2 className="card-title">Store settings</h2>
+              </div>
+              <span className="settings-section-number">01</span>
             </div>
-            <span className="settings-section-number">01</span>
-          </div>
-          <div className="card-body">
-            <div className="settings-form-grid">
-              <Select
-                label="Currency"
-                value={store.currency}
-                onChange={(event) =>
-                  setStore({ ...store, currency: event.target.value })
-                }
-              >
-                <option>BDT</option>
-              </Select>
-              <Input
-                label="Language"
-                value={store.language}
-                onChange={(event) =>
-                  setStore({ ...store, language: event.target.value })
-                }
-              />
-              <Input
-                label="Timezone"
-                value={store.timezone}
-                onChange={(event) =>
-                  setStore({ ...store, timezone: event.target.value })
-                }
-                placeholder="UTC"
-              />
-              <Input
-                label="Tax rate (%)"
-                type="number"
-                min={0}
-                max={100}
-                step={0.01}
-                value={store.taxRate}
-                onChange={(event) =>
-                  setStore({ ...store, taxRate: Number(event.target.value) })
-                }
-              />
-              <Input
-                label="Low stock threshold"
-                type="number"
-                min={0}
-                value={store.lowStockThreshold}
-                onChange={(event) =>
-                  setStore({
-                    ...store,
-                    lowStockThreshold: Number(event.target.value),
-                  })
-                }
-              />
-            </div>
-            <div className="settings-switches">
-              {(
-                [
-                  ["shippingEnabled", "Shipping enabled"],
-                  ["guestCheckout", "Guest checkout"],
-                  ["inventoryTracking", "Inventory tracking"],
-                ] as const
-              ).map(([field, label]) => (
-                <label className="settings-toggle" key={field}>
-                  <Input
-                    type="checkbox"
-                    checked={store[field]}
-                    onChange={(event) =>
-                      setStore({ ...store, [field]: event.target.checked })
-                    }
-                  />
-                  {label}
-                </label>
-              ))}
-            </div>
-            <div className="tracking-provider-grid">
-              {(["facebook", "tiktok"] as const).map((provider) => (
-                <section
-                  className={`tracking-provider tracking-provider-${provider}`}
-                  key={provider}
-                  aria-labelledby={`${provider}-tracking-title`}
+            <div className="card-body">
+              <div className="settings-form-grid">
+                {/* <Select
+                  label="Currency"
+                  value={store.currency}
+                  onChange={(event) =>
+                    setStore({ ...store, currency: event.target.value })
+                  }
                 >
-                  <div className="tracking-provider-heading">
-                    <div>
-                      <h3 id={`${provider}-tracking-title`}>
-                        {provider === "facebook"
-                          ? "Facebook tracking"
-                          : "TikTok tracking"}
-                      </h3>
-                      <p>
-                        {provider === "facebook"
-                          ? "Send conversion events to Facebook Conversions API."
-                          : "Send conversion events to TikTok Events API."}
-                      </p>
+                  <option>BDT</option>
+                </Select>
+                <Input
+                  label="Language"
+                  value={store.language}
+                  onChange={(event) =>
+                    setStore({ ...store, language: event.target.value })
+                  }
+                />
+                <Input
+                  label="Timezone"
+                  value={store.timezone}
+                  onChange={(event) =>
+                    setStore({ ...store, timezone: event.target.value })
+                  }
+                  placeholder="UTC"
+                />
+                <Input
+                  label="Tax rate (%)"
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={0.01}
+                  value={store.taxRate}
+                  onChange={(event) =>
+                    setStore({ ...store, taxRate: Number(event.target.value) })
+                  }
+                /> */}
+                <Input
+                  label="Low stock threshold"
+                  type="number"
+                  min={0}
+                  value={store.lowStockThreshold}
+                  onChange={(event) =>
+                    setStore({
+                      ...store,
+                      lowStockThreshold: Number(event.target.value),
+                    })
+                  }
+                />
+              </div>
+              <div className="settings-switches">
+                {(
+                  [
+                    ["shippingEnabled", "Shipping enabled"],
+                    ["guestCheckout", "Guest checkout"],
+                    ["inventoryTracking", "Inventory tracking"],
+                  ] as const
+                ).map(([field, label]) => (
+                  <label className="settings-toggle" key={field}>
+                    <Input
+                      type="checkbox"
+                      checked={store[field]}
+                      onChange={(event) =>
+                        setStore({ ...store, [field]: event.target.checked })
+                      }
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+              <div className="tracking-provider-grid">
+                {(["facebook", "tiktok"] as const).map((provider) => (
+                  <section
+                    className={`tracking-provider tracking-provider-${provider}`}
+                    key={provider}
+                    aria-labelledby={`${provider}-tracking-title`}
+                  >
+                    <div className="tracking-provider-heading">
+                      <div>
+                        <h3 id={`${provider}-tracking-title`}>
+                          {provider === "facebook"
+                            ? "Facebook tracking"
+                            : "TikTok tracking"}
+                        </h3>
+                      </div>
+                      <label className="settings-toggle">
+                        <Input
+                          type="checkbox"
+                          checked={social[provider].enabled}
+                          onChange={(event) =>
+                            setSocial({
+                              ...social,
+                              [provider]: {
+                                ...social[provider],
+                                enabled: event.target.checked,
+                              },
+                            })
+                          }
+                        />
+                        Enabled
+                      </label>
                     </div>
-                    <label className="settings-toggle">
+                    <div className="tracking-provider-fields">
                       <Input
-                        type="checkbox"
-                        checked={social[provider].enabled}
+                        label="Pixel ID / code"
+                        value={social[provider].pixelId}
                         onChange={(event) =>
                           setSocial({
                             ...social,
                             [provider]: {
                               ...social[provider],
-                              enabled: event.target.checked,
+                              pixelId: event.target.value,
                             },
                           })
                         }
                       />
-                      Enabled
-                    </label>
-                  </div>
-                  <div className="tracking-provider-fields">
-                    <Input
-                      label="Pixel ID / code"
-                      value={social[provider].pixelId}
-                      onChange={(event) =>
-                        setSocial({
-                          ...social,
-                          [provider]: {
-                            ...social[provider],
-                            pixelId: event.target.value,
-                          },
-                        })
-                      }
-                    />
-                    <Input
-                      label="Access token"
-                      type="password"
-                      autoComplete="new-password"
-                      value={social[provider].accessToken}
-                      onChange={(event) =>
-                        setSocial({
-                          ...social,
-                          [provider]: {
-                            ...social[provider],
-                            accessToken: event.target.value,
-                          },
-                        })
-                      }
-                      placeholder="Enter token to update"
-                    />
-                    <Input
-                      label="Test event code"
-                      value={social[provider].testEventCode}
-                      onChange={(event) =>
-                        setSocial({
-                          ...social,
-                          [provider]: {
-                            ...social[provider],
-                            testEventCode: event.target.value,
-                          },
-                        })
-                      }
-                      placeholder="Optional"
-                    />
-                  </div>
-                </section>
-              ))}
+                      <Input
+                        label="Access token"
+                        type="password"
+                        autoComplete="new-password"
+                        value={social[provider].accessToken}
+                        onChange={(event) =>
+                          setSocial({
+                            ...social,
+                            [provider]: {
+                              ...social[provider],
+                              accessToken: event.target.value,
+                            },
+                          })
+                        }
+                        placeholder="Enter token to update"
+                      />
+                      <Input
+                        label="Test event code"
+                        value={social[provider].testEventCode}
+                        onChange={(event) =>
+                          setSocial({
+                            ...social,
+                            [provider]: {
+                              ...social[provider],
+                              testEventCode: event.target.value,
+                            },
+                          })
+                        }
+                        placeholder="Optional"
+                      />
+                    </div>
+                  </section>
+                ))}
+              </div>
             </div>
-          </div>
-          <div className="card-footer settings-card-footer">
-            <button
-              className="btn btn-primary"
-              onClick={saveStore}
-              disabled={savingStore}
-            >
-              {savingStore ? "Saving..." : "Save store settings"}
-            </button>
-          </div>
-        </section>
+            <div className="card-footer settings-card-footer">
+              <button
+                className="btn btn-primary"
+                onClick={saveStore}
+                disabled={savingStore}
+              >
+                {savingStore ? "Saving..." : "Save store settings"}
+              </button>
+            </div>
+          </section>
         )}
 
         {activeSettingsTab === "branding" && (
-        <section
-          className="card settings-card"
-          id="settings-panel-branding"
-          role="tabpanel"
-          aria-labelledby="settings-tab-branding"
-          tabIndex={0}
-        >
-          <div className="card-header">
-            <div>
-              <h2 className="card-title">Branding</h2>
-              <p className="settings-card-description">
-                Set the visual identity used by your storefront.
-              </p>
+          <section
+            className="card settings-card"
+            id="settings-panel-branding"
+            role="tabpanel"
+            aria-labelledby="settings-tab-branding"
+            tabIndex={0}
+          >
+            <div className="card-header">
+              <div>
+                <h2 className="card-title">Branding</h2>
+              </div>
+              <span className="settings-section-number">02</span>
             </div>
-            <span className="settings-section-number">02</span>
-          </div>
-          <div className="card-body">
-            <div className="settings-form-grid">
-              <Input
-                label="Primary color"
-                type="color"
-                value={branding.primaryColor}
-                onChange={(event) =>
-                  setBranding({ ...branding, primaryColor: event.target.value })
-                }
-              />
-              <Input
-                label="Secondary color"
-                type="color"
-                value={branding.secondaryColor}
-                onChange={(event) =>
-                  setBranding({
-                    ...branding,
-                    secondaryColor: event.target.value,
-                  })
-                }
-              />
-              <Input
-                label="Font family"
-                value={branding.fontFamily}
-                onChange={(event) =>
-                  setBranding({ ...branding, fontFamily: event.target.value })
-                }
-                placeholder="Inter"
-              />
-            </div>
-            <div className="settings-brand-assets">
-              {(["logo", "favicon"] as const).map((field) => {
-                const image = branding[field];
-                const imageUrl = image?.secureUrl || image?.url;
-                const label = field === "logo" ? "Store logo" : "Website favicon";
-                return (
-                  <div className="settings-brand-asset" key={field}>
-                    <div>
-                      <h3>{label}</h3>
-                      <p>
-                        {field === "logo"
-                          ? "Shown in your storefront header and footer."
-                          : "Shown in browser tabs and bookmarks."}
-                      </p>
+            <div className="card-body">
+              <div className="settings-brand-assets">
+                {(["logo", "favicon"] as const).map((field) => {
+                  const image = branding[field];
+                  const imageUrl = image?.secureUrl || image?.url;
+                  const label =
+                    field === "logo" ? "Store logo" : "Website favicon";
+                  return (
+                    <div className="settings-brand-asset" key={field}>
+                      <div>
+                        <h3>{label}</h3>
+                        <p>
+                          {field === "logo"
+                            ? "Shown in your website header and footer."
+                            : "Shown in browser tabs and bookmarks."}
+                        </p>
+                      </div>
+                      {imageUrl && (
+                        <img src={imageUrl} alt={`${label} preview`} />
+                      )}
+                      <label className="btn btn-secondary">
+                        {uploadingMedia ? "Uploading..." : `Upload ${field}`}
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          disabled={uploadingMedia}
+                          onChange={(event) =>
+                            uploadBrandingImage(event, field)
+                          }
+                        />
+                      </label>
+                      {image && (
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          onClick={() =>
+                            setBranding((current) => ({
+                              ...current,
+                              [field]: null,
+                            }))
+                          }
+                        >
+                          Remove
+                        </button>
+                      )}
                     </div>
-                    {imageUrl && (
-                      <img src={imageUrl} alt={`${label} preview`} />
-                    )}
-                    <label className="btn btn-secondary">
-                      {uploadingMedia ? "Uploading..." : `Upload ${field}`}
-                      <input
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp"
-                        disabled={uploadingMedia}
-                        onChange={(event) =>
-                          uploadBrandingImage(event, field)
-                        }
-                      />
-                    </label>
-                    {image && (
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        onClick={() =>
-                          setBranding((current) => ({
-                            ...current,
-                            [field]: null,
-                          }))
-                        }
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+              <TextArea
+                label="Custom CSS"
+                value={branding.customCss ?? ""}
+                onChange={(event) =>
+                  setBranding({ ...branding, customCss: event.target.value })
+                }
+                rows={7}
+                placeholder=".store-header { ... }"
+              />
             </div>
-            <TextArea
-              label="Custom CSS"
-              value={branding.customCss ?? ""}
-              onChange={(event) =>
-                setBranding({ ...branding, customCss: event.target.value })
-              }
-              rows={7}
-              placeholder=".store-header { ... }"
-            />
-          </div>
-          <div className="card-footer settings-card-footer">
-            <button
-              className="btn btn-primary"
-              onClick={saveBranding}
-              disabled={savingBranding}
-            >
-              {savingBranding ? "Saving..." : "Save branding"}
-            </button>
-          </div>
-        </section>
+            <div className="card-footer settings-card-footer">
+              <button
+                className="btn btn-primary"
+                onClick={saveBranding}
+                disabled={savingBranding}
+              >
+                {savingBranding ? "Saving..." : "Save branding"}
+              </button>
+            </div>
+          </section>
         )}
 
         {activeSettingsTab === "contact" && (
-        <section
-          className="card settings-card"
-          id="settings-panel-contact"
-          role="tabpanel"
-          aria-labelledby="settings-tab-contact"
-          tabIndex={0}
-        >
-          <div className="card-header">
-            <div>
-              <h2 className="card-title">Contact details</h2>
-              <p className="settings-card-description">
-                Information customers can use to reach you.
-              </p>
+          <section
+            className="card settings-card"
+            id="settings-panel-contact"
+            role="tabpanel"
+            aria-labelledby="settings-tab-contact"
+            tabIndex={0}
+          >
+            <div className="card-header">
+              <div>
+                <h2 className="card-title">Contact details</h2>
+              </div>
+              <span className="settings-section-number">03</span>
             </div>
-            <span className="settings-section-number">03</span>
-          </div>
-          <div className="card-body">
-            <div className="settings-form-grid">
-              <Input
-                label="Email"
-                type="email"
-                value={contact.email}
-                onChange={(event) =>
-                  setContact({ ...contact, email: event.target.value })
-                }
-              />
-              <Input
-                label="Phone / WhatsApp"
-                hint="Bangladesh numbers without a country code use +880. Include +country code for other countries."
-                value={contact.phone ?? ""}
-                onChange={(event) =>
-                  setContact({ ...contact, phone: event.target.value })
-                }
-              />
+            <div className="card-body">
+              <div className="settings-form-grid">
+                <Input
+                  label="Email"
+                  type="email"
+                  value={contact.email}
+                  onChange={(event) =>
+                    setContact({ ...contact, email: event.target.value })
+                  }
+                />
+                <Input
+                  label="Phone / WhatsApp"
+                  hint="Bangladesh numbers without a country code use +880. Include +country code for other countries."
+                  value={contact.phone ?? ""}
+                  onChange={(event) =>
+                    setContact({ ...contact, phone: event.target.value })
+                  }
+                />
+              </div>
+              <div className="settings-form-grid">
+                <Input
+                  label="Street"
+                  value={contact.address?.street ?? ""}
+                  onChange={(event) =>
+                    updateAddress("street", event.target.value)
+                  }
+                />
+                <Input
+                  label="City"
+                  value={contact.address?.city ?? ""}
+                  onChange={(event) =>
+                    updateAddress("city", event.target.value)
+                  }
+                />
+                <Input
+                  label="State"
+                  value={contact.address?.state ?? ""}
+                  onChange={(event) =>
+                    updateAddress("state", event.target.value)
+                  }
+                />
+                <Input
+                  label="ZIP code"
+                  value={contact.address?.zipCode ?? ""}
+                  onChange={(event) =>
+                    updateAddress("zipCode", event.target.value)
+                  }
+                />
+                <Input
+                  label="Country"
+                  value={contact.address?.country ?? ""}
+                  onChange={(event) =>
+                    updateAddress("country", event.target.value)
+                  }
+                />
+              </div>
+              <div className="settings-form-grid">
+                <Input
+                  label="Facebook URL"
+                  type="url"
+                  value={contact.socialLinks?.facebook ?? ""}
+                  onChange={(event) =>
+                    updateSocialLink("facebook", event.target.value)
+                  }
+                />
+                <Input
+                  label="Instagram URL"
+                  type="url"
+                  value={contact.socialLinks?.instagram ?? ""}
+                  onChange={(event) =>
+                    updateSocialLink("instagram", event.target.value)
+                  }
+                />
+                <Input
+                  label="YouTube URL"
+                  type="url"
+                  value={contact.socialLinks?.youtube ?? ""}
+                  onChange={(event) =>
+                    updateSocialLink("youtube", event.target.value)
+                  }
+                />
+              </div>
             </div>
-            <div className="settings-form-grid">
-              <Input
-                label="Street"
-                value={contact.address?.street ?? ""}
-                onChange={(event) =>
-                  updateAddress("street", event.target.value)
-                }
-              />
-              <Input
-                label="City"
-                value={contact.address?.city ?? ""}
-                onChange={(event) => updateAddress("city", event.target.value)}
-              />
-              <Input
-                label="State"
-                value={contact.address?.state ?? ""}
-                onChange={(event) => updateAddress("state", event.target.value)}
-              />
-              <Input
-                label="ZIP code"
-                value={contact.address?.zipCode ?? ""}
-                onChange={(event) =>
-                  updateAddress("zipCode", event.target.value)
-                }
-              />
-              <Input
-                label="Country"
-                value={contact.address?.country ?? ""}
-                onChange={(event) =>
-                  updateAddress("country", event.target.value)
-                }
-              />
+            <div className="card-footer settings-card-footer">
+              <button
+                className="btn btn-primary"
+                onClick={saveContact}
+                disabled={savingContact}
+              >
+                {savingContact ? "Saving..." : "Save contact details"}
+              </button>
             </div>
-            <div className="settings-form-grid">
-              <Input
-                label="Facebook URL"
-                type="url"
-                value={contact.socialLinks?.facebook ?? ""}
-                onChange={(event) =>
-                  updateSocialLink("facebook", event.target.value)
-                }
-              />
-              <Input
-                label="Instagram URL"
-                type="url"
-                value={contact.socialLinks?.instagram ?? ""}
-                onChange={(event) =>
-                  updateSocialLink("instagram", event.target.value)
-                }
-              />
-              <Input
-                label="YouTube URL"
-                type="url"
-                value={contact.socialLinks?.youtube ?? ""}
-                onChange={(event) =>
-                  updateSocialLink("youtube", event.target.value)
-                }
-              />
-            </div>
-          </div>
-          <div className="card-footer settings-card-footer">
-            <button
-              className="btn btn-primary"
-              onClick={saveContact}
-              disabled={savingContact}
-            >
-              {savingContact ? "Saving..." : "Save contact details"}
-            </button>
-          </div>
-        </section>
+          </section>
         )}
       </div>
     </div>

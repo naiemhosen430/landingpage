@@ -51,7 +51,6 @@ export default function ProductsPage() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Products</h1>
-          <p className="page-subtitle">Manage your store products</p>
         </div>
         <Link href="/dashboard/products/new" className="btn btn-primary">
           <svg
@@ -105,20 +104,6 @@ export default function ProductsPage() {
                 style={{ paddingLeft: 36 }}
               />
             </div>
-            <select
-              className="form-select"
-              style={{ width: 140 }}
-              value={status}
-              onChange={(e) => {
-                setStatus(e.target.value);
-                setPage(1);
-              }}
-            >
-              <option value="">All Status</option>
-              <option value="active">Active</option>
-              <option value="draft">Draft</option>
-              <option value="archived">Archived</option>
-            </select>
           </div>
           <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
             {meta?.total ? `${meta.total} products` : ""}
@@ -132,10 +117,7 @@ export default function ProductsPage() {
               <div className="spinner" />
             </div>
           ) : (
-            <ProductTable
-              products={products}
-              onDelete={handleDelete}
-            />
+            <ProductTable products={products} onDelete={handleDelete} />
           )}
         </div>
         {meta && meta.totalPages > 1 && (
@@ -190,7 +172,6 @@ export default function ProductsPage() {
           </div>
         )}
       </div>
-
     </div>
   );
 }

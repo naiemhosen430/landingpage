@@ -306,7 +306,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`sidebar-link ${pathname === item.href || pathname.startsWith(item.href + "/") ? "active" : ""}`}
+                className={`sidebar-link ${pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href + "/")) ? "active" : ""}`}
                 onClick={onClose}
               >
                 {icons[item.icon]}

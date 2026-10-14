@@ -79,6 +79,7 @@ export type ProductQueryParams = {
   category?: string;
   featured?: boolean;
   inStock?: boolean;
+  isActive?: boolean;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
 };

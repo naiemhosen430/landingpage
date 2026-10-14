@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Bot,
   LoaderCircle,
@@ -61,9 +62,15 @@ export default function ZaneAIAssistant() {
     useState<PendingConfirmation | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLElement | null>(null);
+  const composerRef = useRef<HTMLInputElement | null>(null);
+  const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
   const nextMessageId = useRef(0);
   const [sendMessage, { isLoading: sending }] = useSendZaneAIMessageMutation();
   const [uploadMedia] = useUploadMediaMutation();
+
+  useEffect(() => {
+    setPortalRoot(document.querySelector<HTMLElement>(".dashboard-layout"));
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -72,6 +79,12 @@ export default function ZaneAIAssistant() {
       block: "end",
     });
   }, [open, messages, sending]);
+
+  useEffect(() => {
+    if (open && !actionFormActive && !pendingConfirmation) {
+      composerRef.current?.focus({ preventScroll: true });
+    }
+  }, [open, sending, actionFormActive, pendingConfirmation, portalRoot]);
 
   const appendAssistantMessage = (response: any, nextDraft: AiDraft | null) => {
     setMessages((current) => [
@@ -310,150 +323,160 @@ export default function ZaneAIAssistant() {
         <Sparkles size={18} />
       </button>
 
-      {open && (
-        <aside
-          ref={panelRef}
-          className={`zane-ai-panel ${fullscreen ? "is-fullscreen" : ""}`}
-          aria-label="ZaneAI assistant"
-        >
-          <div className="zane-ai-header">
-            <div className="zane-ai-title">
-              <span className="zane-ai-avatar">
-                <Bot size={18} />
-              </span>
-              <div>
-                <strong>ZaneAI</strong>
-                <span>Your store assistant</span>
-              </div>
-            </div>
-            <div className="zane-ai-header-actions">
-              <button
-                type="button"
-                className="zane-ai-close"
-                aria-label={fullscreen ? "Exit fullscreen" : "Open fullscreen"}
-                title={fullscreen ? "Exit fullscreen" : "Open fullscreen"}
-                onClick={() => setFullscreen((current) => !current)}
-              >
-                {fullscreen ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
-              </button>
-              <button
-                type="button"
-                className="zane-ai-close"
-                aria-label="Close ZaneAI"
-                title="Close ZaneAI"
-                onClick={() => setOpen(false)}
-              >
-                <X size={18} />
-              </button>
-            </div>
-          </div>
-
-          <div className="zane-ai-messages" aria-live="polite">
-            {!messages.length && (
-              <div className="zane-ai-welcome">
-                <span className="zane-ai-welcome-icon">
-                  <MessageCircle size={20} />
+      {open &&
+        portalRoot &&
+        createPortal(
+          <aside
+            ref={panelRef}
+            className={`zane-ai-panel ${fullscreen ? "is-fullscreen" : ""}`}
+            aria-label="ZaneAI assistant"
+          >
+            <div className="zane-ai-header">
+              <div className="zane-ai-title">
+                <span className="zane-ai-avatar">
+                  <Bot size={18} />
                 </span>
-                <strong>How can I help?</strong>
-                <p>
-                  Ask about your store, orders, products, or dashboard data.
-                </p>
+                <div>
+                  <strong>ZaneAI</strong>
+                  <span>Your store assistant</span>
+                </div>
               </div>
-            )}
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`zane-ai-message ${message.role}`}
-              >
-                {message.role === "assistant" && message.html ? (
-                  <>
-                    <div
-                      className="zane-ai-html-response"
-                      dangerouslySetInnerHTML={{ __html: message.html }}
-                    />
-                    {(message.intent || message.messageTime) && (
-                      <span className="zane-ai-response-meta">
-                        {message.intent?.replaceAll("_", " ")}
-                        {message.messageTime
-                          ? `${message.intent ? " · " : ""}${new Date(message.messageTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-                          : ""}
-                      </span>
-                    )}
-                    {message.quickQuestions?.length ? (
-                      <div className="zane-ai-message-quick-questions">
-                        {message.quickQuestions.map((question) => (
-                          <button
-                            key={question}
-                            type="button"
-                            onClick={() => void ask(question)}
-                            disabled={sending || Boolean(pendingConfirmation)}
-                          >
-                            {question}
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
-                  </>
-                ) : (
-                  message.text
-                )}
+              <div className="zane-ai-header-actions">
+                <button
+                  type="button"
+                  className="zane-ai-close"
+                  aria-label={
+                    fullscreen ? "Exit fullscreen" : "Open fullscreen"
+                  }
+                  title={fullscreen ? "Exit fullscreen" : "Open fullscreen"}
+                  onClick={() => setFullscreen((current) => !current)}
+                >
+                  {fullscreen ? (
+                    <Minimize2 size={17} />
+                  ) : (
+                    <Maximize2 size={17} />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className="zane-ai-close"
+                  aria-label="Close ZaneAI"
+                  title="Close ZaneAI"
+                  onClick={() => setOpen(false)}
+                >
+                  <X size={18} />
+                </button>
               </div>
-            ))}
-            {sending && (
-              <div className="zane-ai-message assistant zane-ai-typing">
-                <LoaderCircle size={15} /> Thinking...
-              </div>
-            )}
-            <div ref={messagesEndRef} aria-hidden="true" />
-          </div>
-
-          {actionFormActive ? (
-            <button
-              type="button"
-              className="zane-ai-cancel"
-              onClick={cancelActionForm}
-              disabled={sending}
-            >
-              Cancel action
-            </button>
-          ) : pendingConfirmation ? (
-            <div className="zane-ai-confirmation">
-              <span>Confirm this action?</span>
-              <button
-                type="button"
-                onClick={() => void ask("yes")}
-                disabled={sending}
-              >
-                Confirm
-              </button>
-              <button
-                type="button"
-                onClick={() => void ask("no")}
-                disabled={sending}
-              >
-                Cancel
-              </button>
             </div>
-          ) : (
-            <form className="zane-ai-composer" onSubmit={submit}>
-              <input
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                placeholder="Ask ZaneAI..."
-                aria-label="Message ZaneAI"
-                disabled={sending}
-              />
+
+            <div className="zane-ai-messages" aria-live="polite">
+              {!messages.length && (
+                <div className="zane-ai-welcome">
+                  <span className="zane-ai-welcome-icon">
+                    <MessageCircle size={20} />
+                  </span>
+                  <strong>How can I help?</strong>
+                  <p>
+                    Ask about your store, orders, products, or dashboard data.
+                  </p>
+                </div>
+              )}
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`zane-ai-message ${message.role}`}
+                >
+                  {message.role === "assistant" && message.html ? (
+                    <>
+                      <div
+                        className="zane-ai-html-response"
+                        dangerouslySetInnerHTML={{ __html: message.html }}
+                      />
+                      {(message.intent || message.messageTime) && (
+                        <span className="zane-ai-response-meta">
+                          {message.intent?.replaceAll("_", " ")}
+                          {message.messageTime
+                            ? `${message.intent ? " · " : ""}${new Date(message.messageTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                            : ""}
+                        </span>
+                      )}
+                      {message.quickQuestions?.length ? (
+                        <div className="zane-ai-message-quick-questions">
+                          {message.quickQuestions.map((question) => (
+                            <button
+                              key={question}
+                              type="button"
+                              onClick={() => void ask(question)}
+                              disabled={sending || Boolean(pendingConfirmation)}
+                            >
+                              {question}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </>
+                  ) : (
+                    message.text
+                  )}
+                </div>
+              ))}
+              {sending && (
+                <div className="zane-ai-message assistant zane-ai-typing">
+                  <LoaderCircle size={15} /> Thinking...
+                </div>
+              )}
+              <div ref={messagesEndRef} aria-hidden="true" />
+            </div>
+
+            {actionFormActive ? (
               <button
-                type="submit"
-                aria-label="Send message"
-                disabled={!draft.trim() || sending}
+                type="button"
+                className="zane-ai-cancel"
+                onClick={cancelActionForm}
+                disabled={sending}
               >
-                <Send size={17} />
+                Cancel action
               </button>
-            </form>
-          )}
-        </aside>
-      )}
+            ) : pendingConfirmation ? (
+              <div className="zane-ai-confirmation">
+                <span>Confirm this action?</span>
+                <button
+                  type="button"
+                  onClick={() => void ask("yes")}
+                  disabled={sending}
+                >
+                  Confirm
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void ask("no")}
+                  disabled={sending}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <form className="zane-ai-composer" onSubmit={submit}>
+                <input
+                  ref={composerRef}
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  placeholder="Ask ZaneAI..."
+                  aria-label="Message ZaneAI"
+                  disabled={sending}
+                />
+                <button
+                  type="submit"
+                  aria-label="Send message"
+                  disabled={!draft.trim() || sending}
+                >
+                  <Send size={17} />
+                </button>
+              </form>
+            )}
+          </aside>,
+          portalRoot,
+        )}
     </>
   );
 }

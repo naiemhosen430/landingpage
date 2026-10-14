@@ -199,7 +199,6 @@ export default function CategoriesPage() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Categories</h1>
-          <p className="page-subtitle">Organize products for your store</p>
         </div>
         <button
           className="btn btn-primary"
@@ -397,9 +396,10 @@ export default function CategoriesPage() {
               onChange={(e) => {
                 const value = e.target.value;
                 setPage(1);
-                debounce((nextValue: string) => setSearch(nextValue), 300)(
-                  value,
-                );
+                debounce(
+                  (nextValue: string) => setSearch(nextValue),
+                  300,
+                )(value);
               }}
             />
             <span

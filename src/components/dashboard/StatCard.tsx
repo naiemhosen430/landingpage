@@ -146,27 +146,6 @@ export default function StatCard({
         <div className={`stat-icon ${colorMap[color]}`}>{icons[icon]}</div>
       </div>
       <div className="stat-value">{value}</div>
-      {change !== undefined && (
-        <div className={`stat-change ${isPositive ? "up" : "down"}`}>
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            {isPositive ? (
-              <polyline points="18 15 12 9 6 15" />
-            ) : (
-              <polyline points="6 9 12 15 18 9" />
-            )}
-          </svg>
-          {Math.abs(change)}% from last month
-        </div>
-      )}
     </div>
   );
 

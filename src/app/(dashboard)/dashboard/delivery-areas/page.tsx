@@ -85,9 +85,6 @@ export default function DeliveryAreasPage() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Delivery Areas</h1>
-          <p className="page-subtitle">
-            Manage delivery areas and zone pricing
-          </p>
         </div>
         <div>
           <button className="btn btn-primary" onClick={handleNew}>

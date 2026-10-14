@@ -79,7 +79,7 @@ export default function LandingPagesPage() {
   const meta = data?.meta;
 
   return (
-    <div className="lp-page">
+    <div className="page-container lp-page">
       <style>{`
         [data-theme="light"] .lp-page {
           --lp-bg: #ffffff;
@@ -122,11 +122,10 @@ export default function LandingPagesPage() {
 
         .lp-page {
           padding: 24px;
-          max-width: 1400px;
           margin: 0 auto;
           background: var(--lp-bg);
-          min-height: 100vh;
           color: var(--lp-text);
+          border-radius: 8px;
           font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
 
@@ -208,10 +207,7 @@ export default function LandingPagesPage() {
         }
 
         .lp-card {
-          background: var(--lp-card);
-          border: 1px solid var(--lp-border);
           border-radius: 12px;
-          box-shadow: var(--lp-shadow);
           overflow: hidden;
         }
         .lp-card-header {
@@ -374,7 +370,6 @@ export default function LandingPagesPage() {
       <div className="lp-header">
         <div>
           <h1>Landing Pages</h1>
-          <p>Manage website landing pages</p>
         </div>
         <button className="lp-btn lp-btn-primary" onClick={handleNew}>
           <Plus size={15} />

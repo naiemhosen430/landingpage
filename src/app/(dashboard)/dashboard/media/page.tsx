@@ -129,9 +129,6 @@ export default function MediaPage() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Media Library</h1>
-          <p className="page-subtitle">
-            Manage project-scoped Cloudinary image assets
-          </p>
         </div>
         <div
           style={{

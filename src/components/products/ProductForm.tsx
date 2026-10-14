@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, type ChangeEvent, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, Plus, Trash2, UploadCloud } from "lucide-react";
 import {
@@ -21,6 +27,11 @@ import {
   Select,
   Textarea,
 } from "@/components/ui/FormControls";
+import dynamic from "next/dynamic";
+import joditConfig from "@/lib/joditConfig";
+const JoditEditor = dynamic(() => import("jodit-react"), {
+  ssr: false,
+});
 
 interface ProductFormProps {
   initialData?: Product;
@@ -203,8 +214,37 @@ export default function ProductForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saveError, setSaveError] = useState("");
   const [imageError, setImageError] = useState("");
+  const [editorTheme, setEditorTheme] = useState<"light" | "dark">("light");
+
+  const editorConfig = useMemo(
+    () => ({
+      ...joditConfig,
+      theme: editorTheme === "dark" ? "dark" : "default",
+    }),
+    [editorTheme],
+  );
 
   const isLoading = creating || updating || uploading;
+
+  useEffect(() => {
+    const dashboard = document.querySelector(".dashboard-layout");
+    if (!dashboard) return;
+
+    const updateTheme = () => {
+      setEditorTheme(
+        dashboard.getAttribute("data-theme") === "dark" ? "dark" : "light",
+      );
+    };
+
+    updateTheme();
+    const observer = new MutationObserver(updateTheme);
+    observer.observe(dashboard, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+
+    return () => observer.disconnect();
+  }, []);
   const categories = categoriesData?.data ?? [];
 
   const updateField = <K extends keyof ProductEditorState>(
@@ -478,10 +518,8 @@ export default function ProductForm({
         <div className="product-editor-sections">
           <details className="product-editor-section" open>
             <summary>
-              <span className="product-editor-section-icon">01</span>
               <span className="product-editor-section-heading">
                 <strong>Basic info</strong>
-                <small>Product name, description, pricing, and inventory</small>
               </span>
               <ChevronDown size={18} aria-hidden="true" />
             </summary>
@@ -523,20 +561,24 @@ export default function ProductForm({
                   maxLength={500}
                 />
               </div>
+
               <div className="form-group product-editor-full">
                 <label className="form-label" htmlFor="product-description">
                   Description *
                 </label>
-                <Textarea
-                  id="product-description"
+
+                <JoditEditor
+                  key={editorTheme}
                   value={form.description}
-                  onChange={(event) =>
-                    updateField("description", event.target.value)
+                  config={editorConfig}
+                  onBlur={(newContent) =>
+                    updateField("description", newContent)
                   }
-                  placeholder="Describe the product, its materials, benefits, and care."
-                  rows={6}
-                  required
+                  onChange={(newContent) =>
+                    updateField("description", newContent)
+                  }
                 />
+
                 {errors.description && (
                   <span className="form-error">{errors.description}</span>
                 )}
@@ -656,10 +698,8 @@ export default function ProductForm({
 
           <details className="product-editor-section">
             <summary>
-              <span className="product-editor-section-icon">02</span>
               <span className="product-editor-section-heading">
                 <strong>Additional details</strong>
-                <small>Categories, variants, shipping, and visibility</small>
               </span>
               <ChevronDown size={18} aria-hidden="true" />
             </summary>
@@ -844,10 +884,8 @@ export default function ProductForm({
 
           <details className="product-editor-section">
             <summary>
-              <span className="product-editor-section-icon">03</span>
               <span className="product-editor-section-heading">
                 <strong>Media</strong>
-                <small>Product photos and store thumbnail</small>
               </span>
               <ChevronDown size={18} aria-hidden="true" />
             </summary>
@@ -910,10 +948,8 @@ export default function ProductForm({
 
           <details className="product-editor-section">
             <summary>
-              <span className="product-editor-section-icon">04</span>
               <span className="product-editor-section-heading">
                 <strong>Meta / SEO</strong>
-                <small>Search listing title and description</small>
               </span>
               <ChevronDown size={18} aria-hidden="true" />
             </summary>

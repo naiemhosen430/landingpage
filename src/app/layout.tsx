@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import StoreProvider from "@/providers/StoreProvider";
 import { fetchPublicStoreSettings } from "@/lib/publicData";
+import "jodit/es2021/jodit.min.css";
 import "./style.css";
 // test
 export const dynamic = "force-dynamic";
@@ -24,7 +25,7 @@ export async function generateMetadata(): Promise<Metadata> {
     process.env.NEXT_PUBLIC_STORE_NAME;
 
   return {
-    title: storeName || "Storefront",
+    title: storeName || "Website",
     description: settings?.store?.description || undefined,
     icons: settings?.branding?.faviconUrl
       ? { icon: settings.branding.faviconUrl }

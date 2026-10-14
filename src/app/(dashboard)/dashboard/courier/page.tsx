@@ -65,9 +65,9 @@ function courierConfiguredField(
 ) {
   return Boolean(
     courierId &&
-      couriers
-        .find((courier) => courier.id === courierId)
-        ?.configuredFields?.includes(field),
+    couriers
+      .find((courier) => courier.id === courierId)
+      ?.configuredFields?.includes(field),
   );
 }
 
@@ -246,10 +246,6 @@ export default function CourierPage() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Couriers</h1>
-          <p className="page-subtitle">
-            RedX booking is ready; other couriers will be enabled when their
-            official API specifications are verified.
-          </p>
         </div>
         <button
           className="btn btn-primary"
@@ -493,31 +489,7 @@ export default function CourierPage() {
                   })}
                 </select>
               </label>
-              {(
-                ["phone", "email"] as const
-              ).map((field) => (
-                <label key={field} className="form-group">
-                  <span className="form-label">
-                    {field[0].toUpperCase() + field.slice(1)}
-                  </span>
-                  <input
-                    className="form-input"
-                    value={form[field] ?? ""}
-                    onChange={(event) => updateField(field, event.target.value)}
-                  />
-                </label>
-              ))}
-              <label className="form-group">
-                <span className="form-label">Description</span>
-                <textarea
-                  className="form-textarea"
-                  rows={3}
-                  value={form.description ?? ""}
-                  onChange={(event) =>
-                    updateField("description", event.target.value)
-                  }
-                />
-              </label>
+
               {selectedProvider?.fields.map((field) => {
                 const alreadyConfigured =
                   selectedProvider.code ===
@@ -557,7 +529,9 @@ export default function CourierPage() {
                           }))
                         }
                       >
-                        <option value="sandbox">Sandbox (test shipments)</option>
+                        <option value="sandbox">
+                          Sandbox (test shipments)
+                        </option>
                         <option value="production">
                           Production (live shipments)
                         </option>
@@ -604,9 +578,9 @@ export default function CourierPage() {
               )}
               {selectedProvider && selectedProvider.code !== "REDX" && (
                 <p className="page-subtitle">
-                  Enter the credentials issued in your courier merchant
-                  account. Shipment booking for this provider will be enabled
-                  when its official API integration is available.
+                  Enter the credentials issued in your courier merchant account.
+                  Shipment booking for this provider will be enabled when its
+                  official API integration is available.
                 </p>
               )}
               <label>
