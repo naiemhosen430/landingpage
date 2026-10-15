@@ -48,6 +48,8 @@ export default function Page() {
       order_id: order.orderNumber || orderId,
       value: Number(order.total) || 0,
       currency: "BDT",
+      name: customer?.name || order.customerName,
+      email: order.customerEmail || customer?.email,
       phone: customer?.phone || order.customerPhone,
       contentIds: (order.items ?? [])
         .map((item: any) => item.productId)

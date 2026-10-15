@@ -158,24 +158,24 @@ export default function CheckoutForm({
     if (selection && !selection.isSelected) {
       const price = priceOf(selection);
       trackCheckoutEvent(
-          "add_to_cart",
-          "add_to_cart",
-          {
-            contentIds: [product.id],
-            contentName: product.name,
-            contentType: "product",
-            contents: [
-              {
-                id: product.id,
-                content_name: product.name,
-                quantity: selection.quantity,
-                item_price: price,
-              },
-            ],
-            quantity: selection.quantity,
-            value: price * selection.quantity,
-          },
-          `landing-add-to-cart-${product.id}`,
+        "add_to_cart",
+        "add_to_cart",
+        {
+          contentIds: [product.id],
+          contentName: product.name,
+          contentType: "product",
+          contents: [
+            {
+              id: product.id,
+              content_name: product.name,
+              quantity: selection.quantity,
+              item_price: price,
+            },
+          ],
+          quantity: selection.quantity,
+          value: price * selection.quantity,
+        },
+        `landing-add-to-cart-${product.id}`,
       );
     }
   };
@@ -308,11 +308,27 @@ export default function CheckoutForm({
     },
     items: selectedItems
       .filter((item) => item.isSelected)
-      .map((item) => ({
-        productId: item.product.id,
-        ...(item.variantId ? { variantId: item.variantId } : {}),
-        quantity: item.quantity,
-      })),
+      .map((item) => {
+        const variant =
+          item.variantIndex !== undefined
+            ? selectableVariantsOf(item.product)[item.variantIndex]
+            : selectableVariantsOf(item.product).find(
+                (candidate) => candidate.id === item.variantId,
+              );
+        return {
+          productId: item.product.id,
+          ...(item.variantId ? { variantId: item.variantId } : {}),
+          quantity: item.quantity,
+          recoveryDetails: {
+            productName: item.product.name,
+            productImage:
+              item.product.thumbnailImage?.secureUrl ??
+              item.product.thumbnailImage?.url,
+            variantName: variant?.name,
+            unitPrice: priceOf(item),
+          },
+        };
+      }),
     notes: formValues.orderNotes || undefined,
     paymentMethod: formValues.selectedPaymentMethod || undefined,
     shippingMethod: "standard",
@@ -483,19 +499,13 @@ export default function CheckoutForm({
                 <div
                   className="checkout-form-modern-light__product-controls-panel"
                   onClick={(event) => {
-                    // Only block card toggle when already selected.
-                    // When not selected, let the click bubble so the card
-                    // selects itself first.
                     if (isProductSelected) {
                       event.stopPropagation();
                     }
                   }}
                 >
                   {productVariants.length > 0 && (
-                    <fieldset
-                      className="checkout-form-modern-light__variant-options"
-                    >
-                      <legend>{product.name} options</legend>
+                    <fieldset className="checkout-form-modern-light__variant-options">
                       {productVariants.map((variant, index) => (
                         <label
                           className="checkout-form-modern-light__variant-option"
@@ -515,14 +525,12 @@ export default function CheckoutForm({
                           />
                           <span>
                             <strong>
-                              {variant.name || `Option ${index + 1}`}
-                            </strong>
-                            <small>
+                              {variant.name || `Option ${index + 1}`} |{" "}
                               {formatCurrency(
                                 Number(variant.price) || 0,
                                 currency,
                               )}
-                            </small>
+                            </strong>
                           </span>
                         </label>
                       ))}

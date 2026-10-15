@@ -2526,6 +2526,47 @@
   color: var(--text-muted);
 }
 
+.order-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  max-height: 180px;
+  min-width: 150px;
+  overflow-y: auto;
+}
+
+.order-item-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.order-item-image {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  border-radius: 5px;
+  object-fit: cover;
+  background: var(--bg-secondary, #f3f4f6);
+}
+
+.order-item-image-empty {
+  border: 1px solid var(--border, #d1d5db);
+}
+
+.order-item-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.order-item-quantity {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
 .order-source {
   display: inline-flex;
   align-items: center;

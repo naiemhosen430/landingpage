@@ -97,6 +97,41 @@ function OrderSource({ platform }: { platform?: string }) {
   );
 }
 
+function OrderItems({ items }: { items?: Array<Record<string, any>> }) {
+  if (!items?.length) return <span className="order-muted">No items</span>;
+
+  return (
+    <div className="order-items-list">
+      {items.map((item, index) => {
+        const image =
+          typeof item.productImage === "string"
+            ? item.productImage
+            : item.productImage?.secureUrl || item.productImage?.url;
+
+        console.log("item.productName:", item);
+        const name = item.sku || item.name || "Product";
+
+        return (
+          <div
+            className="order-item-row"
+            key={item.id ?? `${item.productId ?? "item"}-${index}`}
+          >
+            {image ? (
+              <img className="order-item-image" src={image} alt={name} />
+            ) : (
+              <div className="order-item-image order-item-image-empty" />
+            )}
+            <span className="order-item-name" title={name}>
+              {name}
+            </span>
+            <span className="order-item-quantity">×{item.quantity ?? 1}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function CustomerContact({ name, phone }: { name?: string; phone?: string }) {
   if (!phone) {
     return <span className="order-muted">No phone number</span>;
@@ -627,11 +662,8 @@ export default function OrdersPage() {
                       <th>Order</th>
                       <th>Customer</th>
                       <th>Items</th>
-                      <th>Total</th>
                       <th>Status</th>
                       <th>Courier</th>
-                      <th>Source</th>
-                      <th>Date</th>
                       <th className="orders-actions-heading">Actions</th>
                     </tr>
                   </thead>
@@ -647,16 +679,49 @@ export default function OrdersPage() {
                             #{order.orderNumber}
                           </Link>
 
-                          {order.notes ? (
-                            <span
-                              className="order-list-note"
-                              title={order.notes}
-                            >
-                              {order.notes}
-                            </span>
-                          ) : (
-                            <> </>
-                          )}
+                          <div>
+                            {new Date(order.createdAt).toLocaleString("en-GB", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              hour12: true,
+                            })}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: 11,
+                              color: "var(--text-muted)",
+                              marginTop: 4,
+                            }}
+                          >
+                            {(() => {
+                              const diff =
+                                Date.now() -
+                                new Date(order.createdAt).getTime();
+                              if (!Number.isFinite(diff)) return "Unknown time";
+                              const seconds = Math.max(
+                                0,
+                                Math.floor(diff / 1000),
+                              );
+
+                              if (seconds < 60) return "Just now";
+                              if (seconds < 3600)
+                                return `${Math.floor(seconds / 60)} minutes ago`;
+                              if (seconds < 86400)
+                                return `${Math.floor(seconds / 3600)} hours ago`;
+                              if (seconds < 604800)
+                                return `${Math.floor(seconds / 86400)} days ago`;
+                              if (seconds < 2592000)
+                                return `${Math.floor(seconds / 604800)} weeks ago`;
+                              if (seconds < 31536000)
+                                return `${Math.floor(seconds / 2592000)} months ago`;
+
+                              return `${Math.floor(seconds / 31536000)} years ago`;
+                            })()}
+                          </div>
+                          <OrderSource platform={order.sourcePlatform} />
                         </td>
 
                         <td>
@@ -674,12 +739,22 @@ export default function OrdersPage() {
                               ? order.customer.address
                               : ""}
                           </div>
+
+                          {order.notes ? (
+                            <span
+                              className="order-list-note"
+                              title={order.notes}
+                            >
+                              {order.notes}
+                            </span>
+                          ) : (
+                            <> </>
+                          )}
                         </td>
 
-                        <td>{order.items?.length ?? 0} items</td>
-
-                        <td className="order-total">
-                          {formatCurrency(order.total)}
+                        <td>
+                          <OrderItems items={order.items} />
+                          Total: {formatCurrency(order.total)}
                         </td>
 
                         <td>
@@ -724,59 +799,6 @@ export default function OrdersPage() {
                           ) : (
                             "—"
                           )}
-                        </td>
-
-                        <td>
-                          <OrderSource platform={order.sourcePlatform} />
-                        </td>
-                        <td
-                          style={{
-                            fontSize: 13,
-                            color: "var(--text-secondary)",
-                          }}
-                        >
-                          <div>
-                            {new Date(order.createdAt).toLocaleString("en-GB", {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                              hour12: true,
-                            })}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: 11,
-                              color: "var(--text-muted)",
-                              marginTop: 4,
-                            }}
-                          >
-                            {(() => {
-                              const diff =
-                                Date.now() -
-                                new Date(order.createdAt).getTime();
-                              if (!Number.isFinite(diff)) return "Unknown time";
-                              const seconds = Math.max(
-                                0,
-                                Math.floor(diff / 1000),
-                              );
-
-                              if (seconds < 60) return "Just now";
-                              if (seconds < 3600)
-                                return `${Math.floor(seconds / 60)} minutes ago`;
-                              if (seconds < 86400)
-                                return `${Math.floor(seconds / 3600)} hours ago`;
-                              if (seconds < 604800)
-                                return `${Math.floor(seconds / 86400)} days ago`;
-                              if (seconds < 2592000)
-                                return `${Math.floor(seconds / 604800)} weeks ago`;
-                              if (seconds < 31536000)
-                                return `${Math.floor(seconds / 2592000)} months ago`;
-
-                              return `${Math.floor(seconds / 31536000)} years ago`;
-                            })()}
-                          </div>
                         </td>
 
                         <td>{renderOrderActions(order)}</td>
@@ -840,6 +862,8 @@ export default function OrdersPage() {
                         <strong>{formatDate(order.createdAt)}</strong>
                       </div>
                     </div>
+
+                    <OrderItems items={order.items} />
 
                     {order.courier && (
                       <div className="order-mobile-courier">

@@ -207,6 +207,7 @@
   border: 1.5px solid var(--cf-color-border);
   border-radius: var(--cf-radius-md);
   background: var(--cf-color-surface);
+  width: 100%;
   cursor: pointer;
   transition:
     border-color var(--cf-transition-fast),
@@ -276,9 +277,6 @@
   font-weight: 600;
   font-size: 0.9375rem;
   color: var(--cf-color-text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .checkout-form-modern-light__product-price-text {

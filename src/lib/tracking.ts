@@ -195,6 +195,9 @@ export function initializeBrowserPixels(options: {
     facebookInitialized: false,
     tiktokInitialized: false,
   });
+  if (options.facebookPixelId) {
+    pixelState.facebookPixelId = options.facebookPixelId;
+  }
 
   if (
     options.facebookPixelId &&
@@ -339,6 +342,21 @@ function dispatchBrowserPixels(event: PublicAnalyticsEvent) {
   }
 
   if (typeof window.fbq === "function") {
+    const pixelState = window.__zanePixelState;
+    const name =
+      typeof payload.name === "string" ? payload.name.trim().split(/\s+/) : [];
+    const email =
+      typeof payload.email === "string" ? payload.email.trim().toLowerCase() : "";
+    const phone =
+      typeof payload.phone === "string" ? payload.phone.trim() : "";
+    if (pixelState?.facebookPixelId && (name.length || email || phone)) {
+      window.fbq("init", pixelState.facebookPixelId, {
+        ...(name[0] ? { fn: name[0] } : {}),
+        ...(name.length > 1 ? { ln: name.slice(1).join(" ") } : {}),
+        ...(email ? { em: email } : {}),
+        ...(phone ? { ph: phone } : {}),
+      });
+    }
     window.fbq("track", facebookEventName, facebookPayload, {
       eventID: eventId,
     });
@@ -479,9 +497,11 @@ export function trackStorefrontEvent(
       : dedupeKey;
   if (hasRecentlyFired(eventKey)) return false;
   markFired(eventKey);
-  const eventId = String(
-    event.payload?.event_id ?? `${event.eventName}-${eventKey}`,
-  );
+  const providedEventId = event.payload?.event_id ?? event.payload?.eventId;
+  const eventId =
+    typeof providedEventId === "string" && providedEventId.trim()
+      ? providedEventId.trim()
+      : crypto.randomUUID();
   const customParameters = getCustomTrackingParameters();
   const standardPayload = {
     ...standardizePayload(event.payload),
@@ -539,6 +559,7 @@ declare global {
     __zanePixelState?: {
       facebookInitialized: boolean;
       tiktokInitialized: boolean;
+      facebookPixelId?: string;
     };
     fbq?: FacebookPixel;
     ttq?: TikTokPixel;
